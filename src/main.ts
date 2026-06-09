@@ -2,6 +2,7 @@ import './style.css';
 import { StorageDB, type Turno } from './storage';
 
 type Vista = 'menu-principal' | 'vista-admin' | 'vista-usuario';
+type Frecuencia = 'diaria' | 'semanal' | 'mensual' | 'anual';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 
@@ -36,10 +37,23 @@ app.innerHTML = `
 
       <div class="layout-grid">
         <form id="form-turno" class="card form-card">
-          <h2>Crear turno</h2>
+          <h2 id="form-turno-title">Crear turnos</h2>
           <label class="field">
-            <span>Dia</span>
+            <span>Fecha desde</span>
             <input id="turno-dia" type="date" required />
+          </label>
+          <label class="field">
+            <span>Fecha hasta</span>
+            <input id="turno-fecha-fin" type="date" required />
+          </label>
+          <label class="field">
+            <span>Repeticion</span>
+            <select id="turno-frecuencia" required>
+              <option value="diaria">Diaria</option>
+              <option value="semanal">Semanal</option>
+              <option value="mensual">Mensual</option>
+              <option value="anual">Anual</option>
+            </select>
           </label>
           <label class="field">
             <span>Repetir desde</span>
@@ -51,13 +65,14 @@ app.innerHTML = `
           </label>
           <label class="field">
             <span>Duracion de cada turno (minutos)</span>
-            <input id="turno-duracion" type="number" min="1" max="1440" step="1" value="30" required />
+            <input id="turno-duracion" type="number" min="1" max="1440" step="1" value="60" required />
           </label>
           <label class="field">
             <span>Plazas totales</span>
             <input id="turno-plazas" type="number" min="1" step="1" required />
           </label>
-          <button class="button button-primary" type="submit">Crear turnos</button>
+          <button id="btn-submit-turno" class="button button-primary" type="submit">Crear turnos</button>
+          <button id="btn-cancel-edit" class="button button-secondary" type="button" hidden>Cancelar edicion</button>
           <button id="btn-clear-db" class="button button-danger" type="button">Borrar todos los datos</button>
         </form>
 
@@ -105,17 +120,23 @@ const vistaUsuario = getElement<HTMLElement>('#vista-usuario');
 const btnAdmin = getElement<HTMLButtonElement>('#btn-admin');
 const btnUsuario = getElement<HTMLButtonElement>('#btn-usuario');
 const formTurno = getElement<HTMLFormElement>('#form-turno');
+const formTurnoTitle = getElement<HTMLHeadingElement>('#form-turno-title');
 const turnoDia = getElement<HTMLInputElement>('#turno-dia');
+const turnoFechaFin = getElement<HTMLInputElement>('#turno-fecha-fin');
+const turnoFrecuencia = getElement<HTMLSelectElement>('#turno-frecuencia');
 const turnoHoraInicio = getElement<HTMLInputElement>('#turno-hora-inicio');
 const turnoHoraFin = getElement<HTMLInputElement>('#turno-hora-fin');
 const turnoDuracion = getElement<HTMLInputElement>('#turno-duracion');
 const turnoPlazas = getElement<HTMLInputElement>('#turno-plazas');
+const btnSubmitTurno = getElement<HTMLButtonElement>('#btn-submit-turno');
+const btnCancelEdit = getElement<HTMLButtonElement>('#btn-cancel-edit');
 const tablaTurnos = getElement<HTMLDivElement>('#tabla-turnos');
 const btnClearDB = getElement<HTMLButtonElement>('#btn-clear-db');
 const formInscripcion = getElement<HTMLFormElement>('#form-inscripcion');
 const usuarioNombre = getElement<HTMLInputElement>('#usuario-nombre');
 const usuarioApellidos = getElement<HTMLInputElement>('#usuario-apellidos');
 const usuarioTurno = getElement<HTMLSelectElement>('#usuario-turno');
+let turnoEditandoId: string | null = null;
 
 function getElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -161,6 +182,40 @@ function crearId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function parseFechaInput(value: string): Date {
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('La fecha no es valida.');
+  }
+
+  return date;
+}
+
+function fechaToInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function avanzarFecha(date: Date, frecuencia: Frecuencia): Date {
+  const next = new Date(date);
+
+  if (frecuencia === 'diaria') {
+    next.setDate(next.getDate() + 1);
+  } else if (frecuencia === 'semanal') {
+    next.setDate(next.getDate() + 7);
+  } else if (frecuencia === 'mensual') {
+    next.setMonth(next.getMonth() + 1);
+  } else {
+    next.setFullYear(next.getFullYear() + 1);
+  }
+
+  return next;
+}
+
 function timeToMinutes(value: string): number {
   const [hoursRaw, minutesRaw] = value.split(':');
   const hours = Number(hoursRaw);
@@ -188,7 +243,18 @@ function minutesToTime(totalMinutes: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
-function crearTurnosRecurrentes(
+function calcularDuracionMinutos(horaInicio: string, horaFin: string): number {
+  const inicioMinutos = timeToMinutes(horaInicio);
+  let finMinutos = timeToMinutes(horaFin);
+
+  if (finMinutos <= inicioMinutos) {
+    finMinutos += 1440;
+  }
+
+  return finMinutos - inicioMinutos;
+}
+
+function crearTurnosDelDia(
   dia: string,
   horaInicio: string,
   horaFin: string,
@@ -229,6 +295,41 @@ function crearTurnosRecurrentes(
   return turnos;
 }
 
+function crearTurnosRecurrentes(
+  fechaInicio: string,
+  fechaFin: string,
+  frecuencia: Frecuencia,
+  horaInicio: string,
+  horaFin: string,
+  duracionMinutos: number,
+  plazasTotales: number
+): Turno[] {
+  let cursor = parseFechaInput(fechaInicio);
+  const limite = parseFechaInput(fechaFin);
+
+  if (cursor > limite) {
+    throw new Error('La fecha hasta debe ser igual o posterior a la fecha desde.');
+  }
+
+  const turnos: Turno[] = [];
+  let guard = 0;
+
+  while (cursor <= limite) {
+    turnos.push(
+      ...crearTurnosDelDia(fechaToInput(cursor), horaInicio, horaFin, duracionMinutos, plazasTotales)
+    );
+
+    cursor = avanzarFecha(cursor, frecuencia);
+    guard += 1;
+
+    if (guard > 5000) {
+      throw new Error('La repeticion genera demasiados turnos. Reduce el rango de fechas.');
+    }
+  }
+
+  return turnos;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -240,6 +341,58 @@ function escapeHtml(value: string): string {
 
 function formatTurno(turno: Turno): string {
   return `${turno.dia} | ${turno.horaInicio} - ${turno.horaFin}`;
+}
+
+function resetFormularioTurno(): void {
+  turnoEditandoId = null;
+  formTurno.reset();
+  turnoDuracion.value = '60';
+  formTurnoTitle.textContent = 'Crear turnos';
+  btnSubmitTurno.textContent = 'Crear turnos';
+  btnCancelEdit.hidden = true;
+  turnoFechaFin.disabled = false;
+  turnoFrecuencia.disabled = false;
+}
+
+function iniciarEdicionTurno(idTurno: string): void {
+  const turno = StorageDB.getTurnos().find((item) => item.id === idTurno);
+
+  if (!turno) {
+    alert('Turno no encontrado.');
+    return;
+  }
+
+  turnoEditandoId = turno.id;
+  turnoDia.value = turno.dia;
+  turnoFechaFin.value = turno.dia;
+  turnoFrecuencia.value = 'diaria';
+  turnoHoraInicio.value = turno.horaInicio;
+  turnoHoraFin.value = turno.horaFin;
+  turnoDuracion.value = String(calcularDuracionMinutos(turno.horaInicio, turno.horaFin));
+  turnoPlazas.value = String(turno.plazasTotales);
+  formTurnoTitle.textContent = 'Editar turno';
+  btnSubmitTurno.textContent = 'Actualizar turno';
+  btnCancelEdit.hidden = false;
+  turnoFechaFin.disabled = true;
+  turnoFrecuencia.disabled = true;
+  formTurno.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function eliminarTurno(idTurno: string): void {
+  const confirmar = confirm('¿Eliminar este turno? Tambien se borraran sus inscritos.');
+
+  if (!confirmar) {
+    return;
+  }
+
+  StorageDB.eliminarTurno(idTurno);
+
+  if (turnoEditandoId === idTurno) {
+    resetFormularioTurno();
+  }
+
+  renderTablaTurnos();
+  cargarSelectTurnos();
 }
 
 function renderTablaTurnos(): void {
@@ -259,6 +412,7 @@ function renderTablaTurnos(): void {
           <th>Plazas</th>
           <th>Disponibles</th>
           <th>Inscritos</th>
+          <th>Acciones</th>
         </tr>
       </thead>
       <tbody>
@@ -269,6 +423,12 @@ function renderTablaTurnos(): void {
             <td>${turno.plazasTotales}</td>
             <td>${turno.plazasDisponibles}</td>
             <td>${turno.inscritos.length > 0 ? turno.inscritos.map(escapeHtml).join(', ') : '-'}</td>
+            <td>
+              <div class="row-actions">
+                <button class="button button-small button-secondary" type="button" data-action="edit" data-id="${turno.id}">Editar</button>
+                <button class="button button-small button-danger" type="button" data-action="delete" data-id="${turno.id}">Eliminar</button>
+              </div>
+            </td>
           </tr>
         `).join('')}
       </tbody>
@@ -325,8 +485,38 @@ formTurno.addEventListener('submit', (event) => {
   }
 
   try {
+    if (turnoEditandoId) {
+      const turnoActual = StorageDB.getTurnos().find((turno) => turno.id === turnoEditandoId);
+
+      if (!turnoActual) {
+        throw new Error('Turno no encontrado.');
+      }
+
+      if (plazasTotales < turnoActual.inscritos.length) {
+        throw new Error('Las plazas totales no pueden ser menores que los inscritos actuales.');
+      }
+
+      const turnoActualizado: Turno = {
+        ...turnoActual,
+        dia: turnoDia.value,
+        horaInicio: turnoHoraInicio.value,
+        horaFin: turnoHoraFin.value,
+        plazasTotales,
+        plazasDisponibles: plazasTotales - turnoActual.inscritos.length
+      };
+
+      StorageDB.actualizarTurno(turnoActualizado);
+      alert('Turno actualizado correctamente.');
+      resetFormularioTurno();
+      renderTablaTurnos();
+      cargarSelectTurnos();
+      return;
+    }
+
     const turnos = crearTurnosRecurrentes(
       turnoDia.value,
+      turnoFechaFin.value,
+      turnoFrecuencia.value as Frecuencia,
       turnoHoraInicio.value,
       turnoHoraFin.value,
       duracionMinutos,
@@ -343,13 +533,34 @@ formTurno.addEventListener('submit', (event) => {
     }
 
     alert(`Se crearon ${turnos.length} turnos.`);
-    formTurno.reset();
-    turnoDuracion.value = '30';
+    resetFormularioTurno();
     renderTablaTurnos();
     cargarSelectTurnos();
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : 'No se pudieron crear los turnos.';
     alert(mensaje);
+  }
+});
+
+btnCancelEdit.addEventListener('click', resetFormularioTurno);
+
+tablaTurnos.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]');
+
+  if (!button) {
+    return;
+  }
+
+  const idTurno = button.dataset.id;
+
+  if (!idTurno) {
+    return;
+  }
+
+  if (button.dataset.action === 'edit') {
+    iniciarEdicionTurno(idTurno);
+  } else if (button.dataset.action === 'delete') {
+    eliminarTurno(idTurno);
   }
 });
 

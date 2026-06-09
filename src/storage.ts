@@ -35,6 +35,27 @@ export class StorageDB {
     StorageDB.saveTurnos([...turnos, turno]);
   }
 
+  public static actualizarTurno(turnoActualizado: Turno): void {
+    const turnos = StorageDB.getTurnos();
+    const index = turnos.findIndex((turno) => turno.id === turnoActualizado.id);
+
+    if (index === -1) {
+      throw new Error('Turno no encontrado');
+    }
+
+    if (turnoActualizado.plazasTotales < turnoActualizado.inscritos.length) {
+      throw new Error('Las plazas totales no pueden ser menores que los inscritos actuales');
+    }
+
+    turnos[index] = turnoActualizado;
+    StorageDB.saveTurnos(turnos);
+  }
+
+  public static eliminarTurno(idTurno: string): void {
+    const turnos = StorageDB.getTurnos();
+    StorageDB.saveTurnos(turnos.filter((turno) => turno.id !== idTurno));
+  }
+
   public static inscribirUsuario(idTurno: string, nombreCompleto: string): void {
     const turnos = StorageDB.getTurnos();
     const index = turnos.findIndex((turno) => turno.id === idTurno);

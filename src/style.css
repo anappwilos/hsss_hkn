@@ -197,6 +197,13 @@ h2 {
     box-shadow 160ms ease;
 }
 
+.button-small {
+  min-height: 36px;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 0.86rem;
+}
+
 .button:hover {
   transform: translateY(-1px);
 }
@@ -247,7 +254,7 @@ h2 {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;
+  min-width: 860px;
 }
 
 th,
@@ -274,6 +281,12 @@ td {
   margin: 0;
   padding: 18px 4px;
   color: var(--color-muted);
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 @media (max-width: 820px) {
