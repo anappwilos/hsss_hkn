@@ -1,0 +1,65 @@
+export interface Turno {
+  id: string;
+  dia: string;
+  horaInicio: string;
+  horaFin: string;
+  plazasTotales: number;
+  plazasDisponibles: number;
+  inscritos: string[];
+}
+
+export class StorageDB {
+  private static readonly DB_KEY = 'hsss_db';
+
+  public static getTurnos(): Turno[] {
+    const raw = localStorage.getItem(StorageDB.DB_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const data = JSON.parse(raw) as Turno[];
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  }
+
+  public static saveTurnos(turnos: Turno[]): void {
+    localStorage.setItem(StorageDB.DB_KEY, JSON.stringify(turnos));
+  }
+
+  public static agregarTurno(turno: Turno): void {
+    const turnos = StorageDB.getTurnos();
+    StorageDB.saveTurnos([...turnos, turno]);
+  }
+
+  public static inscribirUsuario(idTurno: string, nombreCompleto: string): void {
+    const turnos = StorageDB.getTurnos();
+    const index = turnos.findIndex((turno) => turno.id === idTurno);
+
+    if (index === -1) {
+      throw new Error('Turno no encontrado');
+    }
+
+    const turno = turnos[index];
+
+    if (turno.plazasDisponibles <= 0) {
+      throw new Error('No hay plazas disponibles para este turno');
+    }
+
+    const turnoActualizado: Turno = {
+      ...turno,
+      plazasDisponibles: turno.plazasDisponibles - 1,
+      inscritos: [...turno.inscritos, nombreCompleto]
+    };
+
+    turnos[index] = turnoActualizado;
+    StorageDB.saveTurnos(turnos);
+  }
+
+  public static clearDB(): void {
+    localStorage.removeItem(StorageDB.DB_KEY);
+  }
+}
