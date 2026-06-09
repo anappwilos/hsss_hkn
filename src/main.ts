@@ -93,31 +93,46 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section id="vista-usuario" class="view" style="display: none;">
-      <header class="view-header">
-        <div>
-          <p class="eyebrow">Usuario</p>
-          <h1>Inscripcion a turno</h1>
+    <section id="vista-usuario" class="view usuario-calendar-view" style="display: none;">
+      <header class="calendar-topbar">
+        <div class="calendar-brand">
+          <span class="calendar-logo" aria-hidden="true">H</span>
+          <div>
+            <p class="eyebrow">Usuario</p>
+            <h1>Elige tu turno</h1>
+          </div>
         </div>
-        <button class="button button-secondary js-volver" type="button">Volver al menu</button>
+        <div class="calendar-actions">
+          <button class="button button-secondary js-volver" type="button">Volver al menu</button>
+        </div>
       </header>
 
-      <form id="form-inscripcion" class="card form-card user-card">
-        <h2>Datos de inscripcion</h2>
-        <label class="field">
-          <span>Nombre</span>
-          <input id="usuario-nombre" type="text" autocomplete="given-name" required />
-        </label>
-        <label class="field">
-          <span>Apellidos</span>
-          <input id="usuario-apellidos" type="text" autocomplete="family-name" required />
-        </label>
-        <label class="field">
-          <span>Turno</span>
-          <select id="usuario-turno" required></select>
-        </label>
-        <button class="button button-primary" type="submit">Inscribirse</button>
-      </form>
+      <div class="user-calendar-layout">
+        <form id="form-inscripcion" class="card form-card user-signup-panel">
+          <h2>Datos de inscripcion</h2>
+          <label class="field">
+            <span>Nombre</span>
+            <input id="usuario-nombre" type="text" autocomplete="given-name" required />
+          </label>
+          <label class="field">
+            <span>Apellidos</span>
+            <input id="usuario-apellidos" type="text" autocomplete="family-name" required />
+          </label>
+          <input id="usuario-turno" type="hidden" required />
+          <div id="usuario-turno-seleccionado" class="selected-turno">Selecciona un turno en el calendario</div>
+          <button class="button button-primary" type="submit">Inscribirse</button>
+        </form>
+
+        <section class="card calendar-card user-calendar-card">
+          <div class="calendar-card-header">
+            <div>
+              <h2>Turnos disponibles</h2>
+              <p id="usuario-calendar-summary" class="calendar-summary">Sin turnos disponibles</p>
+            </div>
+          </div>
+          <div id="usuario-calendar-board" class="calendar-board"></div>
+        </section>
+      </div>
     </section>
   </main>
 `;
@@ -144,7 +159,10 @@ const btnClearDB = getElement<HTMLButtonElement>('#btn-clear-db');
 const formInscripcion = getElement<HTMLFormElement>('#form-inscripcion');
 const usuarioNombre = getElement<HTMLInputElement>('#usuario-nombre');
 const usuarioApellidos = getElement<HTMLInputElement>('#usuario-apellidos');
-const usuarioTurno = getElement<HTMLSelectElement>('#usuario-turno');
+const usuarioTurno = getElement<HTMLInputElement>('#usuario-turno');
+const usuarioTurnoSeleccionado = getElement<HTMLDivElement>('#usuario-turno-seleccionado');
+const usuarioCalendarSummary = getElement<HTMLParagraphElement>('#usuario-calendar-summary');
+const usuarioCalendarBoard = getElement<HTMLDivElement>('#usuario-calendar-board');
 let turnoEditandoId: string | null = null;
 
 function getElement<T extends Element>(selector: string): T {
@@ -179,7 +197,7 @@ function mostrarVista(vista: Vista): void {
   }
 
   if (vista === 'vista-usuario') {
-    cargarSelectTurnos();
+    renderUsuarioTurnos();
   }
 }
 
@@ -418,7 +436,7 @@ function eliminarTurno(idTurno: string): void {
   }
 
   renderTablaTurnos();
-  cargarSelectTurnos();
+  renderUsuarioTurnos();
 }
 
 function renderTablaTurnos(): void {
@@ -476,29 +494,75 @@ function renderTablaTurnos(): void {
   `;
 }
 
-function cargarSelectTurnos(): void {
-  const turnos = StorageDB.getTurnos();
-  usuarioTurno.replaceChildren();
+function renderUsuarioTurnos(): void {
+  const turnos = StorageDB.getTurnos().toSorted((a, b) => {
+    const byDate = a.dia.localeCompare(b.dia);
+    return byDate !== 0 ? byDate : a.horaInicio.localeCompare(b.horaInicio);
+  });
 
   if (turnos.length === 0) {
-    usuarioTurno.append(new Option('No hay turnos disponibles', ''));
-    usuarioTurno.disabled = true;
+    usuarioCalendarSummary.textContent = 'Sin turnos disponibles';
+    usuarioCalendarBoard.innerHTML = '<p class="empty-state">Todavia no hay turnos publicados.</p>';
+    usuarioTurno.value = '';
+    usuarioTurnoSeleccionado.textContent = 'Selecciona un turno en el calendario';
     return;
   }
 
-  usuarioTurno.disabled = false;
-  const placeholder = new Option('Selecciona un turno', '');
-  placeholder.disabled = true;
-  placeholder.selected = true;
-  usuarioTurno.append(placeholder);
+  const dias = [...new Set(turnos.map((turno) => turno.dia))];
+  const disponibles = turnos.filter((turno) => turno.plazasDisponibles > 0);
+  usuarioCalendarSummary.textContent = `${disponibles.length} turnos con plazas en ${dias.length} dias`;
 
-  for (const turno of turnos) {
-    const completo = turno.plazasDisponibles === 0;
-    const texto = `${formatTurno(turno)} - ${turno.plazasDisponibles} plazas${completo ? ' (Completo)' : ''}`;
-    const option = new Option(texto, turno.id);
-    option.disabled = completo;
-    usuarioTurno.append(option);
+  const turnoSeleccionado = turnos.find((turno) => turno.id === usuarioTurno.value);
+
+  if (turnoSeleccionado) {
+    usuarioTurnoSeleccionado.textContent = `Turno seleccionado: ${formatTurno(turnoSeleccionado)}`;
+  } else {
+    usuarioTurno.value = '';
+    usuarioTurnoSeleccionado.textContent = 'Selecciona un turno en el calendario';
   }
+
+  usuarioCalendarBoard.innerHTML = `
+    <div class="calendar-grid user-calendar-grid" style="--day-count: ${dias.length}">
+      ${dias.map((dia) => {
+        const turnosDia = turnos.filter((turno) => turno.dia === dia);
+
+        return `
+          <article class="calendar-day">
+            <header class="calendar-day-header">
+              <span class="calendar-day-name">${escapeHtml(formatFechaCorta(dia))}</span>
+              <strong>${turnosDia.length}</strong>
+            </header>
+            <div class="calendar-events">
+              ${turnosDia.map((turno) => {
+                const ocupacion = getOcupacion(turno);
+                const completo = turno.plazasDisponibles === 0;
+                const seleccionado = turno.id === usuarioTurno.value;
+
+                return `
+                  <section class="event-card user-event-card ${completo ? 'event-card--full' : ''} ${seleccionado ? 'event-card--selected' : ''}">
+                    <div class="event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</div>
+                    <div class="event-title">${turno.plazasDisponibles}/${turno.plazasTotales} plazas libres</div>
+                    <div class="event-progress" aria-label="Ocupacion ${ocupacion}%">
+                      <span style="width: ${ocupacion}%"></span>
+                    </div>
+                    <p class="event-people">${completo ? 'Turno completo' : 'Disponible para inscripcion'}</p>
+                    <button
+                      class="event-select-button"
+                      type="button"
+                      data-user-turno="${turno.id}"
+                      ${completo ? 'disabled' : ''}
+                    >
+                      ${completo ? 'Completo' : seleccionado ? 'Seleccionado' : 'Seleccionar'}
+                    </button>
+                  </section>
+                `;
+              }).join('')}
+            </div>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 btnAdmin.addEventListener('click', () => mostrarVista('vista-admin'));
@@ -549,7 +613,7 @@ formTurno.addEventListener('submit', (event) => {
       alert('Turno actualizado correctamente.');
       resetFormularioTurno();
       renderTablaTurnos();
-      cargarSelectTurnos();
+      renderUsuarioTurnos();
       return;
     }
 
@@ -575,7 +639,7 @@ formTurno.addEventListener('submit', (event) => {
     alert(`Se crearon ${turnos.length} turnos.`);
     resetFormularioTurno();
     renderTablaTurnos();
-    cargarSelectTurnos();
+    renderUsuarioTurnos();
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : 'No se pudieron crear los turnos.';
     alert(mensaje);
@@ -613,7 +677,24 @@ btnClearDB.addEventListener('click', () => {
 
   StorageDB.clearDB();
   renderTablaTurnos();
-  cargarSelectTurnos();
+  renderUsuarioTurnos();
+});
+
+usuarioCalendarBoard.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-user-turno]');
+
+  if (!button || button.disabled) {
+    return;
+  }
+
+  const idTurno = button.dataset.userTurno;
+
+  if (!idTurno) {
+    return;
+  }
+
+  usuarioTurno.value = idTurno;
+  renderUsuarioTurnos();
 });
 
 formInscripcion.addEventListener('submit', (event) => {
@@ -632,7 +713,8 @@ formInscripcion.addEventListener('submit', (event) => {
     StorageDB.inscribirUsuario(idTurno, `${nombre} ${apellidos}`);
     alert('Inscripcion realizada correctamente.');
     formInscripcion.reset();
-    cargarSelectTurnos();
+    usuarioTurno.value = '';
+    renderUsuarioTurnos();
     renderTablaTurnos();
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : 'No se pudo completar la inscripcion.';
