@@ -1,60 +1,67 @@
-import './style.css'
-import typescriptLogo from './assets/typescript.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import { setupCounter } from './counter.ts'
+import { TurnoRepository } from './data/turno_repo';
+import { SyncWorker } from './services/sync_worker';
+import type { PersonaCache } from './core/models';
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+const repo = new TurnoRepository();
+const syncWorker = new SyncWorker();
 
-<div class="ticks"></div>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js');
+  });
+}
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
+// 1. Arrancar el listener en segundo plano
+syncWorker.iniciarListener();
+
+// 2. Inyectar datos de prueba para trabajar sin la API
+async function mockData() {
+  const mockPersonas: PersonaCache[] = [
+    { id: "101", nombre: "Ana García", zona: "Sector Norte", horarioIso: "2026-06-10T08:00:00Z", asistencia: false, ultimaModificacion: 0 },
+    { id: "102", nombre: "Carlos Ruiz", zona: "Sector Norte", horarioIso: "2026-06-10T08:00:00Z", asistencia: false, ultimaModificacion: 0 }
+  ];
+  await repo.guardarLotePersonas(mockPersonas);
+  renderLista();
+}
+
+// 3. Renderizar la UI (Vanilla JS)
+async function renderLista() {
+  const lista = await repo.obtenerPorZona("Sector Norte");
+  const appDiv = document.querySelector<HTMLDivElement>('#app')!;
+  
+  let html = `
+    <div style="font-family: sans-serif; padding: 20px;">
+      <h2>Control de Turnos (Modo Offline)</h2>
+      <p>Estado de Red: <strong id="red-status">${navigator.onLine ? '🟢 Online' : '🔴 Offline'}</strong></p>
+      <ul style="list-style: none; padding: 0;">
+  `;
+
+  lista.forEach(p => {
+    html += `
+      <li style="margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+        <strong>${p.nombre}</strong> <br/>
+        <button 
+          style="margin-top: 10px; padding: 10px; background: ${p.asistencia ? '#4CAF50' : '#f44336'}; color: white; border: none; border-radius: 4px;"
+          onclick="marcar('${p.id}', ${!p.asistencia})">
+          ${p.asistencia ? 'Desmarcar Asistencia' : 'Marcar Asistió'}
+        </button>
       </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+    `;
+  });
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+  html += `</ul></div>`;
+  appDiv.innerHTML = html;
+}
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+// 4. Conectar el clic del botón HTML con TypeScript
+(window as any).marcar = async (id: string, estado: boolean) => {
+  await repo.marcarAsistenciaOffline(id, estado); // Guarda en DB y mete en cola
+  renderLista(); // Recarga la UI inmediatamente (Optimistic Update)
+};
+
+// Listeners visuales para el indicador de red
+window.addEventListener('offline', () => document.getElementById('red-status')!.innerHTML = '🔴 Offline');
+window.addEventListener('online', () => document.getElementById('red-status')!.innerHTML = '🟢 Online');
+
+// Arrancar la app
+mockData();

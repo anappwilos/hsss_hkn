@@ -83,8 +83,11 @@ export class ValidationError extends Error {
 }
 
 export class SyncError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  public readonly cause?: unknown;
+
+  constructor(message: string, cause?: unknown) {
     super(message);
+    this.cause = cause;
     this.name = "SyncError";
   }
 }
@@ -133,12 +136,22 @@ export class BrowserNetworkMonitor implements NetworkMonitor {
 }
 
 export class AttendanceService {
+  private readonly attendanceRepo: LocalAttendanceRepository;
+  private readonly outboxRepo: OutboxRepository;
+  private readonly clock: Clock;
+  private readonly idGenerator: IdGenerator;
+
   constructor(
-    private readonly attendanceRepo: LocalAttendanceRepository,
-    private readonly outboxRepo: OutboxRepository,
-    private readonly clock: Clock,
-    private readonly idGenerator: IdGenerator,
-  ) {}
+    attendanceRepo: LocalAttendanceRepository,
+    outboxRepo: OutboxRepository,
+    clock: Clock,
+    idGenerator: IdGenerator,
+  ) {
+    this.attendanceRepo = attendanceRepo;
+    this.outboxRepo = outboxRepo;
+    this.clock = clock;
+    this.idGenerator = idGenerator;
+  }
 
   async markAttendance(input: AttendanceMarkInput): Promise<AttendanceRecord> {
     this.assertValidInput(input);
@@ -198,15 +211,31 @@ export class AttendanceService {
 }
 
 export class SyncManager {
+  private readonly endpointUrl: string;
+  private readonly localRepo: LocalAttendanceRepository;
+  private readonly outboxRepo: OutboxRepository;
+  private readonly httpClient: HttpClient;
+  private readonly networkMonitor: NetworkMonitor;
+  private readonly clock: Clock;
+  private readonly batchSize: number;
+
   constructor(
-    private readonly endpointUrl: string,
-    private readonly localRepo: LocalAttendanceRepository,
-    private readonly outboxRepo: OutboxRepository,
-    private readonly httpClient: HttpClient,
-    private readonly networkMonitor: NetworkMonitor,
-    private readonly clock: Clock,
-    private readonly batchSize = 50,
+    endpointUrl: string,
+    localRepo: LocalAttendanceRepository,
+    outboxRepo: OutboxRepository,
+    httpClient: HttpClient,
+    networkMonitor: NetworkMonitor,
+    clock: Clock,
+    batchSize = 50,
   ) {
+    this.endpointUrl = endpointUrl;
+    this.localRepo = localRepo;
+    this.outboxRepo = outboxRepo;
+    this.httpClient = httpClient;
+    this.networkMonitor = networkMonitor;
+    this.clock = clock;
+    this.batchSize = batchSize;
+
     if (!endpointUrl.trim()) {
       throw new ValidationError("endpointUrl is required");
     }

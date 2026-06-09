@@ -1,61 +1,82 @@
-import { PersonaCache, OutboxEvent } from '../core/models';
+import type { OutboxEvent, PersonaCache } from '../core/models';
 import { DatabaseHelper } from './db_helper';
 
 export class TurnoRepository {
-  private db = new DatabaseHelper();
+  private readonly db: DatabaseHelper;
 
-  // Guarda masivamente lo que venga del Google Sheet
+  public constructor(db: DatabaseHelper = new DatabaseHelper()) {
+    this.db = db;
+  }
+
   public async guardarLotePersonas(personas: PersonaCache[]): Promise<void> {
     const database = await this.db.init();
+
     return new Promise((resolve, reject) => {
       const tx = database.transaction('personas', 'readwrite');
       const store = tx.objectStore('personas');
-      personas.forEach(p => store.put(p));
+
+      for (const persona of personas) {
+        store.put(persona);
+      }
+
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   }
 
-  // Filtra por zona (ideal para no renderizar 2M de personas de golpe)
   public async obtenerPorZona(zonaRequerida: string): Promise<PersonaCache[]> {
     const todas = await this.db.getAll<PersonaCache>('personas');
-    return todas.filter(p => p.zona === zonaRequerida);
+    return todas.filter((persona) => persona.zona === zonaRequerida);
   }
 
-  // EL CORAZÓN OFFLINE: Transacción simulada
   public async marcarAsistenciaOffline(idPersona: string, estado: boolean): Promise<void> {
     const database = await this.db.init();
-    const timestampActual = new Date().getTime();
+    const timestamp = Date.now();
 
     return new Promise((resolve, reject) => {
-      // Abrimos transacción sobre las DOS tablas
       const tx = database.transaction(['personas', 'outbox'], 'readwrite');
       const storePersonas = tx.objectStore('personas');
       const storeOutbox = tx.objectStore('outbox');
+      const request = storePersonas.get(idPersona);
+      let rechazoControlado = false;
 
-      // 1. Actualizamos la caché visual
-      const getReq = storePersonas.get(idPersona);
-      getReq.onsuccess = () => {
-        const persona: PersonaCache = getReq.result;
-        if (persona) {
-          persona.asistencia = estado;
-          persona.ultimaModificacion = timestampActual;
-          storePersonas.put(persona);
+      request.onsuccess = () => {
+        const persona = request.result as PersonaCache | undefined;
+
+        if (!persona) {
+          rechazoControlado = true;
+          tx.abort();
+          reject(new Error(`Persona no encontrada: ${idPersona}`));
+          return;
         }
+
+        const personaActualizada: PersonaCache = {
+          ...persona,
+          asistencia: estado,
+          ultimaModificacion: timestamp
+        };
+
+        const evento: OutboxEvent = {
+          idEvento: crypto.randomUUID(),
+          idPersona,
+          nuevoEstado: estado,
+          timestamp,
+          intentos: 0
+        };
+
+        storePersonas.put(personaActualizada);
+        storeOutbox.put(evento);
       };
 
-      // 2. Insertamos en la cola de sincronización
-      const evento: OutboxEvent = {
-        idEvento: crypto.randomUUID(), // ID único nativo
-        idPersona: idPersona,
-        nuevoEstado: estado,
-        timestamp: timestampActual,
-        intentos: 0
-      };
-      storeOutbox.put(evento);
-
+      request.onerror = () => reject(request.error);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => {
+        if (!rechazoControlado) {
+          reject(tx.error);
+        }
+      };
     });
   }
 }
