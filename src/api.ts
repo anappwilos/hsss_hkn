@@ -5,10 +5,18 @@ export interface Turno {
   plazas: number;
 }
 
+export interface AdminSession {
+  token: string;
+  usuario: string;
+  nombre?: string;
+  expiresAt?: number;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
-  turnos?: T;
+  turnos?: Turno[];
+  session?: T;
   message?: string;
 }
 
@@ -59,6 +67,34 @@ export class ApiService {
     if (!response.ok || json.success !== true) {
       throw new Error(json.message ?? `Error HTTP ${response.status}`);
     }
+  }
+
+  public static async loginAdmin(usuario: string, password: string): Promise<AdminSession> {
+    const response = await fetch(ApiService.API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        action: 'loginAdmin',
+        usuario,
+        password
+      })
+    });
+
+    const json = await ApiService.parseJson<ApiResponse<AdminSession>>(response);
+
+    if (!response.ok || json.success !== true) {
+      throw new Error(json.message ?? `Error HTTP ${response.status}`);
+    }
+
+    const session = json.session ?? json.data;
+
+    if (!session?.token || !session.usuario) {
+      throw new Error('Sesion de administracion invalida');
+    }
+
+    return session;
   }
 
   private static async parseJson<T>(response: Response): Promise<T> {
