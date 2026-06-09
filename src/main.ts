@@ -3,6 +3,9 @@ import { StorageDB, type Turno } from './storage';
 
 type Vista = 'menu-principal' | 'vista-admin' | 'vista-usuario';
 type Frecuencia = 'diaria' | 'semanal' | 'mensual' | 'anual';
+const GCAL_START_HOUR = 6;
+const GCAL_END_HOUR = 24;
+const GCAL_HOUR_HEIGHT = 40;
 
 const app = document.querySelector<HTMLDivElement>('#app');
 
@@ -26,22 +29,22 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section id="vista-admin" class="view admin-calendar-view" style="display: none;">
-      <header class="calendar-topbar">
-        <div class="calendar-brand">
-          <span class="calendar-logo" aria-hidden="true">H</span>
+    <section id="vista-admin" class="view admin-view" style="display: none;">
+      <header class="admin-topbar">
+        <div class="admin-title-group">
+          <span class="admin-logo" aria-hidden="true">H</span>
           <div>
             <p class="eyebrow">Administracion</p>
-            <h1>Calendario de turnos</h1>
+            <h1>Gestion de turnos</h1>
           </div>
         </div>
-        <div class="calendar-actions">
+        <div class="admin-actions">
           <button class="button button-secondary js-volver" type="button">Volver al menu</button>
         </div>
       </header>
 
-      <div class="calendar-layout">
-        <form id="form-turno" class="card form-card create-panel">
+      <div class="admin-layout">
+        <form id="form-turno" class="card form-card admin-form-panel">
           <h2 id="form-turno-title">Crear turnos</h2>
           <label class="field">
             <span>Fecha desde</span>
@@ -81,14 +84,14 @@ app.innerHTML = `
           <button id="btn-clear-db" class="button button-danger" type="button">Borrar todos los datos</button>
         </form>
 
-        <section class="card calendar-card">
-          <div class="calendar-card-header">
+        <section class="card admin-table-card">
+          <div class="admin-table-header">
             <div>
-              <h2>Agenda</h2>
+              <h2>Turnos creados</h2>
               <p id="calendar-summary" class="calendar-summary">Sin turnos programados</p>
             </div>
           </div>
-          <div id="tabla-turnos" class="calendar-board"></div>
+          <div id="tabla-turnos" class="admin-table-wrap"></div>
         </section>
       </div>
     </section>
@@ -109,6 +112,10 @@ app.innerHTML = `
 
       <div class="user-calendar-layout">
         <form id="form-inscripcion" class="card form-card user-signup-panel">
+          <div class="gcal-mini">
+            <div class="gcal-mini-title" id="usuario-mini-title">Calendario</div>
+            <div class="gcal-mini-grid" id="usuario-mini-calendar"></div>
+          </div>
           <h2>Datos de inscripcion</h2>
           <label class="field">
             <span>Nombre</span>
@@ -163,6 +170,8 @@ const usuarioTurno = getElement<HTMLInputElement>('#usuario-turno');
 const usuarioTurnoSeleccionado = getElement<HTMLDivElement>('#usuario-turno-seleccionado');
 const usuarioCalendarSummary = getElement<HTMLParagraphElement>('#usuario-calendar-summary');
 const usuarioCalendarBoard = getElement<HTMLDivElement>('#usuario-calendar-board');
+const usuarioMiniTitle = getElement<HTMLDivElement>('#usuario-mini-title');
+const usuarioMiniCalendar = getElement<HTMLDivElement>('#usuario-mini-calendar');
 let turnoEditandoId: string | null = null;
 
 function getElement<T extends Element>(selector: string): T {
@@ -225,6 +234,20 @@ function fechaToInput(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function startOfWeekMonday(date: Date): Date {
+  const start = new Date(date);
+  const day = start.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + diff);
+  return start;
 }
 
 function avanzarFecha(date: Date, frecuencia: Frecuencia): Date {
@@ -379,6 +402,52 @@ function formatFechaCorta(dia: string): string {
   }).format(date);
 }
 
+function formatMesAnio(date: Date): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    month: 'long',
+    year: 'numeric'
+  }).format(date);
+}
+
+function formatDiaSemana(date: Date): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    weekday: 'short'
+  }).format(date).replace('.', '').toUpperCase();
+}
+
+function getWeekNumber(date: Date): number {
+  const copy = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNumber = copy.getUTCDay() || 7;
+  copy.setUTCDate(copy.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1));
+
+  return Math.ceil((((copy.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+function renderMiniCalendar(baseDate: Date, diasConTurno: Set<string>): void {
+  const firstOfMonth = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+  const firstGridDay = startOfWeekMonday(firstOfMonth);
+  const todayKey = fechaToInput(new Date());
+
+  usuarioMiniTitle.textContent = formatMesAnio(baseDate);
+  usuarioMiniCalendar.innerHTML = `
+    ${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => `<span class="gcal-mini-weekday">${day}</span>`).join('')}
+    ${Array.from({ length: 42 }, (_, index) => {
+      const date = addDays(firstGridDay, index);
+      const key = fechaToInput(date);
+      const outside = date.getMonth() !== baseDate.getMonth();
+      const today = key === todayKey;
+      const hasTurno = diasConTurno.has(key);
+
+      return `
+        <span class="gcal-mini-day ${outside ? 'is-muted' : ''} ${today ? 'is-today' : ''} ${hasTurno ? 'has-turno' : ''}">
+          ${date.getDate()}
+        </span>
+      `;
+    }).join('')}
+  `;
+}
+
 function getOcupacion(turno: Turno): number {
   if (turno.plazasTotales <= 0) {
     return 0;
@@ -456,41 +525,52 @@ function renderTablaTurnos(): void {
   calendarSummary.textContent = `${turnos.length} turnos en ${dias.length} dias · ${plazasDisponibles} plazas disponibles`;
 
   tablaTurnos.innerHTML = `
-    <div class="calendar-grid" style="--day-count: ${dias.length}">
-      ${dias.map((dia) => {
-        const turnosDia = turnos.filter((turno) => turno.dia === dia);
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Horario</th>
+          <th>Plazas</th>
+          <th>Inscritos</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${turnos.map((turno) => {
+          const ocupacion = getOcupacion(turno);
+          const completo = turno.plazasDisponibles === 0;
 
-        return `
-          <article class="calendar-day">
-            <header class="calendar-day-header">
-              <span class="calendar-day-name">${escapeHtml(formatFechaCorta(dia))}</span>
-              <strong>${turnosDia.length}</strong>
-            </header>
-            <div class="calendar-events">
-              ${turnosDia.map((turno) => {
-                const ocupacion = getOcupacion(turno);
-                const completo = turno.plazasDisponibles === 0;
-
-                return `
-                  <section class="event-card ${completo ? 'event-card--full' : ''}">
-                    <div class="event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</div>
-                    <div class="event-title">${turno.plazasDisponibles}/${turno.plazasTotales} plazas libres</div>
-                    <div class="event-progress" aria-label="Ocupacion ${ocupacion}%">
-                      <span style="width: ${ocupacion}%"></span>
-                    </div>
-                    <p class="event-people">${turno.inscritos.length > 0 ? turno.inscritos.map(escapeHtml).join(', ') : 'Sin inscritos'}</p>
-                    <div class="event-actions">
-                      <button class="icon-button" type="button" data-action="edit" data-id="${turno.id}" title="Editar turno">Editar</button>
-                      <button class="icon-button icon-button--danger" type="button" data-action="delete" data-id="${turno.id}" title="Eliminar turno">Eliminar</button>
-                    </div>
-                  </section>
-                `;
-              }).join('')}
-            </div>
-          </article>
-        `;
-      }).join('')}
-    </div>
+          return `
+            <tr>
+              <td>
+                <strong>${escapeHtml(formatFechaCorta(turno.dia))}</strong>
+                <span>${escapeHtml(turno.dia)}</span>
+              </td>
+              <td>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</td>
+              <td>
+                <strong>${turno.plazasDisponibles}/${turno.plazasTotales}</strong>
+                <div class="admin-progress" aria-label="Ocupacion ${ocupacion}%">
+                  <span style="width: ${ocupacion}%"></span>
+                </div>
+              </td>
+              <td>${turno.inscritos.length > 0 ? turno.inscritos.map(escapeHtml).join(', ') : '-'}</td>
+              <td>
+                <span class="admin-status ${completo ? 'admin-status--full' : 'admin-status--open'}">
+                  ${completo ? 'Completo' : 'Abierto'}
+                </span>
+              </td>
+              <td>
+                <div class="row-actions">
+                  <button class="button button-small button-secondary" type="button" data-action="edit" data-id="${turno.id}">Editar</button>
+                  <button class="button button-small button-danger" type="button" data-action="delete" data-id="${turno.id}">Eliminar</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
   `;
 }
 
@@ -499,6 +579,17 @@ function renderUsuarioTurnos(): void {
     const byDate = a.dia.localeCompare(b.dia);
     return byDate !== 0 ? byDate : a.horaInicio.localeCompare(b.horaInicio);
   });
+  const selected = turnos.find((turno) => turno.id === usuarioTurno.value);
+  const baseDate = selected
+    ? parseFechaInput(selected.dia)
+    : turnos[0]
+      ? parseFechaInput(turnos[0].dia)
+      : new Date();
+  const weekStart = startOfWeekMonday(baseDate);
+  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  const diasConTurno = new Set(turnos.map((turno) => turno.dia));
+
+  renderMiniCalendar(baseDate, diasConTurno);
 
   if (turnos.length === 0) {
     usuarioCalendarSummary.textContent = 'Sin turnos disponibles';
@@ -508,11 +599,10 @@ function renderUsuarioTurnos(): void {
     return;
   }
 
-  const dias = [...new Set(turnos.map((turno) => turno.dia))];
   const disponibles = turnos.filter((turno) => turno.plazasDisponibles > 0);
-  usuarioCalendarSummary.textContent = `${disponibles.length} turnos con plazas en ${dias.length} dias`;
+  usuarioCalendarSummary.textContent = `${formatMesAnio(baseDate)} · Semana ${getWeekNumber(baseDate)} · ${disponibles.length} turnos con plazas`;
 
-  const turnoSeleccionado = turnos.find((turno) => turno.id === usuarioTurno.value);
+  const turnoSeleccionado = selected;
 
   if (turnoSeleccionado) {
     usuarioTurnoSeleccionado.textContent = `Turno seleccionado: ${formatTurno(turnoSeleccionado)}`;
@@ -522,45 +612,69 @@ function renderUsuarioTurnos(): void {
   }
 
   usuarioCalendarBoard.innerHTML = `
-    <div class="calendar-grid user-calendar-grid" style="--day-count: ${dias.length}">
-      ${dias.map((dia) => {
-        const turnosDia = turnos.filter((turno) => turno.dia === dia);
+    <div class="gcal-week">
+      <div class="gcal-week-header">
+        <div class="gcal-timezone">GMT+02</div>
+        ${weekDays.map((date) => {
+          const key = fechaToInput(date);
+          const today = key === fechaToInput(new Date());
 
-        return `
-          <article class="calendar-day">
-            <header class="calendar-day-header">
-              <span class="calendar-day-name">${escapeHtml(formatFechaCorta(dia))}</span>
-              <strong>${turnosDia.length}</strong>
-            </header>
-            <div class="calendar-events">
-              ${turnosDia.map((turno) => {
+          return `
+            <div class="gcal-day-heading ${today ? 'is-today' : ''}">
+              <span>${formatDiaSemana(date)}</span>
+              <strong>${date.getDate()}</strong>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="gcal-week-body">
+        <div class="gcal-time-rail">
+          ${Array.from({ length: GCAL_END_HOUR - GCAL_START_HOUR }, (_, index) => {
+            const hour = GCAL_START_HOUR + index;
+            return `<div class="gcal-time-label">${String(hour).padStart(2, '0')}:00</div>`;
+          }).join('')}
+        </div>
+        <div class="gcal-days-body">
+          ${weekDays.map((date) => {
+            const dia = fechaToInput(date);
+            const turnosDia = turnos.filter((turno) => turno.dia === dia);
+
+            return `
+              <div class="gcal-day-column">
+                ${Array.from({ length: GCAL_END_HOUR - GCAL_START_HOUR }, () => '<div class="gcal-hour-slot"></div>').join('')}
+                ${turnosDia.map((turno) => {
                 const ocupacion = getOcupacion(turno);
                 const completo = turno.plazasDisponibles === 0;
                 const seleccionado = turno.id === usuarioTurno.value;
+                  const startMinutes = Math.max(timeToMinutes(turno.horaInicio), GCAL_START_HOUR * 60);
+                  const endMinutes = Math.min(timeToMinutes(turno.horaFin) <= timeToMinutes(turno.horaInicio)
+                    ? 1440
+                    : timeToMinutes(turno.horaFin), GCAL_END_HOUR * 60);
+                  const top = ((startMinutes - GCAL_START_HOUR * 60) / 60) * GCAL_HOUR_HEIGHT;
+                  const height = Math.max(28, ((endMinutes - startMinutes) / 60) * GCAL_HOUR_HEIGHT - 4);
 
                 return `
-                  <section class="event-card user-event-card ${completo ? 'event-card--full' : ''} ${seleccionado ? 'event-card--selected' : ''}">
-                    <div class="event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</div>
-                    <div class="event-title">${turno.plazasDisponibles}/${turno.plazasTotales} plazas libres</div>
+                    <button
+                      class="gcal-event ${completo ? 'is-full' : ''} ${seleccionado ? 'is-selected' : ''}"
+                      type="button"
+                      data-user-turno="${turno.id}"
+                      style="top: ${top}px; height: ${height}px"
+                      ${completo ? 'disabled' : ''}
+                    >
+                    <span class="event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
+                    <span class="event-title">${turno.plazasDisponibles}/${turno.plazasTotales} plazas libres</span>
                     <div class="event-progress" aria-label="Ocupacion ${ocupacion}%">
                       <span style="width: ${ocupacion}%"></span>
                     </div>
-                    <p class="event-people">${completo ? 'Turno completo' : 'Disponible para inscripcion'}</p>
-                    <button
-                      class="event-select-button"
-                      type="button"
-                      data-user-turno="${turno.id}"
-                      ${completo ? 'disabled' : ''}
-                    >
-                      ${completo ? 'Completo' : seleccionado ? 'Seleccionado' : 'Seleccionar'}
+                    <span class="event-people">${completo ? 'Completo' : seleccionado ? 'Seleccionado' : 'Disponible'}</span>
                     </button>
-                  </section>
                 `;
               }).join('')}
-            </div>
-          </article>
-        `;
-      }).join('')}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
     </div>
   `;
 }
