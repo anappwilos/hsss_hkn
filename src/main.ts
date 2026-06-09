@@ -26,17 +26,22 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section id="vista-admin" class="view" style="display: none;">
-      <header class="view-header">
-        <div>
-          <p class="eyebrow">Administracion</p>
-          <h1>Panel de turnos</h1>
+    <section id="vista-admin" class="view admin-calendar-view" style="display: none;">
+      <header class="calendar-topbar">
+        <div class="calendar-brand">
+          <span class="calendar-logo" aria-hidden="true">H</span>
+          <div>
+            <p class="eyebrow">Administracion</p>
+            <h1>Calendario de turnos</h1>
+          </div>
         </div>
-        <button class="button button-secondary js-volver" type="button">Volver al menu</button>
+        <div class="calendar-actions">
+          <button class="button button-secondary js-volver" type="button">Volver al menu</button>
+        </div>
       </header>
 
-      <div class="layout-grid">
-        <form id="form-turno" class="card form-card">
+      <div class="calendar-layout">
+        <form id="form-turno" class="card form-card create-panel">
           <h2 id="form-turno-title">Crear turnos</h2>
           <label class="field">
             <span>Fecha desde</span>
@@ -76,11 +81,14 @@ app.innerHTML = `
           <button id="btn-clear-db" class="button button-danger" type="button">Borrar todos los datos</button>
         </form>
 
-        <section class="card table-card">
-          <div class="table-card-header">
-            <h2>Turnos creados</h2>
+        <section class="card calendar-card">
+          <div class="calendar-card-header">
+            <div>
+              <h2>Agenda</h2>
+              <p id="calendar-summary" class="calendar-summary">Sin turnos programados</p>
+            </div>
           </div>
-          <div id="tabla-turnos" class="table-wrap"></div>
+          <div id="tabla-turnos" class="calendar-board"></div>
         </section>
       </div>
     </section>
@@ -131,6 +139,7 @@ const turnoPlazas = getElement<HTMLInputElement>('#turno-plazas');
 const btnSubmitTurno = getElement<HTMLButtonElement>('#btn-submit-turno');
 const btnCancelEdit = getElement<HTMLButtonElement>('#btn-cancel-edit');
 const tablaTurnos = getElement<HTMLDivElement>('#tabla-turnos');
+const calendarSummary = getElement<HTMLParagraphElement>('#calendar-summary');
 const btnClearDB = getElement<HTMLButtonElement>('#btn-clear-db');
 const formInscripcion = getElement<HTMLFormElement>('#form-inscripcion');
 const usuarioNombre = getElement<HTMLInputElement>('#usuario-nombre');
@@ -343,6 +352,23 @@ function formatTurno(turno: Turno): string {
   return `${turno.dia} | ${turno.horaInicio} - ${turno.horaFin}`;
 }
 
+function formatFechaCorta(dia: string): string {
+  const date = parseFechaInput(dia);
+  return new Intl.DateTimeFormat('es-ES', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short'
+  }).format(date);
+}
+
+function getOcupacion(turno: Turno): number {
+  if (turno.plazasTotales <= 0) {
+    return 0;
+  }
+
+  return Math.round(((turno.plazasTotales - turno.plazasDisponibles) / turno.plazasTotales) * 100);
+}
+
 function resetFormularioTurno(): void {
   turnoEditandoId = null;
   formTurno.reset();
@@ -396,43 +422,57 @@ function eliminarTurno(idTurno: string): void {
 }
 
 function renderTablaTurnos(): void {
-  const turnos = StorageDB.getTurnos();
+  const turnos = StorageDB.getTurnos().toSorted((a, b) => {
+    const byDate = a.dia.localeCompare(b.dia);
+    return byDate !== 0 ? byDate : a.horaInicio.localeCompare(b.horaInicio);
+  });
 
   if (turnos.length === 0) {
+    calendarSummary.textContent = 'Sin turnos programados';
     tablaTurnos.innerHTML = '<p class="empty-state">Todavia no hay turnos creados.</p>';
     return;
   }
 
+  const dias = [...new Set(turnos.map((turno) => turno.dia))];
+  const plazasDisponibles = turnos.reduce((total, turno) => total + turno.plazasDisponibles, 0);
+  calendarSummary.textContent = `${turnos.length} turnos en ${dias.length} dias · ${plazasDisponibles} plazas disponibles`;
+
   tablaTurnos.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>Dia</th>
-          <th>Horario</th>
-          <th>Plazas</th>
-          <th>Disponibles</th>
-          <th>Inscritos</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${turnos.map((turno) => `
-          <tr>
-            <td>${escapeHtml(turno.dia)}</td>
-            <td>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</td>
-            <td>${turno.plazasTotales}</td>
-            <td>${turno.plazasDisponibles}</td>
-            <td>${turno.inscritos.length > 0 ? turno.inscritos.map(escapeHtml).join(', ') : '-'}</td>
-            <td>
-              <div class="row-actions">
-                <button class="button button-small button-secondary" type="button" data-action="edit" data-id="${turno.id}">Editar</button>
-                <button class="button button-small button-danger" type="button" data-action="delete" data-id="${turno.id}">Eliminar</button>
-              </div>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+    <div class="calendar-grid" style="--day-count: ${dias.length}">
+      ${dias.map((dia) => {
+        const turnosDia = turnos.filter((turno) => turno.dia === dia);
+
+        return `
+          <article class="calendar-day">
+            <header class="calendar-day-header">
+              <span class="calendar-day-name">${escapeHtml(formatFechaCorta(dia))}</span>
+              <strong>${turnosDia.length}</strong>
+            </header>
+            <div class="calendar-events">
+              ${turnosDia.map((turno) => {
+                const ocupacion = getOcupacion(turno);
+                const completo = turno.plazasDisponibles === 0;
+
+                return `
+                  <section class="event-card ${completo ? 'event-card--full' : ''}">
+                    <div class="event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</div>
+                    <div class="event-title">${turno.plazasDisponibles}/${turno.plazasTotales} plazas libres</div>
+                    <div class="event-progress" aria-label="Ocupacion ${ocupacion}%">
+                      <span style="width: ${ocupacion}%"></span>
+                    </div>
+                    <p class="event-people">${turno.inscritos.length > 0 ? turno.inscritos.map(escapeHtml).join(', ') : 'Sin inscritos'}</p>
+                    <div class="event-actions">
+                      <button class="icon-button" type="button" data-action="edit" data-id="${turno.id}" title="Editar turno">Editar</button>
+                      <button class="icon-button icon-button--danger" type="button" data-action="delete" data-id="${turno.id}" title="Eliminar turno">Eliminar</button>
+                    </div>
+                  </section>
+                `;
+              }).join('')}
+            </div>
+          </article>
+        `;
+      }).join('')}
+    </div>
   `;
 }
 
