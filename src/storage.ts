@@ -10,6 +10,15 @@ export interface Turno {
 
 export type LoteEstado = 'activo' | 'programado' | 'finalizado' | 'borrador';
 
+export interface InterrupcionLote {
+  id: string;
+  motivo: string;
+  fechaInicio: string;
+  fechaFin: string;
+  horaInicio: string;
+  horaFin: string;
+}
+
 export interface LoteExposicion {
   id: string;
   nombre: string;
@@ -21,6 +30,7 @@ export interface LoteExposicion {
   estado: LoteEstado;
   turnoMinutos: number;
   plazasPorTurno: number;
+  interrupciones: InterrupcionLote[];
   creadoEn: number;
 }
 

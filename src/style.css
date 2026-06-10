@@ -819,6 +819,14 @@ button {
   padding: 28px;
 }
 
+.month-picker-field {
+  margin-bottom: 12px;
+}
+
+.month-picker-field + .form-note {
+  margin-bottom: 20px;
+}
+
 .date-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
@@ -847,6 +855,28 @@ button {
   font-size: 0.96rem;
 }
 
+.no-exposure-section {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 16px;
+  border-top: 1px solid #eadfd8;
+  margin-top: 10px;
+  padding-top: 24px;
+}
+
+.no-exposure-section h3 {
+  margin: 0;
+  color: #8d3309;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+
+.no-exposure-section p {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  line-height: 1.38;
+}
+
 .weekday-row {
   display: flex;
   flex-wrap: wrap;
@@ -867,6 +897,58 @@ button {
   border-color: var(--color-primary);
   color: #ffffff;
   background: var(--color-primary);
+}
+
+.interruption-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.interruption-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.interruption-grid .field:first-child,
+.interruption-help,
+.interruption-grid .button {
+  grid-column: 1 / -1;
+}
+
+.interruption-list {
+  display: grid;
+  gap: 10px;
+}
+
+.interruption-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #eadfd8;
+  border-radius: 14px;
+  padding: 14px;
+  background: #fffaf7;
+}
+
+.interruption-item div {
+  display: grid;
+  gap: 4px;
+}
+
+.interruption-item strong {
+  color: #241b16;
+}
+
+.interruption-item span,
+.empty-inline {
+  color: var(--color-muted);
+  font-size: 0.94rem;
+}
+
+.empty-inline {
+  margin: 0;
 }
 
 .summary-card {
@@ -1260,6 +1342,43 @@ button {
   gap: 16px;
 }
 
+.modal-choice-group {
+  display: grid;
+  gap: 14px;
+}
+
+.choice-card {
+  display: grid;
+  gap: 8px;
+  min-height: 116px;
+  border: 1px solid #eadfd8;
+  border-radius: 18px;
+  padding: 20px;
+  background: #ffffff;
+  color: #241b16;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.choice-card:hover,
+.choice-card:focus-visible {
+  border-color: var(--color-primary);
+  background: #fff4ed;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.choice-card strong {
+  font-size: 1.25rem;
+}
+
+.choice-card small {
+  color: var(--color-muted);
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
 .confirmation-card {
   display: grid;
   gap: 8px;
@@ -1449,8 +1568,15 @@ button {
   }
 
   .date-grid,
+  .interruption-grid,
   .two-cols {
     grid-template-columns: 1fr;
+  }
+
+  .interruption-grid .field:first-child,
+  .interruption-help,
+  .interruption-grid .button {
+    grid-column: auto;
   }
 
   .range-arrow {

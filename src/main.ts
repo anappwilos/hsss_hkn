@@ -1,5 +1,5 @@
 import './style.css';
-import { StorageDB, type LoteEstado, type LoteExposicion, type PerfilAdorador, type Turno } from './storage';
+import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type Turno } from './storage';
 
 type Vista = 'inicio' | 'admin' | 'configuracion' | 'registro-adorador' | 'usuario';
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
@@ -26,6 +26,7 @@ let filtroLote: FiltroLote = 'todos';
 let busquedaLote = '';
 let loteEditandoId: string | null = null;
 let diasConfig = new Set<number>([1, 2, 3, 4, 5]);
+let interrupcionesConfig: InterrupcionLote[] = [];
 let fechaUsuarioSeleccionada = fechaToInput(new Date());
 let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let turnoModalId: string | null = null;
@@ -33,6 +34,9 @@ let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
 let modalTipoAnotacion: TipoAnotacion = 'puntual';
 let loteMenuAbiertoId: string | null = null;
 let loteDuplicarMesId: string | null = null;
+let vistaActual: Vista | null = null;
+let ultimoNombreMesAutogenerado = '';
+const historialVistas: Vista[] = [];
 
 app.innerHTML = `
   <main class="app-shell">
@@ -330,6 +334,11 @@ app.innerHTML = `
         <section class="config-section">
           <h2>Rango de Fechas</h2>
           <div class="config-card">
+            <label class="field month-picker-field">
+              <span>Mes completo</span>
+              <input id="lote-mes-completo" type="month" />
+            </label>
+            <p class="form-note">Selecciona un mes para rellenar automaticamente el primer y ultimo dia, o ajusta el rango manualmente.</p>
             <div class="date-grid">
               <label class="field">
                 <span>Inicio</span>
@@ -364,6 +373,40 @@ app.innerHTML = `
               <input id="lote-plazas" type="number" min="1" step="1" value="2" required />
             </label>
             <p id="lote-total-horas" class="form-note">Total: 12 horas continuas</p>
+
+            <section class="no-exposure-section">
+              <div>
+                <h3>Horas sin exposici&oacute;n</h3>
+                <p>Agrega tramos horarios dentro del horario general en los que no estar&aacute; expuesto.</p>
+              </div>
+              <div class="interruption-panel">
+                <div class="interruption-grid">
+                  <label class="field">
+                    <span>Motivo</span>
+                    <input id="interrupcion-motivo" type="text" placeholder="Ej. Misa, limpieza, evento" />
+                  </label>
+                  <p class="form-note interruption-help">Indica al menos un tramo horario. Si no seleccionas fechas, se aplicara a todos los dias del lote.</p>
+                  <label class="field">
+                    <span>Fecha inicio opcional</span>
+                    <input id="interrupcion-fecha-inicio" type="date" />
+                  </label>
+                  <label class="field">
+                    <span>Fecha fin opcional</span>
+                    <input id="interrupcion-fecha-fin" type="date" />
+                  </label>
+                  <label class="field">
+                    <span>Hora inicio</span>
+                    <input id="interrupcion-hora-inicio" type="time" />
+                  </label>
+                  <label class="field">
+                    <span>Hora fin</span>
+                    <input id="interrupcion-hora-fin" type="time" />
+                  </label>
+                  <button id="btn-add-interrupcion" class="button button-secondary" type="button">Agregar hora sin exposici&oacute;n</button>
+                </div>
+                <div id="interrupciones-lista" class="interruption-list"></div>
+              </div>
+            </section>
           </div>
         </section>
 
@@ -422,7 +465,6 @@ const modalFechaInicio = getElement<HTMLInputElement>('#modal-fecha-inicio');
 const modalFechaFin = getElement<HTMLInputElement>('#modal-fecha-fin');
 const modalResumenInscripcion = getElement<HTMLElement>('#modal-resumen-inscripcion');
 const modalMensaje = getElement<HTMLParagraphElement>('#modal-mensaje');
-const modalBtnAtras = getElement<HTMLButtonElement>('#modal-btn-atras');
 const modalBtnSiguiente = getElement<HTMLButtonElement>('#modal-btn-siguiente');
 const modalBtnConfirmar = getElement<HTMLButtonElement>('#modal-btn-confirmar');
 const modalDuplicarMes = getElement<HTMLDialogElement>('#modal-duplicar-mes');
@@ -440,6 +482,7 @@ const registroMensaje = getElement<HTMLParagraphElement>('#registro-mensaje');
 const registroSubmit = getElement<HTMLButtonElement>('#registro-submit');
 const formLote = getElement<HTMLFormElement>('#form-lote');
 const loteNombre = getElement<HTMLInputElement>('#lote-nombre');
+const loteMesCompleto = getElement<HTMLInputElement>('#lote-mes-completo');
 const loteFechaInicio = getElement<HTMLInputElement>('#lote-fecha-inicio');
 const loteFechaFin = getElement<HTMLInputElement>('#lote-fecha-fin');
 const loteHoraInicio = getElement<HTMLInputElement>('#lote-hora-inicio');
@@ -449,6 +492,13 @@ const lotePlazas = getElement<HTMLInputElement>('#lote-plazas');
 const loteTotalHoras = getElement<HTMLParagraphElement>('#lote-total-horas');
 const resumenLote = getElement<HTMLParagraphElement>('#resumen-lote');
 const diasConfigEl = getElement<HTMLDivElement>('#dias-config');
+const interrupcionMotivo = getElement<HTMLInputElement>('#interrupcion-motivo');
+const interrupcionFechaInicio = getElement<HTMLInputElement>('#interrupcion-fecha-inicio');
+const interrupcionFechaFin = getElement<HTMLInputElement>('#interrupcion-fecha-fin');
+const interrupcionHoraInicio = getElement<HTMLInputElement>('#interrupcion-hora-inicio');
+const interrupcionHoraFin = getElement<HTMLInputElement>('#interrupcion-hora-fin');
+const btnAddInterrupcion = getElement<HTMLButtonElement>('#btn-add-interrupcion');
+const interrupcionesLista = getElement<HTMLDivElement>('#interrupciones-lista');
 
 function getElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -460,7 +510,14 @@ function getElement<T extends Element>(selector: string): T {
   return element;
 }
 
-function mostrarVista(vista: Vista): void {
+function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): void {
+  const shouldRecordHistory = options.recordHistory ?? true;
+
+  if (vistaActual && vistaActual !== vista && shouldRecordHistory) {
+    historialVistas.push(vistaActual);
+  }
+
+  vistaActual = vista;
   vistaInicio.style.display = vista === 'inicio' ? 'grid' : 'none';
   vistaAdmin.style.display = vista === 'admin' ? 'block' : 'none';
   vistaUsuario.style.display = vista === 'usuario' ? 'block' : 'none';
@@ -483,6 +540,44 @@ function mostrarVista(vista: Vista): void {
   if (vista === 'configuracion') {
     actualizarResumenLote();
   }
+}
+
+function volverAtras(): void {
+  if (modalInscripcion.open) {
+    retrocederModalInscripcion();
+    return;
+  }
+
+  if (modalDuplicarMes.open) {
+    cerrarDuplicarMes();
+    return;
+  }
+
+  if (loteMenuAbiertoId) {
+    loteMenuAbiertoId = null;
+    renderLotes();
+    return;
+  }
+
+  const vistaAnterior = historialVistas.pop();
+
+  if (vistaAnterior) {
+    mostrarVista(vistaAnterior, { recordHistory: false });
+    return;
+  }
+
+  if (vistaActual && vistaActual !== 'inicio') {
+    mostrarVista('inicio', { recordHistory: false });
+  }
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tagName = target.tagName.toLowerCase();
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable;
 }
 
 function crearId(): string {
@@ -528,6 +623,30 @@ function fechaToMonthInput(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${year}-${month}`;
+}
+
+function getMonthBounds(monthValue: string): { inicio: string; fin: string } {
+  const [yearRaw, monthRaw] = monthValue.split('-');
+  const year = Number(yearRaw);
+  const monthIndex = Number(monthRaw) - 1;
+  const inicio = new Date(year, monthIndex, 1);
+  const fin = new Date(year, monthIndex + 1, 0);
+
+  return {
+    inicio: fechaToInput(inicio),
+    fin: fechaToInput(fin)
+  };
+}
+
+function formatMonthName(monthValue: string): string {
+  const [yearRaw, monthRaw] = monthValue.split('-');
+  const date = new Date(Number(yearRaw), Number(monthRaw) - 1, 1);
+  const formatted = new Intl.DateTimeFormat('es-ES', {
+    month: 'long',
+    year: 'numeric'
+  }).format(date);
+
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
 function startOfWeekMonday(date: Date): Date {
@@ -686,11 +805,18 @@ function crearTurnosDesdeLote(lote: LoteExposicion): Turno[] {
     const dia = fechaToInput(cursor);
 
     for (let minuto = inicioMinutos; minuto + lote.turnoMinutos <= finMinutos; minuto += lote.turnoMinutos) {
+      const horaInicio = minutesToTime(minuto);
+      const horaFin = minutesToTime(minuto + lote.turnoMinutos);
+
+      if (turnoSolapaInterrupcion(dia, horaInicio, horaFin, lote.interrupciones ?? [])) {
+        continue;
+      }
+
       turnos.push({
         id: crearId(),
         dia,
-        horaInicio: minutesToTime(minuto),
-        horaFin: minutesToTime(minuto + lote.turnoMinutos),
+        horaInicio,
+        horaFin,
         plazasTotales: lote.plazasPorTurno,
         plazasDisponibles: lote.plazasPorTurno,
         inscritos: []
@@ -699,6 +825,27 @@ function crearTurnosDesdeLote(lote: LoteExposicion): Turno[] {
   }
 
   return turnos;
+}
+
+function turnoSolapaInterrupcion(
+  dia: string,
+  horaInicio: string,
+  horaFin: string,
+  interrupciones: InterrupcionLote[]
+): boolean {
+  const turnoInicio = timeToMinutes(horaInicio);
+  const turnoFin = timeToMinutes(horaFin);
+
+  return interrupciones.some((interrupcion) => {
+    if (dia < interrupcion.fechaInicio || dia > interrupcion.fechaFin) {
+      return false;
+    }
+
+    const interrupcionInicio = timeToMinutes(interrupcion.horaInicio);
+    const interrupcionFin = timeToMinutes(interrupcion.horaFin);
+
+    return turnoInicio < interrupcionFin && turnoFin > interrupcionInicio;
+  });
 }
 
 function crearLoteDesdeFormulario(esBorrador: boolean): LoteExposicion {
@@ -741,6 +888,7 @@ function crearLoteDesdeFormulario(esBorrador: boolean): LoteExposicion {
     estado: esBorrador ? 'borrador' : calcularEstado(loteFechaInicio.value, loteFechaFin.value),
     turnoMinutos,
     plazasPorTurno,
+    interrupciones: [...interrupcionesConfig],
     creadoEn: loteExistente?.creadoEn ?? Date.now()
   };
 }
@@ -775,12 +923,15 @@ function guardarLote(esBorrador: boolean): void {
 function resetConfig(): void {
   loteEditandoId = null;
   formLote.reset();
+  loteMesCompleto.value = '';
   loteHoraInicio.value = '08:00';
   loteHoraFin.value = '20:00';
   loteTurnoMinutos.value = '60';
   lotePlazas.value = '2';
   diasConfig = new Set([1, 2, 3, 4, 5]);
+  interrupcionesConfig = [];
   renderDiasConfig();
+  renderInterrupciones();
   actualizarResumenLote();
 }
 
@@ -792,12 +943,17 @@ function abrirConfig(lote?: LoteExposicion): void {
     loteNombre.value = lote.nombre;
     loteFechaInicio.value = lote.fechaInicio;
     loteFechaFin.value = lote.fechaFin;
+    const loteMonth = fechaToMonthInput(parseFecha(lote.fechaInicio));
+    const monthBounds = getMonthBounds(loteMonth);
+    loteMesCompleto.value = monthBounds.inicio === lote.fechaInicio && monthBounds.fin === lote.fechaFin ? loteMonth : '';
     loteHoraInicio.value = lote.horaInicio;
     loteHoraFin.value = lote.horaFin;
     loteTurnoMinutos.value = String(lote.turnoMinutos);
     lotePlazas.value = String(lote.plazasPorTurno);
     diasConfig = new Set(lote.diasSemana);
+    interrupcionesConfig = [...(lote.interrupciones ?? [])];
     renderDiasConfig();
+    renderInterrupciones();
   }
 
   actualizarResumenLote();
@@ -811,6 +967,84 @@ function renderDiasConfig(): void {
   });
 }
 
+function renderInterrupciones(): void {
+  if (interrupcionesConfig.length === 0) {
+    interrupcionesLista.innerHTML = '<p class="empty-inline">Sin interrupciones configuradas.</p>';
+    return;
+  }
+
+  interrupcionesLista.innerHTML = interrupcionesConfig.map((interrupcion) => `
+    <article class="interruption-item">
+      <div>
+        <strong>${escapeHtml(interrupcion.motivo)}</strong>
+        <span>${interrupcion.fechaInicio === loteFechaInicio.value && interrupcion.fechaFin === loteFechaFin.value
+          ? 'Todos los dias del lote'
+          : `${escapeHtml(formatFecha(interrupcion.fechaInicio))} - ${escapeHtml(formatFecha(interrupcion.fechaFin))}`
+        }</span>
+        <span>${escapeHtml(interrupcion.horaInicio)} - ${escapeHtml(interrupcion.horaFin)}</span>
+      </div>
+      <button class="text-link danger" type="button" data-action="eliminar-interrupcion" data-id="${interrupcion.id}">Eliminar</button>
+    </article>
+  `).join('');
+}
+
+function limpiarFormularioInterrupcion(): void {
+  interrupcionMotivo.value = '';
+  interrupcionFechaInicio.value = '';
+  interrupcionFechaFin.value = '';
+  interrupcionHoraInicio.value = '';
+  interrupcionHoraFin.value = '';
+}
+
+function agregarInterrupcion(): void {
+  const motivo = interrupcionMotivo.value.trim() || 'Interrupcion';
+  const fechaInicio = interrupcionFechaInicio.value || loteFechaInicio.value;
+  const fechaFin = interrupcionFechaFin.value || loteFechaFin.value;
+  const horaInicio = interrupcionHoraInicio.value;
+  const horaFin = interrupcionHoraFin.value;
+
+  if (!loteFechaInicio.value || !loteFechaFin.value) {
+    alert('Primero define el rango de fechas del lote.');
+    return;
+  }
+
+  if (!horaInicio || !horaFin) {
+    alert('Completa la hora de inicio y fin de la interrupcion.');
+    return;
+  }
+
+  if ((interrupcionFechaInicio.value && !interrupcionFechaFin.value) || (!interrupcionFechaInicio.value && interrupcionFechaFin.value)) {
+    alert('Si limitas por fecha, completa fecha inicio y fecha fin.');
+    return;
+  }
+
+  if (parseFecha(fechaInicio) > parseFecha(fechaFin)) {
+    alert('La fecha final de la interrupcion debe ser posterior a la inicial.');
+    return;
+  }
+
+  if (timeToMinutes(horaInicio) >= timeToMinutes(horaFin)) {
+    alert('La hora final de la interrupcion debe ser posterior a la inicial.');
+    return;
+  }
+
+  interrupcionesConfig = [
+    ...interrupcionesConfig,
+    {
+      id: crearId(),
+      motivo,
+      fechaInicio,
+      fechaFin,
+      horaInicio,
+      horaFin
+    }
+  ];
+
+  limpiarFormularioInterrupcion();
+  renderInterrupciones();
+  actualizarResumenLote();
+}
+
 function actualizarResumenLote(): void {
   const horas = loteHoraInicio.value && loteHoraFin.value ? calcularHoras(loteHoraInicio.value, loteHoraFin.value) : 0;
   const inicio = loteFechaInicio.value ? formatFecha(loteFechaInicio.value) : 'la fecha inicial';
@@ -821,7 +1055,10 @@ function actualizarResumenLote(): void {
     .join(', ');
 
   loteTotalHoras.textContent = `Total: ${horas.toLocaleString('es-ES')} horas continuas`;
-  resumenLote.textContent = `Se habilitaran turnos desde ${inicio} hasta ${fin}, de ${loteHoraInicio.value || '--:--'} a ${loteHoraFin.value || '--:--'}, los dias ${dias || 'seleccionados'}.`;
+  const interrupciones = interrupcionesConfig.length > 0
+    ? ` Se excluiran ${interrupcionesConfig.length} interrupcion(es).`
+    : '';
+  resumenLote.textContent = `Se habilitaran turnos desde ${inicio} hasta ${fin}, de ${loteHoraInicio.value || '--:--'} a ${loteHoraFin.value || '--:--'}, los dias ${dias || 'seleccionados'}.${interrupciones}`;
 }
 
 function renderLotes(): void {
@@ -859,6 +1096,7 @@ function renderLotes(): void {
         <h2>${escapeHtml(lote.nombre)}</h2>
         <p class="lote-meta">▦ ${escapeHtml(formatFecha(lote.fechaInicio))} - ${escapeHtml(formatFecha(lote.fechaFin))}</p>
         <p class="lote-meta">◷ ${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</p>
+        ${(lote.interrupciones?.length ?? 0) > 0 ? `<p class="lote-meta">⏸ ${lote.interrupciones.length} interrupcion(es)</p>` : ''}
       </div>
       <div class="lote-actions">
         <button class="dots-button" type="button" data-action="toggle-lote-menu" data-id="${lote.id}" aria-label="Opciones del lote" aria-expanded="${loteMenuAbiertoId === lote.id}">⋮</button>
@@ -1066,7 +1304,6 @@ function renderUsuario(): void {
 
 function getTurnosEquivalentes(turnoBase: Turno): Turno[] {
   const hoy = fechaToInput(new Date());
-  const tipo = getModalValue('tipo-anotacion');
   const repeticion = getModalValue('repeticion');
   const turnos = StorageDB.getTurnos().filter((turno) => {
     const mismaHora = turno.horaInicio === turnoBase.horaInicio && turno.horaFin === turnoBase.horaFin;
@@ -1075,7 +1312,7 @@ function getTurnosEquivalentes(turnoBase: Turno): Turno[] {
       return false;
     }
 
-    if (tipo === 'puntual') {
+    if (modalTipoAnotacion === 'puntual') {
       return turno.id === turnoBase.id;
     }
 
@@ -1127,6 +1364,7 @@ function abrirModalInscripcion(idTurno: string): void {
   }
 
   turnoModalId = idTurno;
+  modalTipoAnotacion = 'puntual';
   formInscripcionModal.reset();
   modalFechaInicio.value = turno.dia;
   modalFechaFin.value = fechaToInput(addMonths(parseFecha(turno.dia), 3));
@@ -1153,12 +1391,12 @@ function setModalPaso(paso: ModalInscripcionPaso): void {
   modalPasoTipo.hidden = paso !== 'tipo';
   modalPasoPeriodica.hidden = paso !== 'periodica';
   modalPasoConfirmacion.hidden = paso !== 'confirmacion';
-  modalBtnSiguiente.hidden = paso === 'confirmacion';
+  modalBtnSiguiente.hidden = paso !== 'periodica';
   modalBtnConfirmar.hidden = paso !== 'confirmacion';
 
   if (paso === 'tipo') {
     modalTurnoTitle.textContent = 'Tipo de anotacion';
-    modalTurnoDetail.textContent = 'Indica si quieres apuntarte solo a este turno o crear una anotacion periodica.';
+    modalTurnoDetail.textContent = 'Elige una opcion para continuar por ese camino.';
   }
 
   if (paso === 'periodica') {
@@ -1172,13 +1410,6 @@ function setModalPaso(paso: ModalInscripcionPaso): void {
 }
 
 function avanzarModalInscripcion(): void {
-  const tipo = getModalValue('tipo-anotacion');
-
-  if (modalInscripcionPaso === 'tipo') {
-    setModalPaso(tipo === 'periodica' ? 'periodica' : 'confirmacion');
-    return;
-  }
-
   if (modalInscripcionPaso === 'periodica') {
     if (parseFecha(modalFechaInicio.value) > parseFecha(modalFechaFin.value)) {
       setModalMessage('La fecha final debe ser posterior a la fecha inicial.', 'error');
@@ -1197,7 +1428,7 @@ function retrocederModalInscripcion(): void {
   }
 
   if (modalInscripcionPaso === 'confirmacion') {
-    setModalPaso(getModalValue('tipo-anotacion') === 'periodica' ? 'periodica' : 'tipo');
+    setModalPaso(modalTipoAnotacion === 'periodica' ? 'periodica' : 'tipo');
     return;
   }
 
@@ -1211,22 +1442,21 @@ function actualizarResumenInscripcion(): void {
     return;
   }
 
-  const tipo = getModalValue('tipo-anotacion');
   const repeticion = getModalValue('repeticion');
   const turnos = getTurnosEquivalentes(turnoBase);
-  const rango = tipo === 'periodica'
+  const rango = modalTipoAnotacion === 'periodica'
     ? `${formatFecha(modalFechaInicio.value)} - ${formatFecha(modalFechaFin.value)}`
     : formatFecha(turnoBase.dia);
 
   modalTurnoTitle.textContent = 'Confirmar anotacion';
-  modalTurnoDetail.textContent = tipo === 'periodica'
+  modalTurnoDetail.textContent = modalTipoAnotacion === 'periodica'
     ? `Se han encontrado ${turnos.length} turno(s) equivalentes.`
     : 'Vas a apuntarte al turno seleccionado.';
   modalResumenInscripcion.innerHTML = `
-    <strong>${tipo === 'periodica' ? 'Anotacion periodica' : 'Anotacion puntual'}</strong>
+    <strong>${modalTipoAnotacion === 'periodica' ? 'Anotacion periodica' : 'Anotacion puntual'}</strong>
     <span>Turno: ${escapeHtml(turnoBase.horaInicio)} - ${escapeHtml(turnoBase.horaFin)}</span>
     <span>Fecha(s): ${escapeHtml(rango)}</span>
-    ${tipo === 'periodica' ? `<span>Repetir: ${repeticion === 'mensual' ? '1 vez al mes' : '1 vez a la semana'}</span>` : ''}
+    ${modalTipoAnotacion === 'periodica' ? `<span>Repetir: ${repeticion === 'mensual' ? '1 vez al mes' : '1 vez a la semana'}</span>` : ''}
     <span>Compromisos a crear: ${turnos.length}</span>
   `;
 }
@@ -1302,6 +1532,15 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  const eliminarInterrupcionButton = target.closest<HTMLButtonElement>('[data-action="eliminar-interrupcion"]');
+
+  if (eliminarInterrupcionButton?.dataset.id) {
+    interrupcionesConfig = interrupcionesConfig.filter((interrupcion) => interrupcion.id !== eliminarInterrupcionButton.dataset.id);
+    renderInterrupciones();
+    actualizarResumenLote();
+    return;
+  }
+
   if (target.closest('[data-action="cerrar-modal"]')) {
     cerrarModalInscripcion();
     return;
@@ -1314,6 +1553,15 @@ document.addEventListener('click', (event) => {
 
   if (target.closest('[data-action="modal-atras"]')) {
     retrocederModalInscripcion();
+    return;
+  }
+
+  const tipoButton = target.closest<HTMLButtonElement>('[data-action="seleccionar-tipo-anotacion"]');
+
+  if (tipoButton?.dataset.tipo) {
+    modalTipoAnotacion = tipoButton.dataset.tipo as TipoAnotacion;
+    setModalMessage('', 'info');
+    setModalPaso(modalTipoAnotacion === 'periodica' ? 'periodica' : 'confirmacion');
     return;
   }
 
@@ -1411,6 +1659,20 @@ document.addEventListener('click', (event) => {
   }
 });
 
+document.addEventListener('keydown', (event) => {
+  const isBackShortcut =
+    (event.altKey && event.key === 'ArrowLeft') ||
+    event.key === 'BrowserBack' ||
+    (event.key === 'Backspace' && !isTypingTarget(event.target));
+
+  if (!isBackShortcut) {
+    return;
+  }
+
+  event.preventDefault();
+  volverAtras();
+});
+
 formInscripcionModal.addEventListener('submit', (event) => {
   event.preventDefault();
   inscribirDesdeModal();
@@ -1419,7 +1681,7 @@ formInscripcionModal.addEventListener('submit', (event) => {
 formInscripcionModal.addEventListener('change', (event) => {
   const input = event.target as HTMLInputElement;
 
-  if (input.name === 'tipo-anotacion' || input.name === 'repeticion') {
+  if (input.name === 'repeticion') {
     setModalMessage('', 'info');
   }
 });
@@ -1585,6 +1847,40 @@ diasConfigEl.addEventListener('click', (event) => {
 
 [loteFechaInicio, loteFechaFin, loteHoraInicio, loteHoraFin, loteTurnoMinutos, lotePlazas].forEach((input) => {
   input.addEventListener('input', actualizarResumenLote);
+});
+
+btnAddInterrupcion.addEventListener('click', agregarInterrupcion);
+
+loteMesCompleto.addEventListener('input', () => {
+  if (!loteMesCompleto.value) {
+    actualizarResumenLote();
+    return;
+  }
+
+  const bounds = getMonthBounds(loteMesCompleto.value);
+  const nombreMes = formatMonthName(loteMesCompleto.value);
+  loteFechaInicio.value = bounds.inicio;
+  loteFechaFin.value = bounds.fin;
+
+  if (!loteNombre.value.trim() || loteNombre.value.trim() === ultimoNombreMesAutogenerado) {
+    loteNombre.value = nombreMes;
+    ultimoNombreMesAutogenerado = nombreMes;
+  }
+
+  actualizarResumenLote();
+});
+
+[loteFechaInicio, loteFechaFin].forEach((input) => {
+  input.addEventListener('input', () => {
+    if (!loteFechaInicio.value || !loteFechaFin.value) {
+      loteMesCompleto.value = '';
+      return;
+    }
+
+    const monthValue = fechaToMonthInput(parseFecha(loteFechaInicio.value));
+    const bounds = getMonthBounds(monthValue);
+    loteMesCompleto.value = bounds.inicio === loteFechaInicio.value && bounds.fin === loteFechaFin.value ? monthValue : '';
+  });
 });
 
 getElement<HTMLButtonElement>('#btn-guardar-borrador').addEventListener('click', () => {
