@@ -4,6 +4,7 @@ import { StorageDB, type LoteEstado, type LoteExposicion, type PerfilAdorador, t
 type Vista = 'inicio' | 'admin' | 'configuracion' | 'registro-adorador' | 'usuario';
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
 type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
+type TipoAnotacion = 'puntual' | 'periodica';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 
@@ -29,6 +30,7 @@ let fechaUsuarioSeleccionada = fechaToInput(new Date());
 let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let turnoModalId: string | null = null;
 let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
+let modalTipoAnotacion: TipoAnotacion = 'puntual';
 let loteMenuAbiertoId: string | null = null;
 let loteDuplicarMesId: string | null = null;
 
@@ -115,6 +117,7 @@ app.innerHTML = `
 
     <section id="vista-usuario" class="view user-view" style="display: none;">
       <header class="mobile-topbar user-topbar">
+        <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
           <span class="brand-icon" aria-hidden="true">⌂</span>
           <span>Adoraci&oacute;n Eucar&iacute;stica</span>
@@ -219,23 +222,16 @@ app.innerHTML = `
         <section id="modal-perfil-resumen" class="profile-summary"></section>
 
         <section id="modal-paso-tipo" class="modal-step">
-          <fieldset class="modal-fieldset">
-            <legend>1. Tipo de anotaci&oacute;n</legend>
-            <label class="radio-card">
-              <input type="radio" name="tipo-anotacion" value="puntual" checked />
-              <span>
-                <strong>Puntual</strong>
-                <small>Apuntarte solo al turno seleccionado.</small>
-              </span>
-            </label>
-            <label class="radio-card">
-              <input type="radio" name="tipo-anotacion" value="periodica" />
-              <span>
-                <strong>Peri&oacute;dica</strong>
-                <small>Repetir esta anotaci&oacute;n en varios turnos equivalentes.</small>
-              </span>
-            </label>
-          </fieldset>
+          <div class="modal-choice-group" aria-label="Tipo de anotacion">
+            <button class="choice-card" type="button" data-action="seleccionar-tipo-anotacion" data-tipo="puntual">
+              <strong>Puntual</strong>
+              <small>Apuntarte solo al turno seleccionado.</small>
+            </button>
+            <button class="choice-card" type="button" data-action="seleccionar-tipo-anotacion" data-tipo="periodica">
+              <strong>Peri&oacute;dica</strong>
+              <small>Repetir esta anotaci&oacute;n en varios turnos equivalentes.</small>
+            </button>
+          </div>
         </section>
 
         <section id="modal-paso-periodica" class="modal-step" hidden>
@@ -276,7 +272,7 @@ app.innerHTML = `
         <p id="modal-mensaje" class="modal-message" role="status"></p>
 
         <footer class="modal-actions">
-          <button id="modal-btn-atras" class="button button-secondary" type="button" data-action="modal-atras" hidden>Atr&aacute;s</button>
+          <button id="modal-btn-atras" class="button button-secondary" type="button" data-action="modal-atras">Atr&aacute;s</button>
           <button id="modal-btn-siguiente" class="button button-primary" type="button" data-action="modal-siguiente">Continuar</button>
           <button id="modal-btn-confirmar" class="button button-primary" type="submit" hidden>Confirmar inscripci&oacute;n</button>
         </footer>
@@ -1157,7 +1153,6 @@ function setModalPaso(paso: ModalInscripcionPaso): void {
   modalPasoTipo.hidden = paso !== 'tipo';
   modalPasoPeriodica.hidden = paso !== 'periodica';
   modalPasoConfirmacion.hidden = paso !== 'confirmacion';
-  modalBtnAtras.hidden = paso === 'tipo';
   modalBtnSiguiente.hidden = paso === 'confirmacion';
   modalBtnConfirmar.hidden = paso !== 'confirmacion';
 
@@ -1196,6 +1191,11 @@ function avanzarModalInscripcion(): void {
 }
 
 function retrocederModalInscripcion(): void {
+  if (modalInscripcionPaso === 'tipo') {
+    cerrarModalInscripcion();
+    return;
+  }
+
   if (modalInscripcionPaso === 'confirmacion') {
     setModalPaso(getModalValue('tipo-anotacion') === 'periodica' ? 'periodica' : 'tipo');
     return;
