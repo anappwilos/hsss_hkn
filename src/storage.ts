@@ -8,8 +8,25 @@ export interface Turno {
   inscritos: string[];
 }
 
+export type LoteEstado = 'activo' | 'programado' | 'finalizado' | 'borrador';
+
+export interface LoteExposicion {
+  id: string;
+  nombre: string;
+  fechaInicio: string;
+  fechaFin: string;
+  horaInicio: string;
+  horaFin: string;
+  diasSemana: number[];
+  estado: LoteEstado;
+  turnoMinutos: number;
+  plazasPorTurno: number;
+  creadoEn: number;
+}
+
 export class StorageDB {
   private static readonly DB_KEY = 'hsss_db';
+  private static readonly LOTES_KEY = 'hsss_lotes';
 
   public static getTurnos(): Turno[] {
     const raw = localStorage.getItem(StorageDB.DB_KEY);
@@ -28,6 +45,47 @@ export class StorageDB {
 
   public static saveTurnos(turnos: Turno[]): void {
     localStorage.setItem(StorageDB.DB_KEY, JSON.stringify(turnos));
+  }
+
+  public static getLotes(): LoteExposicion[] {
+    const raw = localStorage.getItem(StorageDB.LOTES_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const data = JSON.parse(raw) as LoteExposicion[];
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  }
+
+  public static saveLotes(lotes: LoteExposicion[]): void {
+    localStorage.setItem(StorageDB.LOTES_KEY, JSON.stringify(lotes));
+  }
+
+  public static agregarLote(lote: LoteExposicion): void {
+    const lotes = StorageDB.getLotes();
+    StorageDB.saveLotes([...lotes, lote]);
+  }
+
+  public static actualizarLote(loteActualizado: LoteExposicion): void {
+    const lotes = StorageDB.getLotes();
+    const index = lotes.findIndex((lote) => lote.id === loteActualizado.id);
+
+    if (index === -1) {
+      throw new Error('Lote no encontrado');
+    }
+
+    lotes[index] = loteActualizado;
+    StorageDB.saveLotes(lotes);
+  }
+
+  public static eliminarLote(idLote: string): void {
+    const lotes = StorageDB.getLotes();
+    StorageDB.saveLotes(lotes.filter((lote) => lote.id !== idLote));
   }
 
   public static agregarTurno(turno: Turno): void {
@@ -82,5 +140,6 @@ export class StorageDB {
 
   public static clearDB(): void {
     localStorage.removeItem(StorageDB.DB_KEY);
+    localStorage.removeItem(StorageDB.LOTES_KEY);
   }
 }
