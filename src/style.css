@@ -286,7 +286,7 @@ button {
 .screen-content {
   width: min(100%, 720px);
   margin: 0 auto;
-  padding: 42px 28px 116px;
+  padding: 42px 28px 56px;
 }
 
 .admin-lotes-view,
@@ -708,7 +708,7 @@ button {
 .fab {
   position: fixed;
   right: max(28px, calc((100vw - 720px) / 2 + 28px));
-  bottom: 90px;
+  bottom: 28px;
   z-index: 20;
   width: 98px;
   height: 98px;
@@ -719,42 +719,6 @@ button {
   box-shadow: var(--shadow-md);
   font-size: 3rem;
   cursor: pointer;
-}
-
-.bottom-nav {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 15;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  gap: 8px;
-  min-height: 82px;
-  padding: 10px max(18px, calc((100vw - 720px) / 2 + 18px));
-  border-top: 1px solid rgba(90, 55, 37, 0.08);
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(18px);
-}
-
-.bottom-nav button {
-  display: grid;
-  place-items: center;
-  gap: 3px;
-  border: 0;
-  border-radius: 14px;
-  background: transparent;
-  color: #4d3328;
-  font-size: 1.45rem;
-  cursor: pointer;
-}
-
-.bottom-nav span {
-  font-size: 0.92rem;
-}
-
-.bottom-nav .is-active {
-  background: var(--color-primary-soft);
 }
 
 .field {
@@ -1627,7 +1591,7 @@ button {
   }
 
   .screen-content {
-    padding: 42px 22px 116px;
+    padding: 42px 22px 56px;
   }
 
   .section-heading p {

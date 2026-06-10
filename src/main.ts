@@ -148,10 +148,6 @@ app.innerHTML = `
       </div>
 
       <button id="btn-nuevo-lote" class="fab" type="button" aria-label="Crear lote">+</button>
-      <nav class="bottom-nav">
-        <button type="button" data-view="inicio">⌂<span>Inicio</span></button>
-        <button class="is-active" type="button" data-view="admin">▣<span>Turnos</span></button>
-      </nav>
     </section>
 
     <section id="vista-usuario" class="view user-view" style="display: none;">
@@ -195,10 +191,6 @@ app.innerHTML = `
         </section>
       </div>
 
-      <nav class="bottom-nav">
-        <button type="button">▦<span>Turnos</span></button>
-        <button class="is-active" type="button" data-view="usuario">▣<span>Inscribirse</span></button>
-      </nav>
     </section>
 
     <section id="vista-registro-adorador" class="view registro-view" style="display: none;">
@@ -489,11 +481,6 @@ app.innerHTML = `
         </section>
       </form>
 
-      <nav class="bottom-nav">
-        <button type="button" data-view="inicio">⌂<span>Inicio</span></button>
-        <button type="button" data-view="admin">▦<span>Turnos</span></button>
-        <button class="is-active" type="button" data-view="configuracion">▣<span>Inscribirse</span></button>
-      </nav>
     </section>
   </main>
 `;
