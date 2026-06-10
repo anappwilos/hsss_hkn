@@ -17,6 +17,7 @@ export interface InterrupcionLote {
   fechaFin: string;
   horaInicio: string;
   horaFin: string;
+  diasSemana?: number[];
 }
 
 export interface LoteExposicion {

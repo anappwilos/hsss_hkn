@@ -33,6 +33,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   min-width: 320px;
   min-height: 100vh;
@@ -856,8 +860,10 @@ button {
 }
 
 .no-exposure-section {
-  display: grid;
+  display: flex;
   grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
   border-top: 1px solid #eadfd8;
   margin-top: 10px;
@@ -875,6 +881,10 @@ button {
   margin: 6px 0 0;
   color: var(--color-muted);
   line-height: 1.38;
+}
+
+.no-exposure-section .button {
+  flex: 0 0 auto;
 }
 
 .weekday-row {
@@ -912,13 +922,50 @@ button {
 
 .interruption-grid .field:first-child,
 .interruption-help,
+.interruption-date-toggle,
+.interruption-days,
 .interruption-grid .button {
   grid-column: 1 / -1;
+}
+
+.interruption-days {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #eadfd8;
+  border-radius: 14px;
+  padding: 14px;
+  background: #fffaf7;
+}
+
+.interruption-days strong {
+  color: #8d3309;
+}
+
+.interruption-days p {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  font-size: 0.94rem;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #3b2c25;
+  font-weight: 650;
+}
+
+.check-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
 }
 
 .interruption-list {
   display: grid;
   gap: 10px;
+  border-top: 1px solid #eadfd8;
+  padding-top: 16px;
 }
 
 .interruption-item {
@@ -1575,12 +1622,19 @@ button {
 
   .interruption-grid .field:first-child,
   .interruption-help,
+  .interruption-date-toggle,
+  .interruption-days,
   .interruption-grid .button {
     grid-column: auto;
   }
 
   .range-arrow {
     min-height: auto;
+  }
+
+  .no-exposure-section {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .slot-card {

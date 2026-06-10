@@ -27,6 +27,7 @@ let busquedaLote = '';
 let loteEditandoId: string | null = null;
 let diasConfig = new Set<number>([1, 2, 3, 4, 5]);
 let interrupcionesConfig: InterrupcionLote[] = [];
+let interrupcionDiasConfig = new Set<number>([1, 2, 3, 4, 5]);
 let fechaUsuarioSeleccionada = fechaToInput(new Date());
 let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let turnoModalId: string | null = null;
@@ -310,6 +311,58 @@ app.innerHTML = `
       </form>
     </dialog>
 
+    <dialog id="modal-interrupciones" class="app-modal">
+      <form method="dialog" class="modal-card">
+        <header class="modal-header">
+          <div>
+            <p class="modal-kicker">Horario de Exposici&oacute;n</p>
+            <h2>Horas sin exposici&oacute;n</h2>
+            <p>Agrega tramos horarios dentro del horario general en los que no estar&aacute; expuesto.</p>
+          </div>
+          <button class="icon-only modal-close" type="button" data-action="cerrar-interrupciones" aria-label="Cerrar">×</button>
+        </header>
+
+        <div class="interruption-panel">
+          <div class="interruption-grid">
+            <label class="field">
+              <span>Motivo</span>
+              <input id="interrupcion-motivo" type="text" placeholder="Ej. Misa, limpieza, evento" />
+            </label>
+            <p class="form-note interruption-help">Indica al menos un tramo horario. Si no seleccionas fechas, se aplicara a todos los dias del lote.</p>
+            <label class="check-row interruption-date-toggle">
+              <input id="interrupcion-fechas-concretas" type="checkbox" />
+              <span>Usar fechas concretas</span>
+            </label>
+            <label id="interrupcion-fecha-inicio-field" class="field" hidden>
+              <span>Fecha inicio opcional</span>
+              <input id="interrupcion-fecha-inicio" type="date" />
+            </label>
+            <label id="interrupcion-fecha-fin-field" class="field" hidden>
+              <span>Fecha fin opcional</span>
+              <input id="interrupcion-fecha-fin" type="date" />
+            </label>
+            <label class="field">
+              <span>Hora inicio</span>
+              <input id="interrupcion-hora-inicio" type="time" />
+            </label>
+            <label class="field">
+              <span>Hora fin</span>
+              <input id="interrupcion-hora-fin" type="time" />
+            </label>
+            <section class="interruption-days">
+              <div>
+                <strong>D&iacute;as recurrentes</strong>
+                <p>Se muestran solo los d&iacute;as recurrentes seleccionados en el lote.</p>
+              </div>
+              <div id="interrupcion-dias" class="weekday-row"></div>
+            </section>
+            <button id="btn-add-interrupcion" class="button button-secondary" type="button">Agregar hora sin exposici&oacute;n</button>
+          </div>
+          <div id="interrupciones-lista" class="interruption-list"></div>
+        </div>
+      </form>
+    </dialog>
+
     <section id="vista-configuracion" class="view config-view" style="display: none;">
       <header class="mobile-topbar">
         <button class="icon-only" type="button" data-view="admin" aria-label="Volver">‹</button>
@@ -377,35 +430,9 @@ app.innerHTML = `
             <section class="no-exposure-section">
               <div>
                 <h3>Horas sin exposici&oacute;n</h3>
-                <p>Agrega tramos horarios dentro del horario general en los que no estar&aacute; expuesto.</p>
+                <p id="sin-exposicion-resumen">Sin horas sin exposici&oacute;n configuradas.</p>
               </div>
-              <div class="interruption-panel">
-                <div class="interruption-grid">
-                  <label class="field">
-                    <span>Motivo</span>
-                    <input id="interrupcion-motivo" type="text" placeholder="Ej. Misa, limpieza, evento" />
-                  </label>
-                  <p class="form-note interruption-help">Indica al menos un tramo horario. Si no seleccionas fechas, se aplicara a todos los dias del lote.</p>
-                  <label class="field">
-                    <span>Fecha inicio opcional</span>
-                    <input id="interrupcion-fecha-inicio" type="date" />
-                  </label>
-                  <label class="field">
-                    <span>Fecha fin opcional</span>
-                    <input id="interrupcion-fecha-fin" type="date" />
-                  </label>
-                  <label class="field">
-                    <span>Hora inicio</span>
-                    <input id="interrupcion-hora-inicio" type="time" />
-                  </label>
-                  <label class="field">
-                    <span>Hora fin</span>
-                    <input id="interrupcion-hora-fin" type="time" />
-                  </label>
-                  <button id="btn-add-interrupcion" class="button button-secondary" type="button">Agregar hora sin exposici&oacute;n</button>
-                </div>
-                <div id="interrupciones-lista" class="interruption-list"></div>
-              </div>
+              <button id="btn-open-interrupciones" class="button button-secondary" type="button">Configurar horas sin exposici&oacute;n</button>
             </section>
           </div>
         </section>
@@ -473,6 +500,7 @@ const duplicarMesDetalle = getElement<HTMLParagraphElement>('#duplicar-mes-detal
 const duplicarMesInput = getElement<HTMLInputElement>('#duplicar-mes-input');
 const duplicarMesPreview = getElement<HTMLElement>('#duplicar-mes-preview');
 const duplicarMesMensaje = getElement<HTMLParagraphElement>('#duplicar-mes-mensaje');
+const modalInterrupciones = getElement<HTMLDialogElement>('#modal-interrupciones');
 const formRegistroAdorador = getElement<HTMLFormElement>('#form-registro-adorador');
 const registroNombre = getElement<HTMLInputElement>('#registro-nombre');
 const registroApellidos = getElement<HTMLInputElement>('#registro-apellidos');
@@ -492,11 +520,16 @@ const lotePlazas = getElement<HTMLInputElement>('#lote-plazas');
 const loteTotalHoras = getElement<HTMLParagraphElement>('#lote-total-horas');
 const resumenLote = getElement<HTMLParagraphElement>('#resumen-lote');
 const diasConfigEl = getElement<HTMLDivElement>('#dias-config');
+const sinExposicionResumen = getElement<HTMLParagraphElement>('#sin-exposicion-resumen');
 const interrupcionMotivo = getElement<HTMLInputElement>('#interrupcion-motivo');
+const interrupcionFechasConcretas = getElement<HTMLInputElement>('#interrupcion-fechas-concretas');
+const interrupcionFechaInicioField = getElement<HTMLLabelElement>('#interrupcion-fecha-inicio-field');
+const interrupcionFechaFinField = getElement<HTMLLabelElement>('#interrupcion-fecha-fin-field');
 const interrupcionFechaInicio = getElement<HTMLInputElement>('#interrupcion-fecha-inicio');
 const interrupcionFechaFin = getElement<HTMLInputElement>('#interrupcion-fecha-fin');
 const interrupcionHoraInicio = getElement<HTMLInputElement>('#interrupcion-hora-inicio');
 const interrupcionHoraFin = getElement<HTMLInputElement>('#interrupcion-hora-fin');
+const interrupcionDias = getElement<HTMLDivElement>('#interrupcion-dias');
 const btnAddInterrupcion = getElement<HTMLButtonElement>('#btn-add-interrupcion');
 const interrupcionesLista = getElement<HTMLDivElement>('#interrupciones-lista');
 
@@ -550,6 +583,11 @@ function volverAtras(): void {
 
   if (modalDuplicarMes.open) {
     cerrarDuplicarMes();
+    return;
+  }
+
+  if (modalInterrupciones.open) {
+    modalInterrupciones.close();
     return;
   }
 
@@ -841,6 +879,10 @@ function turnoSolapaInterrupcion(
       return false;
     }
 
+    if (interrupcion.diasSemana?.length && !interrupcion.diasSemana.includes(getWeekdayIso(parseFecha(dia)))) {
+      return false;
+    }
+
     const interrupcionInicio = timeToMinutes(interrupcion.horaInicio);
     const interrupcionFin = timeToMinutes(interrupcion.horaFin);
 
@@ -929,6 +971,7 @@ function resetConfig(): void {
   loteTurnoMinutos.value = '60';
   lotePlazas.value = '2';
   diasConfig = new Set([1, 2, 3, 4, 5]);
+  interrupcionDiasConfig = new Set(diasConfig);
   interrupcionesConfig = [];
   renderDiasConfig();
   renderInterrupciones();
@@ -951,6 +994,7 @@ function abrirConfig(lote?: LoteExposicion): void {
     loteTurnoMinutos.value = String(lote.turnoMinutos);
     lotePlazas.value = String(lote.plazasPorTurno);
     diasConfig = new Set(lote.diasSemana);
+    interrupcionDiasConfig = new Set(diasConfig);
     interrupcionesConfig = [...(lote.interrupciones ?? [])];
     renderDiasConfig();
     renderInterrupciones();
@@ -967,7 +1011,35 @@ function renderDiasConfig(): void {
   });
 }
 
+function syncInterrupcionDiasConLote(): void {
+  interrupcionDiasConfig = new Set(
+    [...interrupcionDiasConfig].filter((day) => diasConfig.has(day))
+  );
+
+  if (interrupcionDiasConfig.size === 0) {
+    interrupcionDiasConfig = new Set(diasConfig);
+  }
+}
+
+function renderDiasInterrupcion(): void {
+  syncInterrupcionDiasConLote();
+
+  interrupcionDias.innerHTML = diasSemana
+    .filter((dia) => diasConfig.has(dia.value))
+    .map((dia) => `
+      <button class="weekday ${interrupcionDiasConfig.has(dia.value) ? 'is-active' : ''}" type="button" data-interruption-day="${dia.value}">
+        ${dia.label}
+      </button>
+    `)
+    .join('');
+}
+
 function renderInterrupciones(): void {
+  renderDiasInterrupcion();
+  sinExposicionResumen.textContent = interrupcionesConfig.length === 0
+    ? 'Sin horas sin exposicion configuradas.'
+    : `${interrupcionesConfig.length} tramo(s) sin exposicion configurado(s).`;
+
   if (interrupcionesConfig.length === 0) {
     interrupcionesLista.innerHTML = '<p class="empty-inline">Sin interrupciones configuradas.</p>';
     return;
@@ -981,6 +1053,7 @@ function renderInterrupciones(): void {
           ? 'Todos los dias del lote'
           : `${escapeHtml(formatFecha(interrupcion.fechaInicio))} - ${escapeHtml(formatFecha(interrupcion.fechaFin))}`
         }</span>
+        <span>Dias: ${escapeHtml((interrupcion.diasSemana ?? [...diasConfig]).map((day) => diasSemana.find((dia) => dia.value === day)?.label).filter(Boolean).join(', '))}</span>
         <span>${escapeHtml(interrupcion.horaInicio)} - ${escapeHtml(interrupcion.horaFin)}</span>
       </div>
       <button class="text-link danger" type="button" data-action="eliminar-interrupcion" data-id="${interrupcion.id}">Eliminar</button>
@@ -990,18 +1063,22 @@ function renderInterrupciones(): void {
 
 function limpiarFormularioInterrupcion(): void {
   interrupcionMotivo.value = '';
+  interrupcionFechasConcretas.checked = false;
   interrupcionFechaInicio.value = '';
   interrupcionFechaFin.value = '';
   interrupcionHoraInicio.value = '';
   interrupcionHoraFin.value = '';
+  actualizarVisibilidadFechasInterrupcion();
 }
 
 function agregarInterrupcion(): void {
   const motivo = interrupcionMotivo.value.trim() || 'Interrupcion';
-  const fechaInicio = interrupcionFechaInicio.value || loteFechaInicio.value;
-  const fechaFin = interrupcionFechaFin.value || loteFechaFin.value;
+  const usarFechasConcretas = interrupcionFechasConcretas.checked;
+  const fechaInicio = usarFechasConcretas ? interrupcionFechaInicio.value : loteFechaInicio.value;
+  const fechaFin = usarFechasConcretas ? interrupcionFechaFin.value : loteFechaFin.value;
   const horaInicio = interrupcionHoraInicio.value;
   const horaFin = interrupcionHoraFin.value;
+  const diasSemanaInterrupcion = [...interrupcionDiasConfig].toSorted();
 
   if (!loteFechaInicio.value || !loteFechaFin.value) {
     alert('Primero define el rango de fechas del lote.');
@@ -1013,8 +1090,13 @@ function agregarInterrupcion(): void {
     return;
   }
 
-  if ((interrupcionFechaInicio.value && !interrupcionFechaFin.value) || (!interrupcionFechaInicio.value && interrupcionFechaFin.value)) {
-    alert('Si limitas por fecha, completa fecha inicio y fecha fin.');
+  if (diasSemanaInterrupcion.length === 0) {
+    alert('Selecciona al menos un dia recurrente para esta hora sin exposicion.');
+    return;
+  }
+
+  if (usarFechasConcretas && (!fechaInicio || !fechaFin)) {
+    alert('Completa fecha inicio y fecha fin.');
     return;
   }
 
@@ -1036,13 +1118,25 @@ function agregarInterrupcion(): void {
       fechaInicio,
       fechaFin,
       horaInicio,
-      horaFin
+      horaFin,
+      diasSemana: diasSemanaInterrupcion
     }
   ];
 
   limpiarFormularioInterrupcion();
   renderInterrupciones();
   actualizarResumenLote();
+}
+
+function actualizarVisibilidadFechasInterrupcion(): void {
+  const mostrarFechas = interrupcionFechasConcretas.checked;
+  interrupcionFechaInicioField.hidden = !mostrarFechas;
+  interrupcionFechaFinField.hidden = !mostrarFechas;
+
+  if (!mostrarFechas) {
+    interrupcionFechaInicio.value = '';
+    interrupcionFechaFin.value = '';
+  }
 }
 
 function actualizarResumenLote(): void {
@@ -1532,6 +1626,33 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  if (target.closest('#btn-open-interrupciones')) {
+    renderInterrupciones();
+    actualizarVisibilidadFechasInterrupcion();
+    modalInterrupciones.showModal();
+    return;
+  }
+
+  const interruptionDayButton = target.closest<HTMLButtonElement>('[data-interruption-day]');
+
+  if (interruptionDayButton?.dataset.interruptionDay) {
+    const day = Number(interruptionDayButton.dataset.interruptionDay);
+
+    if (interrupcionDiasConfig.has(day)) {
+      interrupcionDiasConfig.delete(day);
+    } else {
+      interrupcionDiasConfig.add(day);
+    }
+
+    renderDiasInterrupcion();
+    return;
+  }
+
+  if (target.closest('[data-action="cerrar-interrupciones"]')) {
+    modalInterrupciones.close();
+    return;
+  }
+
   const eliminarInterrupcionButton = target.closest<HTMLButtonElement>('[data-action="eliminar-interrupcion"]');
 
   if (eliminarInterrupcionButton?.dataset.id) {
@@ -1842,6 +1963,8 @@ diasConfigEl.addEventListener('click', (event) => {
   }
 
   renderDiasConfig();
+  syncInterrupcionDiasConLote();
+  renderDiasInterrupcion();
   actualizarResumenLote();
 });
 
@@ -1850,6 +1973,8 @@ diasConfigEl.addEventListener('click', (event) => {
 });
 
 btnAddInterrupcion.addEventListener('click', agregarInterrupcion);
+
+interrupcionFechasConcretas.addEventListener('change', actualizarVisibilidadFechasInterrupcion);
 
 loteMesCompleto.addEventListener('input', () => {
   if (!loteMesCompleto.value) {
