@@ -261,6 +261,17 @@ button {
   cursor: pointer;
 }
 
+.topbar-text-button {
+  min-height: 44px;
+  border: 1px solid #eadfd8;
+  border-radius: 9px;
+  padding: 0 16px;
+  background: #ffffff;
+  color: var(--color-primary);
+  font-weight: 650;
+  cursor: pointer;
+}
+
 .avatar {
   width: 48px;
   height: 48px;
@@ -279,10 +290,27 @@ button {
 }
 
 .admin-lotes-view,
+.admin-login-view,
 .config-view,
 .registro-view,
 .user-view {
   background: #fff9f7;
+}
+
+.admin-login-card {
+  display: grid;
+  width: min(100%, 560px);
+  gap: 20px;
+  margin: 0 auto;
+  padding: 42px 28px 116px;
+}
+
+.admin-login-card .section-heading {
+  margin-bottom: 10px;
+}
+
+.admin-login-card .button {
+  margin-top: 4px;
 }
 
 .registro-view {
@@ -700,7 +728,7 @@ button {
   left: 0;
   z-index: 15;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 8px;
   min-height: 82px;
   padding: 10px max(18px, calc((100vw - 720px) / 2 + 18px));

@@ -1,15 +1,20 @@
-# Mi Impresionante Proyecto
+# AdoraPlus
 
-Este es un breve descripción de mi proyecto impresionante. ¡Contiene increíbles características y funcionalidades!
+Aplicacion local para crear lotes de exposicion, generar turnos e inscribir adoradores.
 
-## Cómo empezar
+## Configuracion
 
-Para comenzar con este proyecto, sigue estos sencillos pasos:
+Copia `.env.example` a `.env` y define las credenciales del administrador:
 
-1. Clona el repositorio: `git clone [tu_url_de_repositorio]`
-2. Navega al directorio del proyecto: `cd mi-impresionante-proyecto`
-3. Instala las dependencias: `npm install` 
+```env
+VITE_ADMIN_EMAIL=admin@example.com
+VITE_ADMIN_PASSWORD=change-me
+```
 
-## Contribuyendo
+## Comandos
 
- ¡Las contribuciones son bienvenidas! Siéntete libre de abrir un problema o enviar una solicitud de extracción.
+```bash
+npm install
+npm run dev
+npm run build
+```

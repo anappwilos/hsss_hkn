@@ -1,12 +1,17 @@
 import './style.css';
 import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type Turno } from './storage';
 
-type Vista = 'inicio' | 'admin' | 'configuracion' | 'registro-adorador' | 'usuario';
+type Vista = 'inicio' | 'admin-login' | 'admin' | 'configuracion' | 'registro-adorador' | 'usuario';
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
 type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
 
 const app = document.querySelector<HTMLDivElement>('#app');
+const LAST_VIEW_KEY = 'hsss_last_view';
+const ADMIN_SESSION_KEY = 'hsss_admin_session';
+const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase();
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
+const validViews = new Set<Vista>(['inicio', 'admin-login', 'admin', 'configuracion', 'registro-adorador', 'usuario']);
 
 if (!app) {
   throw new Error('No se encontro el contenedor #app');
@@ -80,6 +85,37 @@ app.innerHTML = `
       </div>
     </section>
 
+    <section id="vista-admin-login" class="view admin-login-view" style="display: none;">
+      <header class="mobile-topbar">
+        <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+        <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
+          <span class="brand-icon" aria-hidden="true">⌂</span>
+          <span>AdoraPlus</span>
+        </button>
+      </header>
+
+      <form id="form-admin-login" class="admin-login-card">
+        <header class="section-heading">
+          <h1>Acceso administrador</h1>
+          <p>Introduce el correo y la contrase&ntilde;a configurados para gestionar los lotes.</p>
+        </header>
+
+        <label class="field">
+          <span>Correo</span>
+          <input id="admin-email" type="email" autocomplete="username" required />
+        </label>
+
+        <label class="field">
+          <span>Contrase&ntilde;a</span>
+          <input id="admin-password" type="password" autocomplete="current-password" required />
+        </label>
+
+        <p id="admin-login-mensaje" class="modal-message" role="status"></p>
+
+        <button class="button button-primary" type="submit">Entrar</button>
+      </form>
+    </section>
+
     <section id="vista-admin" class="view admin-lotes-view" style="display: none;">
       <header class="mobile-topbar">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
@@ -87,7 +123,7 @@ app.innerHTML = `
           <span class="brand-icon" aria-hidden="true">⌂</span>
           <span>AdoraPlus</span>
         </button>
-        <button class="icon-only" type="button" data-view="inicio" aria-label="Menu">☰</button>
+        <button class="topbar-text-button" type="button" data-action="admin-logout">Salir</button>
       </header>
 
       <div class="screen-content">
@@ -115,8 +151,6 @@ app.innerHTML = `
       <nav class="bottom-nav">
         <button type="button" data-view="inicio">⌂<span>Inicio</span></button>
         <button class="is-active" type="button" data-view="admin">▣<span>Turnos</span></button>
-        <button type="button">♧<span>Avisos</span></button>
-        <button type="button">◎<span>Perfil</span></button>
       </nav>
     </section>
 
@@ -164,8 +198,6 @@ app.innerHTML = `
       <nav class="bottom-nav">
         <button type="button">▦<span>Turnos</span></button>
         <button class="is-active" type="button" data-view="usuario">▣<span>Inscribirse</span></button>
-        <button type="button">♚<span>Comunidad</span></button>
-        <button type="button">⚙<span>Ajustes</span></button>
       </nav>
     </section>
 
@@ -461,18 +493,21 @@ app.innerHTML = `
         <button type="button" data-view="inicio">⌂<span>Inicio</span></button>
         <button type="button" data-view="admin">▦<span>Turnos</span></button>
         <button class="is-active" type="button" data-view="configuracion">▣<span>Inscribirse</span></button>
-        <button type="button">♚<span>Comunidad</span></button>
-        <button type="button">⚙<span>Ajustes</span></button>
       </nav>
     </section>
   </main>
 `;
 
 const vistaInicio = getElement<HTMLElement>('#vista-inicio');
+const vistaAdminLogin = getElement<HTMLElement>('#vista-admin-login');
 const vistaAdmin = getElement<HTMLElement>('#vista-admin');
 const vistaUsuario = getElement<HTMLElement>('#vista-usuario');
 const vistaRegistroAdorador = getElement<HTMLElement>('#vista-registro-adorador');
 const vistaConfiguracion = getElement<HTMLElement>('#vista-configuracion');
+const formAdminLogin = getElement<HTMLFormElement>('#form-admin-login');
+const adminEmail = getElement<HTMLInputElement>('#admin-email');
+const adminPassword = getElement<HTMLInputElement>('#admin-password');
+const adminLoginMensaje = getElement<HTMLParagraphElement>('#admin-login-mensaje');
 const buscarLote = getElement<HTMLInputElement>('#buscar-lote');
 const loteFiltros = getElement<HTMLDivElement>('#lote-filtros');
 const lotesLista = getElement<HTMLDivElement>('#lotes-lista');
@@ -543,35 +578,81 @@ function getElement<T extends Element>(selector: string): T {
   return element;
 }
 
+function isVista(value: string | null): value is Vista {
+  return value !== null && validViews.has(value as Vista);
+}
+
+function isAdminAuthenticated(): boolean {
+  return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+}
+
+function setAdminAuthenticated(value: boolean): void {
+  if (value) {
+    sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    return;
+  }
+
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+}
+
+function getVistaInicial(): Vista {
+  const storedView = localStorage.getItem(LAST_VIEW_KEY);
+
+  if (!isVista(storedView)) {
+    return 'inicio';
+  }
+
+  if ((storedView === 'admin' || storedView === 'configuracion') && !isAdminAuthenticated()) {
+    return 'admin-login';
+  }
+
+  return storedView;
+}
+
+function mostrarAdminLoginMensaje(message: string, tone: 'info' | 'error' = 'info'): void {
+  adminLoginMensaje.textContent = message;
+  adminLoginMensaje.dataset.tone = tone;
+}
+
 function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): void {
+  const nextView = (vista === 'admin' || vista === 'configuracion') && !isAdminAuthenticated()
+    ? 'admin-login'
+    : vista;
   const shouldRecordHistory = options.recordHistory ?? true;
 
-  if (vistaActual && vistaActual !== vista && shouldRecordHistory) {
+  if (vistaActual && vistaActual !== nextView && shouldRecordHistory) {
     historialVistas.push(vistaActual);
   }
 
-  vistaActual = vista;
-  vistaInicio.style.display = vista === 'inicio' ? 'grid' : 'none';
-  vistaAdmin.style.display = vista === 'admin' ? 'block' : 'none';
-  vistaUsuario.style.display = vista === 'usuario' ? 'block' : 'none';
-  vistaRegistroAdorador.style.display = vista === 'registro-adorador' ? 'block' : 'none';
-  vistaConfiguracion.style.display = vista === 'configuracion' ? 'block' : 'none';
+  vistaActual = nextView;
+  localStorage.setItem(LAST_VIEW_KEY, nextView);
+  vistaInicio.style.display = nextView === 'inicio' ? 'grid' : 'none';
+  vistaAdminLogin.style.display = nextView === 'admin-login' ? 'block' : 'none';
+  vistaAdmin.style.display = nextView === 'admin' ? 'block' : 'none';
+  vistaUsuario.style.display = nextView === 'usuario' ? 'block' : 'none';
+  vistaRegistroAdorador.style.display = nextView === 'registro-adorador' ? 'block' : 'none';
+  vistaConfiguracion.style.display = nextView === 'configuracion' ? 'block' : 'none';
 
-  if (vista === 'admin') {
+  if (nextView === 'admin') {
     renderLotes();
   }
 
-  if (vista === 'usuario') {
+  if (nextView === 'usuario') {
     prepararFechaUsuario();
     renderUsuario();
   }
 
-  if (vista === 'registro-adorador') {
+  if (nextView === 'registro-adorador') {
     rellenarRegistroSiExiste();
   }
 
-  if (vista === 'configuracion') {
+  if (nextView === 'configuracion') {
     actualizarResumenLote();
+  }
+
+  if (nextView === 'admin-login') {
+    adminPassword.value = '';
+    mostrarAdminLoginMensaje('', 'info');
   }
 }
 
@@ -1611,6 +1692,12 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  if (target.closest('[data-action="admin-logout"]')) {
+    setAdminAuthenticated(false);
+    mostrarVista('admin-login');
+    return;
+  }
+
   if (target.closest('#btn-admin')) {
     mostrarVista('admin');
     return;
@@ -1792,6 +1879,27 @@ document.addEventListener('keydown', (event) => {
 
   event.preventDefault();
   volverAtras();
+});
+
+formAdminLogin.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  const email = adminEmail.value.trim().toLowerCase();
+  const password = adminPassword.value;
+
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+    mostrarAdminLoginMensaje('Faltan VITE_ADMIN_EMAIL y VITE_ADMIN_PASSWORD en el archivo .env.', 'error');
+    return;
+  }
+
+  if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+    mostrarAdminLoginMensaje('Correo o contrasena incorrectos.', 'error');
+    return;
+  }
+
+  setAdminAuthenticated(true);
+  mostrarAdminLoginMensaje('', 'info');
+  mostrarVista('admin');
 });
 
 formInscripcionModal.addEventListener('submit', (event) => {
@@ -2027,4 +2135,4 @@ formLote.addEventListener('submit', (event) => {
 });
 
 resetConfig();
-mostrarVista('inicio');
+mostrarVista(getVistaInicial(), { recordHistory: false });
