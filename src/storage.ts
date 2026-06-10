@@ -24,9 +24,20 @@ export interface LoteExposicion {
   creadoEn: number;
 }
 
+export interface PerfilAdorador {
+  id: string;
+  nombreCompleto: string;
+  nombre: string;
+  apellidos: string;
+  email: string;
+  telefono: string;
+  creadoEn: number;
+}
+
 export class StorageDB {
   private static readonly DB_KEY = 'hsss_db';
   private static readonly LOTES_KEY = 'hsss_lotes';
+  private static readonly PERFIL_ADORADOR_KEY = 'hsss_perfil_adorador';
 
   public static getTurnos(): Turno[] {
     const raw = localStorage.getItem(StorageDB.DB_KEY);
@@ -64,6 +75,25 @@ export class StorageDB {
 
   public static saveLotes(lotes: LoteExposicion[]): void {
     localStorage.setItem(StorageDB.LOTES_KEY, JSON.stringify(lotes));
+  }
+
+  public static getPerfilAdorador(): PerfilAdorador | null {
+    const raw = localStorage.getItem(StorageDB.PERFIL_ADORADOR_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const data = JSON.parse(raw) as PerfilAdorador;
+      return data.id && data.nombreCompleto ? data : null;
+    } catch {
+      return null;
+    }
+  }
+
+  public static savePerfilAdorador(perfil: PerfilAdorador): void {
+    localStorage.setItem(StorageDB.PERFIL_ADORADOR_KEY, JSON.stringify(perfil));
   }
 
   public static agregarLote(lote: LoteExposicion): void {
@@ -128,6 +158,14 @@ export class StorageDB {
       throw new Error('No hay plazas disponibles para este turno');
     }
 
+    const yaInscrito = turno.inscritos.some(
+      (inscrito) => inscrito.trim().toLowerCase() === nombreCompleto.trim().toLowerCase()
+    );
+
+    if (yaInscrito) {
+      throw new Error('Este adorador ya esta inscrito en el turno');
+    }
+
     const turnoActualizado: Turno = {
       ...turno,
       plazasDisponibles: turno.plazasDisponibles - 1,
@@ -141,5 +179,6 @@ export class StorageDB {
   public static clearDB(): void {
     localStorage.removeItem(StorageDB.DB_KEY);
     localStorage.removeItem(StorageDB.LOTES_KEY);
+    localStorage.removeItem(StorageDB.PERFIL_ADORADOR_KEY);
   }
 }

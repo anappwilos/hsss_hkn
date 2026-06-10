@@ -1,8 +1,9 @@
 import './style.css';
-import { StorageDB, type LoteEstado, type LoteExposicion, type Turno } from './storage';
+import { StorageDB, type LoteEstado, type LoteExposicion, type PerfilAdorador, type Turno } from './storage';
 
-type Vista = 'inicio' | 'admin' | 'configuracion' | 'usuario';
+type Vista = 'inicio' | 'admin' | 'configuracion' | 'registro-adorador' | 'usuario';
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
+type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 
@@ -25,6 +26,11 @@ let busquedaLote = '';
 let loteEditandoId: string | null = null;
 let diasConfig = new Set<number>([1, 2, 3, 4, 5]);
 let fechaUsuarioSeleccionada = fechaToInput(new Date());
+let semanaUsuarioInicio = startOfWeekMonday(new Date());
+let turnoModalId: string | null = null;
+let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
+let loteMenuAbiertoId: string | null = null;
+let loteDuplicarMesId: string | null = null;
 
 app.innerHTML = `
   <main class="app-shell">
@@ -69,6 +75,7 @@ app.innerHTML = `
 
     <section id="vista-admin" class="view admin-lotes-view" style="display: none;">
       <header class="mobile-topbar">
+        <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
           <span class="brand-icon" aria-hidden="true">⌂</span>
           <span>AdoraPlus</span>
@@ -124,7 +131,16 @@ app.innerHTML = `
         </section>
 
         <section>
-          <h2 class="warm-title">Selecciona tu d&iacute;a</h2>
+          <div class="week-heading">
+            <div>
+              <h2 class="warm-title">Selecciona tu d&iacute;a</h2>
+              <p id="usuario-semana-label" class="week-range">Semana actual</p>
+            </div>
+            <div class="week-actions">
+              <button class="icon-round" type="button" data-action="semana-prev" aria-label="Semana anterior">‹</button>
+              <button class="icon-round" type="button" data-action="semana-next" aria-label="Semana siguiente">›</button>
+            </div>
+          </div>
           <div id="usuario-dias" class="day-strip"></div>
         </section>
 
@@ -144,6 +160,155 @@ app.innerHTML = `
         <button type="button">⚙<span>Ajustes</span></button>
       </nav>
     </section>
+
+    <section id="vista-registro-adorador" class="view registro-view" style="display: none;">
+      <header class="mobile-topbar registro-topbar">
+        <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+        <h1>Registro de Adorador</h1>
+        <span aria-hidden="true"></span>
+      </header>
+
+      <form id="form-registro-adorador" class="registro-form">
+        <div class="registro-content">
+          <div class="registro-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" role="presentation">
+              <path d="M10 38c2.4-6 7-9 14-9s11.6 3 14 9"></path>
+              <circle cx="24" cy="17" r="7"></circle>
+              <path d="M36 12v10M31 17h10"></path>
+            </svg>
+          </div>
+          <p class="registro-copy">Para coordinar los turnos de la capilla, necesitamos conocerte un poco mejor.</p>
+
+          <label class="registro-field">
+            <span>Nombre</span>
+            <input id="registro-nombre" type="text" autocomplete="given-name" placeholder=" " minlength="2" required />
+          </label>
+          <label class="registro-field">
+            <span>Apellidos</span>
+            <input id="registro-apellidos" type="text" autocomplete="family-name" placeholder=" " minlength="2" required />
+          </label>
+          <label class="registro-field">
+            <span>Correo electr&oacute;nico</span>
+            <input id="registro-email" type="email" autocomplete="email" placeholder=" " required />
+          </label>
+          <label class="registro-field">
+            <span>Tel&eacute;fono</span>
+            <input id="registro-telefono" type="tel" autocomplete="tel" inputmode="tel" placeholder=" " required />
+          </label>
+          <p id="registro-mensaje" class="registro-message" role="status"></p>
+          <p class="registro-privacy">Tus datos se guardan solo en este dispositivo para reconocer tus turnos y agilizar nuevas inscripciones.</p>
+        </div>
+
+        <div class="registro-footer">
+          <button id="registro-submit" class="registro-submit" type="submit" disabled>Continuar <span aria-hidden="true">→</span></button>
+        </div>
+      </form>
+    </section>
+
+    <dialog id="modal-inscripcion" class="app-modal">
+      <form id="form-inscripcion-modal" method="dialog" class="modal-card">
+        <header class="modal-header">
+          <div>
+            <p class="modal-kicker">Inscripci&oacute;n</p>
+            <h2 id="modal-turno-title">Cubrir turno</h2>
+            <p id="modal-turno-detail">Confirma los datos del adorador.</p>
+          </div>
+          <button class="icon-only modal-close" type="button" data-action="cerrar-modal" aria-label="Cerrar">×</button>
+        </header>
+
+        <section id="modal-perfil-resumen" class="profile-summary"></section>
+
+        <section id="modal-paso-tipo" class="modal-step">
+          <fieldset class="modal-fieldset">
+            <legend>1. Tipo de anotaci&oacute;n</legend>
+            <label class="radio-card">
+              <input type="radio" name="tipo-anotacion" value="puntual" checked />
+              <span>
+                <strong>Puntual</strong>
+                <small>Apuntarte solo al turno seleccionado.</small>
+              </span>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="tipo-anotacion" value="periodica" />
+              <span>
+                <strong>Peri&oacute;dica</strong>
+                <small>Repetir esta anotaci&oacute;n en varios turnos equivalentes.</small>
+              </span>
+            </label>
+          </fieldset>
+        </section>
+
+        <section id="modal-paso-periodica" class="modal-step" hidden>
+          <fieldset class="modal-fieldset">
+            <legend>Repetir</legend>
+            <label class="radio-card">
+              <input type="radio" name="repeticion" value="semanal" checked />
+              <span>
+                <strong>1 vez a la semana</strong>
+                <small>Mismo d&iacute;a de la semana y misma hora dentro del rango.</small>
+              </span>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="repeticion" value="mensual" />
+              <span>
+                <strong>1 vez al mes</strong>
+                <small>Mismo d&iacute;a del mes y misma hora dentro del rango.</small>
+              </span>
+            </label>
+          </fieldset>
+          <div class="date-grid modal-range">
+            <label class="field">
+              <span>Fecha inicial</span>
+              <input id="modal-fecha-inicio" type="date" />
+            </label>
+            <label class="field">
+              <span>Fecha final</span>
+              <input id="modal-fecha-fin" type="date" />
+            </label>
+          </div>
+        </section>
+
+        <section id="modal-paso-confirmacion" class="modal-step" hidden>
+          <div id="modal-resumen-inscripcion" class="confirmation-card"></div>
+          <p class="modal-warning">Las fechas propuestas pueden verse modificadas si cambian los lotes, la disponibilidad o la planificaci&oacute;n de la capilla.</p>
+        </section>
+
+        <p id="modal-mensaje" class="modal-message" role="status"></p>
+
+        <footer class="modal-actions">
+          <button id="modal-btn-atras" class="button button-secondary" type="button" data-action="modal-atras" hidden>Atr&aacute;s</button>
+          <button id="modal-btn-siguiente" class="button button-primary" type="button" data-action="modal-siguiente">Continuar</button>
+          <button id="modal-btn-confirmar" class="button button-primary" type="submit" hidden>Confirmar inscripci&oacute;n</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="modal-duplicar-mes" class="app-modal">
+      <form id="form-duplicar-mes" method="dialog" class="modal-card">
+        <header class="modal-header">
+          <div>
+            <p class="modal-kicker">Duplicar lote</p>
+            <h2>Duplicar por mes</h2>
+            <p id="duplicar-mes-detalle">Selecciona el mes destino para crear una copia del lote.</p>
+          </div>
+          <button class="icon-only modal-close" type="button" data-action="cerrar-duplicar-mes" aria-label="Cerrar">×</button>
+        </header>
+
+        <label class="field">
+          <span>Mes destino</span>
+          <input id="duplicar-mes-input" type="month" required />
+        </label>
+
+        <section id="duplicar-mes-preview" class="duplicate-preview"></section>
+
+        <p id="duplicar-mes-mensaje" class="modal-message" role="status"></p>
+
+        <footer class="modal-actions">
+          <button class="button button-secondary" type="button" data-action="cerrar-duplicar-mes">Cancelar</button>
+          <button class="button button-primary" type="submit">Crear copia mensual</button>
+        </footer>
+      </form>
+    </dialog>
 
     <section id="vista-configuracion" class="view config-view" style="display: none;">
       <header class="mobile-topbar">
@@ -240,6 +405,7 @@ app.innerHTML = `
 const vistaInicio = getElement<HTMLElement>('#vista-inicio');
 const vistaAdmin = getElement<HTMLElement>('#vista-admin');
 const vistaUsuario = getElement<HTMLElement>('#vista-usuario');
+const vistaRegistroAdorador = getElement<HTMLElement>('#vista-registro-adorador');
 const vistaConfiguracion = getElement<HTMLElement>('#vista-configuracion');
 const buscarLote = getElement<HTMLInputElement>('#buscar-lote');
 const loteFiltros = getElement<HTMLDivElement>('#lote-filtros');
@@ -247,6 +413,35 @@ const lotesLista = getElement<HTMLDivElement>('#lotes-lista');
 const usuarioDias = getElement<HTMLDivElement>('#usuario-dias');
 const usuarioTurnos = getElement<HTMLDivElement>('#usuario-turnos');
 const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
+const usuarioSemanaLabel = getElement<HTMLParagraphElement>('#usuario-semana-label');
+const modalInscripcion = getElement<HTMLDialogElement>('#modal-inscripcion');
+const formInscripcionModal = getElement<HTMLFormElement>('#form-inscripcion-modal');
+const modalTurnoTitle = getElement<HTMLHeadingElement>('#modal-turno-title');
+const modalTurnoDetail = getElement<HTMLParagraphElement>('#modal-turno-detail');
+const modalPerfilResumen = getElement<HTMLElement>('#modal-perfil-resumen');
+const modalPasoTipo = getElement<HTMLElement>('#modal-paso-tipo');
+const modalPasoPeriodica = getElement<HTMLElement>('#modal-paso-periodica');
+const modalPasoConfirmacion = getElement<HTMLElement>('#modal-paso-confirmacion');
+const modalFechaInicio = getElement<HTMLInputElement>('#modal-fecha-inicio');
+const modalFechaFin = getElement<HTMLInputElement>('#modal-fecha-fin');
+const modalResumenInscripcion = getElement<HTMLElement>('#modal-resumen-inscripcion');
+const modalMensaje = getElement<HTMLParagraphElement>('#modal-mensaje');
+const modalBtnAtras = getElement<HTMLButtonElement>('#modal-btn-atras');
+const modalBtnSiguiente = getElement<HTMLButtonElement>('#modal-btn-siguiente');
+const modalBtnConfirmar = getElement<HTMLButtonElement>('#modal-btn-confirmar');
+const modalDuplicarMes = getElement<HTMLDialogElement>('#modal-duplicar-mes');
+const formDuplicarMes = getElement<HTMLFormElement>('#form-duplicar-mes');
+const duplicarMesDetalle = getElement<HTMLParagraphElement>('#duplicar-mes-detalle');
+const duplicarMesInput = getElement<HTMLInputElement>('#duplicar-mes-input');
+const duplicarMesPreview = getElement<HTMLElement>('#duplicar-mes-preview');
+const duplicarMesMensaje = getElement<HTMLParagraphElement>('#duplicar-mes-mensaje');
+const formRegistroAdorador = getElement<HTMLFormElement>('#form-registro-adorador');
+const registroNombre = getElement<HTMLInputElement>('#registro-nombre');
+const registroApellidos = getElement<HTMLInputElement>('#registro-apellidos');
+const registroEmail = getElement<HTMLInputElement>('#registro-email');
+const registroTelefono = getElement<HTMLInputElement>('#registro-telefono');
+const registroMensaje = getElement<HTMLParagraphElement>('#registro-mensaje');
+const registroSubmit = getElement<HTMLButtonElement>('#registro-submit');
 const formLote = getElement<HTMLFormElement>('#form-lote');
 const loteNombre = getElement<HTMLInputElement>('#lote-nombre');
 const loteFechaInicio = getElement<HTMLInputElement>('#lote-fecha-inicio');
@@ -273,6 +468,7 @@ function mostrarVista(vista: Vista): void {
   vistaInicio.style.display = vista === 'inicio' ? 'grid' : 'none';
   vistaAdmin.style.display = vista === 'admin' ? 'block' : 'none';
   vistaUsuario.style.display = vista === 'usuario' ? 'block' : 'none';
+  vistaRegistroAdorador.style.display = vista === 'registro-adorador' ? 'block' : 'none';
   vistaConfiguracion.style.display = vista === 'configuracion' ? 'block' : 'none';
 
   if (vista === 'admin') {
@@ -282,6 +478,10 @@ function mostrarVista(vista: Vista): void {
   if (vista === 'usuario') {
     prepararFechaUsuario();
     renderUsuario();
+  }
+
+  if (vista === 'registro-adorador') {
+    rellenarRegistroSiExiste();
   }
 
   if (vista === 'configuracion') {
@@ -314,6 +514,32 @@ function addDays(date: Date, days: number): Date {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+function addMonths(date: Date, months: number): Date {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function daysBetween(start: Date, end: Date): number {
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+  return Math.round((endUtc - startUtc) / 86400000);
+}
+
+function fechaToMonthInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+function startOfWeekMonday(date: Date): Date {
+  const start = new Date(date);
+  const day = start.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + diff);
+  return start;
 }
 
 function getWeekdayIso(date: Date): number {
@@ -363,6 +589,45 @@ function formatDia(value: string): string {
     day: 'numeric',
     month: 'short'
   }).format(parseFecha(value));
+}
+
+function formatRangoSemana(inicioSemana: Date): string {
+  const finSemana = addDays(inicioSemana, 6);
+  return `${formatFecha(fechaToInput(inicioSemana))} - ${formatFecha(fechaToInput(finSemana))}`;
+}
+
+function normalizarNombre(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function crearPerfilAdorador(
+  nombreCompleto: string,
+  overrides: Partial<Pick<PerfilAdorador, 'nombre' | 'apellidos' | 'email' | 'telefono'>> = {}
+): PerfilAdorador {
+  const partes = nombreCompleto.trim().replace(/\s+/g, ' ').split(' ');
+  const nombre = overrides.nombre ?? partes[0] ?? '';
+  const apellidos = overrides.apellidos ?? partes.slice(1).join(' ');
+
+  return {
+    id: crearId(),
+    nombreCompleto: nombreCompleto.trim().replace(/\s+/g, ' '),
+    nombre,
+    apellidos,
+    email: overrides.email ?? '',
+    telefono: overrides.telefono ?? '',
+    creadoEn: Date.now()
+  };
+}
+
+function getNombrePrivado(nombreCompleto: string): string {
+  const partes = nombreCompleto.trim().split(/\s+/);
+  const inicial = partes[0]?.charAt(0).toUpperCase() ?? 'A';
+  return `Adorador ${inicial}.`;
+}
+
+function estaInscrito(turno: Turno, nombreCompleto: string): boolean {
+  const nombre = normalizarNombre(nombreCompleto);
+  return turno.inscritos.some((inscrito) => normalizarNombre(inscrito) === nombre);
 }
 
 function calcularEstado(fechaInicio: string, fechaFin: string): LoteEstado {
@@ -600,23 +865,129 @@ function renderLotes(): void {
         <p class="lote-meta">◷ ${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</p>
       </div>
       <div class="lote-actions">
-        <button class="dots-button" type="button" data-action="editar-lote" data-id="${lote.id}" aria-label="Editar lote">⋮</button>
-        <button class="text-link" type="button" data-action="editar-lote" data-id="${lote.id}">Editar</button>
-        <button class="text-link danger" type="button" data-action="eliminar-lote" data-id="${lote.id}">Eliminar</button>
+        <button class="dots-button" type="button" data-action="toggle-lote-menu" data-id="${lote.id}" aria-label="Opciones del lote" aria-expanded="${loteMenuAbiertoId === lote.id}">⋮</button>
+        <div class="lote-menu ${loteMenuAbiertoId === lote.id ? 'is-open' : ''}">
+          <button type="button" data-action="editar-lote" data-id="${lote.id}">Editar</button>
+          <button type="button" data-action="duplicar-lote" data-id="${lote.id}">Duplicar</button>
+          <button type="button" data-action="duplicar-lote-mes" data-id="${lote.id}">Duplicar por mes</button>
+          <button class="danger" type="button" data-action="eliminar-lote" data-id="${lote.id}">Eliminar</button>
+        </div>
       </div>
     </article>
   `).join('');
 }
 
+function duplicarLote(lote: LoteExposicion): void {
+  const copia: LoteExposicion = {
+    ...lote,
+    id: crearId(),
+    nombre: `${lote.nombre} - Copia`,
+    estado: 'borrador',
+    creadoEn: Date.now()
+  };
+
+  StorageDB.agregarLote(copia);
+  renderLotes();
+}
+
+function getRangoDuplicadoMes(lote: LoteExposicion, mesDestino: string): { inicio: string; fin: string } {
+  const inicioOriginal = parseFecha(lote.fechaInicio);
+  const finOriginal = parseFecha(lote.fechaFin);
+  const duracionDias = daysBetween(inicioOriginal, finOriginal);
+  const [yearRaw, monthRaw] = mesDestino.split('-');
+  const year = Number(yearRaw);
+  const monthIndex = Number(monthRaw) - 1;
+  const day = Math.min(inicioOriginal.getDate(), new Date(year, monthIndex + 1, 0).getDate());
+  const inicioDestino = new Date(year, monthIndex, day);
+
+  return {
+    inicio: fechaToInput(inicioDestino),
+    fin: fechaToInput(addDays(inicioDestino, duracionDias))
+  };
+}
+
+function actualizarPreviewDuplicarMes(): void {
+  const lote = loteDuplicarMesId
+    ? StorageDB.getLotes().find((item) => item.id === loteDuplicarMesId)
+    : undefined;
+
+  if (!lote || !duplicarMesInput.value) {
+    duplicarMesPreview.innerHTML = '';
+    return;
+  }
+
+  const rango = getRangoDuplicadoMes(lote, duplicarMesInput.value);
+
+  duplicarMesPreview.innerHTML = `
+    <strong>${escapeHtml(lote.nombre)} - ${escapeHtml(duplicarMesInput.value)}</strong>
+    <span>Mes original: ${escapeHtml(fechaToMonthInput(parseFecha(lote.fechaInicio)))}</span>
+    <span>Mes destino: ${escapeHtml(duplicarMesInput.value)}</span>
+    <span>Nuevo rango: ${escapeHtml(formatFecha(rango.inicio))} - ${escapeHtml(formatFecha(rango.fin))}</span>
+    <span>Horario: ${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</span>
+  `;
+}
+
+function abrirDuplicarMes(lote: LoteExposicion): void {
+  loteDuplicarMesId = lote.id;
+  const mesSugerido = fechaToMonthInput(addMonths(parseFecha(lote.fechaInicio), 1));
+  duplicarMesInput.value = mesSugerido;
+  duplicarMesDetalle.textContent = `Vas a duplicar "${lote.nombre}". Elige el mes al que quieres mover la copia.`;
+  duplicarMesMensaje.textContent = '';
+  actualizarPreviewDuplicarMes();
+  modalDuplicarMes.showModal();
+}
+
+function cerrarDuplicarMes(): void {
+  loteDuplicarMesId = null;
+  modalDuplicarMes.close();
+}
+
+function confirmarDuplicarMes(): void {
+  const lote = loteDuplicarMesId
+    ? StorageDB.getLotes().find((item) => item.id === loteDuplicarMesId)
+    : undefined;
+
+  if (!lote) {
+    duplicarMesMensaje.textContent = 'No se encontro el lote a duplicar.';
+    duplicarMesMensaje.dataset.tone = 'error';
+    return;
+  }
+
+  const rango = getRangoDuplicadoMes(lote, duplicarMesInput.value);
+  const copia: LoteExposicion = {
+    ...lote,
+    id: crearId(),
+    nombre: `${lote.nombre} - ${duplicarMesInput.value}`,
+    fechaInicio: rango.inicio,
+    fechaFin: rango.fin,
+    estado: 'borrador',
+    creadoEn: Date.now()
+  };
+
+  StorageDB.agregarLote(copia);
+  loteMenuAbiertoId = null;
+  renderLotes();
+  duplicarMesMensaje.textContent = 'Copia mensual creada como borrador.';
+  duplicarMesMensaje.dataset.tone = 'success';
+
+  window.setTimeout(() => {
+    cerrarDuplicarMes();
+  }, 700);
+}
+
 function prepararFechaUsuario(): void {
+  const hoy = fechaToInput(new Date());
   const disponibles = StorageDB.getTurnos()
     .map((turno) => turno.dia)
+    .filter((dia) => dia >= hoy)
     .filter((dia, index, array) => array.indexOf(dia) === index)
     .toSorted();
 
-  if (!disponibles.includes(fechaUsuarioSeleccionada)) {
-    fechaUsuarioSeleccionada = disponibles.find((dia) => dia >= fechaToInput(new Date())) ?? disponibles[0] ?? fechaToInput(new Date());
+  if (fechaUsuarioSeleccionada < hoy || !disponibles.includes(fechaUsuarioSeleccionada)) {
+    fechaUsuarioSeleccionada = disponibles[0] ?? hoy;
   }
+
+  semanaUsuarioInicio = startOfWeekMonday(parseFecha(fechaUsuarioSeleccionada));
 }
 
 function getOcupacion(turno: Turno): number {
@@ -626,14 +997,18 @@ function getOcupacion(turno: Turno): number {
 }
 
 function renderUsuario(): void {
-  const fechas = Array.from({ length: 5 }, (_, index) => addDays(parseFecha(fechaUsuarioSeleccionada), index));
+  const hoy = fechaToInput(new Date());
+  const perfil = StorageDB.getPerfilAdorador();
+  const fechas = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index))
+    .filter((date) => fechaToInput(date) >= hoy);
   const turnosDia = StorageDB.getTurnos()
-    .filter((turno) => turno.dia === fechaUsuarioSeleccionada)
+    .filter((turno) => turno.dia === fechaUsuarioSeleccionada && turno.dia >= hoy)
     .toSorted((a, b) => a.horaInicio.localeCompare(b.horaInicio));
 
-  usuarioDias.innerHTML = fechas.map((date, index) => {
+  usuarioDias.innerHTML = fechas.map((date) => {
     const key = fechaToInput(date);
-    const label = index === 0 ? 'HOY' : new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '').toUpperCase();
+    const hoy = key === fechaToInput(new Date());
+    const label = hoy ? 'HOY' : new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '').toUpperCase();
 
     return `
       <button class="day-card ${key === fechaUsuarioSeleccionada ? 'is-active' : ''}" type="button" data-dia="${key}">
@@ -644,6 +1019,7 @@ function renderUsuario(): void {
     `;
   }).join('');
 
+  usuarioSemanaLabel.textContent = formatRangoSemana(semanaUsuarioInicio);
   usuarioDiaLabel.textContent = formatDia(fechaUsuarioSeleccionada);
 
   if (turnosDia.length === 0) {
@@ -660,16 +1036,19 @@ function renderUsuario(): void {
     const ocupacion = getOcupacion(turno);
     const completo = turno.plazasDisponibles === 0;
     const libre = turno.plazasDisponibles === turno.plazasTotales;
+    const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
     const estado = completo ? 'Cubierto' : libre ? 'Libre' : 'Parcialmente Cubierto';
-    const helper = completo
-      ? `${turno.inscritos.length} Adoradores`
+    const helper = propio
+      ? 'Estas inscrito en este turno'
+      : completo
+        ? `${turno.inscritos.length} Adoradores`
       : libre
         ? 'Se necesita custodio'
         : `${turno.plazasTotales - turno.plazasDisponibles} Adorador`;
 
     return `
       ${index === 4 ? '<div class="period-separator"><span></span><strong>TARDE</strong><span></span></div>' : ''}
-      <article class="slot-card ${completo ? 'is-covered' : libre ? 'is-free' : 'is-partial'}">
+      <article class="slot-card ${completo ? 'is-covered' : libre ? 'is-free' : 'is-partial'} ${propio ? 'is-mine' : ''}">
         <div class="slot-time">
           <strong>${escapeHtml(turno.horaInicio)}</strong>
           <span></span>
@@ -680,13 +1059,223 @@ function renderUsuario(): void {
           <p>${escapeHtml(helper)}</p>
           <div class="slot-progress"><span style="width: ${ocupacion}%"></span></div>
         </div>
-        ${completo
-          ? '<span class="check-mark" aria-hidden="true">✓</span>'
+        ${propio || completo
+          ? `<span class="check-mark" aria-hidden="true">${propio ? 'Yo' : '✓'}</span>`
           : `<button class="button button-primary" type="button" data-action="inscribir" data-id="${turno.id}">${libre ? 'Cubrir este turno' : 'Unirme'}</button>`
         }
       </article>
     `;
   }).join('');
+}
+
+function getTurnosEquivalentes(turnoBase: Turno): Turno[] {
+  const hoy = fechaToInput(new Date());
+  const tipo = getModalValue('tipo-anotacion');
+  const repeticion = getModalValue('repeticion');
+  const turnos = StorageDB.getTurnos().filter((turno) => {
+    const mismaHora = turno.horaInicio === turnoBase.horaInicio && turno.horaFin === turnoBase.horaFin;
+
+    if (!mismaHora || turno.dia < hoy) {
+      return false;
+    }
+
+    if (tipo === 'puntual') {
+      return turno.id === turnoBase.id;
+    }
+
+    const enRango = turno.dia >= modalFechaInicio.value && turno.dia <= modalFechaFin.value;
+
+    if (!enRango) {
+      return false;
+    }
+
+    if (repeticion === 'semanal') {
+      return getWeekdayIso(parseFecha(turno.dia)) === getWeekdayIso(parseFecha(turnoBase.dia));
+    }
+
+    if (repeticion === 'mensual') {
+      return parseFecha(turno.dia).getDate() === parseFecha(turnoBase.dia).getDate();
+    }
+
+    return false;
+  });
+
+  return turnos.toSorted((a, b) => {
+    const byDate = a.dia.localeCompare(b.dia);
+    return byDate !== 0 ? byDate : a.horaInicio.localeCompare(b.horaInicio);
+  });
+}
+
+function getModalValue(name: string): string {
+  const selected = formInscripcionModal.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`);
+  return selected?.value ?? '';
+}
+
+function setModalMessage(message: string, tone: 'info' | 'success' | 'error' = 'info'): void {
+  modalMensaje.textContent = message;
+  modalMensaje.dataset.tone = tone;
+}
+
+function abrirModalInscripcion(idTurno: string): void {
+  const turno = StorageDB.getTurnos().find((item) => item.id === idTurno);
+
+  if (!turno) {
+    return;
+  }
+
+  const perfil = StorageDB.getPerfilAdorador();
+
+  if (!perfil) {
+    mostrarVista('registro-adorador');
+    return;
+  }
+
+  turnoModalId = idTurno;
+  formInscripcionModal.reset();
+  modalFechaInicio.value = turno.dia;
+  modalFechaFin.value = fechaToInput(addMonths(parseFecha(turno.dia), 3));
+  modalTurnoTitle.textContent = `${turno.horaInicio} - ${turno.horaFin}`;
+  modalTurnoDetail.textContent = `${formatFecha(turno.dia)} · ${turno.plazasDisponibles}/${turno.plazasTotales} plazas libres`;
+  modalPerfilResumen.innerHTML = `
+    <strong>Perfil local</strong>
+    <span>${escapeHtml(getNombrePrivado(perfil.nombreCompleto))}</span>
+    <small>Tu identidad completa se usa solo para registrar el compromiso en este dispositivo.</small>
+  `;
+
+  setModalMessage('', 'info');
+  setModalPaso('tipo');
+  modalInscripcion.showModal();
+}
+
+function cerrarModalInscripcion(): void {
+  turnoModalId = null;
+  modalInscripcion.close();
+}
+
+function setModalPaso(paso: ModalInscripcionPaso): void {
+  modalInscripcionPaso = paso;
+  modalPasoTipo.hidden = paso !== 'tipo';
+  modalPasoPeriodica.hidden = paso !== 'periodica';
+  modalPasoConfirmacion.hidden = paso !== 'confirmacion';
+  modalBtnAtras.hidden = paso === 'tipo';
+  modalBtnSiguiente.hidden = paso === 'confirmacion';
+  modalBtnConfirmar.hidden = paso !== 'confirmacion';
+
+  if (paso === 'tipo') {
+    modalTurnoTitle.textContent = 'Tipo de anotacion';
+    modalTurnoDetail.textContent = 'Indica si quieres apuntarte solo a este turno o crear una anotacion periodica.';
+  }
+
+  if (paso === 'periodica') {
+    modalTurnoTitle.textContent = 'Repetir';
+    modalTurnoDetail.textContent = 'Elige la frecuencia y el rango de fechas para buscar turnos equivalentes.';
+  }
+
+  if (paso === 'confirmacion') {
+    actualizarResumenInscripcion();
+  }
+}
+
+function avanzarModalInscripcion(): void {
+  const tipo = getModalValue('tipo-anotacion');
+
+  if (modalInscripcionPaso === 'tipo') {
+    setModalPaso(tipo === 'periodica' ? 'periodica' : 'confirmacion');
+    return;
+  }
+
+  if (modalInscripcionPaso === 'periodica') {
+    if (parseFecha(modalFechaInicio.value) > parseFecha(modalFechaFin.value)) {
+      setModalMessage('La fecha final debe ser posterior a la fecha inicial.', 'error');
+      return;
+    }
+
+    setModalMessage('', 'info');
+    setModalPaso('confirmacion');
+  }
+}
+
+function retrocederModalInscripcion(): void {
+  if (modalInscripcionPaso === 'confirmacion') {
+    setModalPaso(getModalValue('tipo-anotacion') === 'periodica' ? 'periodica' : 'tipo');
+    return;
+  }
+
+  setModalPaso('tipo');
+}
+
+function actualizarResumenInscripcion(): void {
+  const turnoBase = turnoModalId ? StorageDB.getTurnos().find((turno) => turno.id === turnoModalId) : undefined;
+
+  if (!turnoBase) {
+    return;
+  }
+
+  const tipo = getModalValue('tipo-anotacion');
+  const repeticion = getModalValue('repeticion');
+  const turnos = getTurnosEquivalentes(turnoBase);
+  const rango = tipo === 'periodica'
+    ? `${formatFecha(modalFechaInicio.value)} - ${formatFecha(modalFechaFin.value)}`
+    : formatFecha(turnoBase.dia);
+
+  modalTurnoTitle.textContent = 'Confirmar anotacion';
+  modalTurnoDetail.textContent = tipo === 'periodica'
+    ? `Se han encontrado ${turnos.length} turno(s) equivalentes.`
+    : 'Vas a apuntarte al turno seleccionado.';
+  modalResumenInscripcion.innerHTML = `
+    <strong>${tipo === 'periodica' ? 'Anotacion periodica' : 'Anotacion puntual'}</strong>
+    <span>Turno: ${escapeHtml(turnoBase.horaInicio)} - ${escapeHtml(turnoBase.horaFin)}</span>
+    <span>Fecha(s): ${escapeHtml(rango)}</span>
+    ${tipo === 'periodica' ? `<span>Repetir: ${repeticion === 'mensual' ? '1 vez al mes' : '1 vez a la semana'}</span>` : ''}
+    <span>Compromisos a crear: ${turnos.length}</span>
+  `;
+}
+
+function inscribirDesdeModal(): void {
+  if (!turnoModalId) {
+    return;
+  }
+
+  const turnoBase = StorageDB.getTurnos().find((turno) => turno.id === turnoModalId);
+
+  if (!turnoBase) {
+    setModalMessage('El turno seleccionado ya no existe.', 'error');
+    return;
+  }
+
+  const perfil = StorageDB.getPerfilAdorador();
+
+  if (!perfil) {
+    cerrarModalInscripcion();
+    mostrarVista('registro-adorador');
+    return;
+  }
+
+  const turnos = getTurnosEquivalentes(turnoBase);
+
+  if (turnos.length === 0) {
+    setModalMessage('No hay turnos equivalentes disponibles con esos criterios.', 'error');
+    return;
+  }
+
+  let inscritos = 0;
+  let omitidos = 0;
+
+  for (const turno of turnos) {
+    try {
+      StorageDB.inscribirUsuario(turno.id, perfil.nombreCompleto);
+      inscritos += 1;
+    } catch {
+      omitidos += 1;
+    }
+  }
+
+  renderUsuario();
+  setModalMessage(`Inscripcion completada en ${inscritos} turno(s). ${omitidos > 0 ? `${omitidos} turno(s) omitidos por falta de plazas o duplicado.` : ''}`, 'success');
+
+  window.setTimeout(() => {
+    cerrarModalInscripcion();
+  }, 900);
 }
 
 document.addEventListener('click', (event) => {
@@ -704,7 +1293,7 @@ document.addEventListener('click', (event) => {
   }
 
   if (target.closest('#btn-usuario')) {
-    mostrarVista('usuario');
+    mostrarVista(StorageDB.getPerfilAdorador() ? 'usuario' : 'registro-adorador');
     return;
   }
 
@@ -713,7 +1302,56 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  const loteAction = target.closest<HTMLButtonElement>('[data-action="editar-lote"], [data-action="eliminar-lote"]');
+  if (target.closest('[data-action="cerrar-modal"]')) {
+    cerrarModalInscripcion();
+    return;
+  }
+
+  if (target.closest('[data-action="modal-siguiente"]')) {
+    avanzarModalInscripcion();
+    return;
+  }
+
+  if (target.closest('[data-action="modal-atras"]')) {
+    retrocederModalInscripcion();
+    return;
+  }
+
+  if (target.closest('[data-action="cerrar-duplicar-mes"]')) {
+    cerrarDuplicarMes();
+    return;
+  }
+
+  if (target.closest('[data-action="semana-prev"]')) {
+    const hoy = new Date();
+    const semanaAnterior = addDays(semanaUsuarioInicio, -7);
+    semanaUsuarioInicio = addDays(semanaAnterior, 6) < hoy ? startOfWeekMonday(hoy) : semanaAnterior;
+    fechaUsuarioSeleccionada = fechaToInput(semanaUsuarioInicio);
+    if (fechaUsuarioSeleccionada < fechaToInput(hoy)) {
+      fechaUsuarioSeleccionada = fechaToInput(hoy);
+    }
+    renderUsuario();
+    return;
+  }
+
+  if (target.closest('[data-action="semana-next"]')) {
+    semanaUsuarioInicio = addDays(semanaUsuarioInicio, 7);
+    fechaUsuarioSeleccionada = fechaToInput(semanaUsuarioInicio);
+    renderUsuario();
+    return;
+  }
+
+  const toggleLoteMenu = target.closest<HTMLButtonElement>('[data-action="toggle-lote-menu"]');
+
+  if (toggleLoteMenu?.dataset.id) {
+    loteMenuAbiertoId = loteMenuAbiertoId === toggleLoteMenu.dataset.id ? null : toggleLoteMenu.dataset.id;
+    renderLotes();
+    return;
+  }
+
+  const loteAction = target.closest<HTMLButtonElement>(
+    '[data-action="editar-lote"], [data-action="duplicar-lote"], [data-action="duplicar-lote-mes"], [data-action="eliminar-lote"]'
+  );
 
   if (loteAction) {
     const id = loteAction.dataset.id;
@@ -724,11 +1362,26 @@ document.addEventListener('click', (event) => {
     }
 
     if (loteAction.dataset.action === 'editar-lote') {
+      loteMenuAbiertoId = null;
       abrirConfig(lote);
       return;
     }
 
+    if (loteAction.dataset.action === 'duplicar-lote') {
+      loteMenuAbiertoId = null;
+      duplicarLote(lote);
+      return;
+    }
+
+    if (loteAction.dataset.action === 'duplicar-lote-mes') {
+      loteMenuAbiertoId = null;
+      renderLotes();
+      abrirDuplicarMes(lote);
+      return;
+    }
+
     if (confirm('¿Eliminar este lote? Los turnos ya generados se mantendran.')) {
+      loteMenuAbiertoId = null;
       StorageDB.eliminarLote(id);
       renderLotes();
     }
@@ -740,6 +1393,7 @@ document.addEventListener('click', (event) => {
 
   if (diaButton?.dataset.dia) {
     fechaUsuarioSeleccionada = diaButton.dataset.dia;
+    semanaUsuarioInicio = startOfWeekMonday(parseFecha(fechaUsuarioSeleccionada));
     renderUsuario();
     return;
   }
@@ -747,20 +1401,151 @@ document.addEventListener('click', (event) => {
   const inscribirButton = target.closest<HTMLButtonElement>('[data-action="inscribir"]');
 
   if (inscribirButton?.dataset.id) {
-    const nombre = prompt('Nombre y apellidos del adorador');
-
-    if (!nombre?.trim()) {
-      return;
-    }
-
-    try {
-      StorageDB.inscribirUsuario(inscribirButton.dataset.id, nombre.trim());
-      alert('Inscripcion realizada correctamente.');
-      renderUsuario();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'No se pudo completar la inscripcion.');
-    }
+    abrirModalInscripcion(inscribirButton.dataset.id);
+    return;
   }
+
+  if (!target.closest('.lote-actions') && loteMenuAbiertoId) {
+    loteMenuAbiertoId = null;
+    renderLotes();
+  }
+});
+
+formInscripcionModal.addEventListener('submit', (event) => {
+  event.preventDefault();
+  inscribirDesdeModal();
+});
+
+formInscripcionModal.addEventListener('change', (event) => {
+  const input = event.target as HTMLInputElement;
+
+  if (input.name === 'tipo-anotacion' || input.name === 'repeticion') {
+    setModalMessage('', 'info');
+  }
+});
+
+[modalFechaInicio, modalFechaFin].forEach((input) => {
+  input.addEventListener('input', () => setModalMessage('', 'info'));
+});
+
+formRegistroAdorador.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  if (!validarRegistroAdorador(true)) {
+    return;
+  }
+
+  const nombre = limpiarTextoRegistro(registroNombre.value);
+  const apellidos = limpiarTextoRegistro(registroApellidos.value);
+  const email = registroEmail.value.trim().toLowerCase();
+  const telefono = limpiarTelefono(registroTelefono.value);
+
+  StorageDB.savePerfilAdorador(crearPerfilAdorador(`${nombre} ${apellidos}`, {
+    nombre,
+    apellidos,
+    email,
+    telefono
+  }));
+
+  mostrarVista('usuario');
+});
+
+function limpiarTextoRegistro(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function limpiarTelefono(value: string): string {
+  return value.trim().replace(/[^\d+]/g, '');
+}
+
+function esEmailValido(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function esTelefonoValido(value: string): boolean {
+  const digits = value.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+function setRegistroFieldState(input: HTMLInputElement, isValid: boolean, showErrors: boolean): void {
+  const shouldShowError = showErrors && !isValid;
+  input.setAttribute('aria-invalid', String(shouldShowError));
+  input.closest('.registro-field')?.classList.toggle('has-error', shouldShowError);
+}
+
+function validarRegistroAdorador(showErrors: boolean): boolean {
+  const nombreValido = limpiarTextoRegistro(registroNombre.value).length >= 2;
+  const apellidosValido = limpiarTextoRegistro(registroApellidos.value).length >= 2;
+  const emailValido = esEmailValido(registroEmail.value);
+  const telefonoValido = esTelefonoValido(registroTelefono.value);
+  const esValido = nombreValido && apellidosValido && emailValido && telefonoValido;
+
+  setRegistroFieldState(registroNombre, nombreValido, showErrors);
+  setRegistroFieldState(registroApellidos, apellidosValido, showErrors);
+  setRegistroFieldState(registroEmail, emailValido, showErrors);
+  setRegistroFieldState(registroTelefono, telefonoValido, showErrors);
+
+  registroSubmit.disabled = !esValido;
+
+  if (!showErrors || esValido) {
+    registroMensaje.textContent = '';
+    registroMensaje.dataset.tone = '';
+    return esValido;
+  }
+
+  if (!nombreValido) {
+    registroMensaje.textContent = 'Indica tu nombre para continuar.';
+  } else if (!apellidosValido) {
+    registroMensaje.textContent = 'Indica tus apellidos para identificar correctamente el compromiso.';
+  } else if (!emailValido) {
+    registroMensaje.textContent = 'Revisa el correo electronico.';
+  } else {
+    registroMensaje.textContent = 'Revisa el telefono. Debe tener entre 7 y 15 digitos.';
+  }
+
+  registroMensaje.dataset.tone = 'error';
+  return false;
+}
+
+function rellenarRegistroSiExiste(): void {
+  const perfil = StorageDB.getPerfilAdorador();
+
+  if (!perfil) {
+    validarRegistroAdorador(false);
+    return;
+  }
+
+  registroNombre.value = perfil.nombre || perfil.nombreCompleto.split(' ')[0] || '';
+  registroApellidos.value = perfil.apellidos || perfil.nombreCompleto.split(' ').slice(1).join(' ');
+  registroEmail.value = perfil.email;
+  registroTelefono.value = perfil.telefono;
+  validarRegistroAdorador(false);
+}
+
+[registroNombre, registroApellidos, registroEmail, registroTelefono].forEach((input) => {
+  input.addEventListener('input', () => validarRegistroAdorador(false));
+  input.addEventListener('blur', () => {
+    if (input === registroNombre || input === registroApellidos) {
+      input.value = limpiarTextoRegistro(input.value);
+    }
+
+    if (input === registroEmail) {
+      input.value = input.value.trim().toLowerCase();
+    }
+
+    if (input === registroTelefono) {
+      input.value = limpiarTelefono(input.value);
+    }
+
+    validarRegistroAdorador(input.value.trim().length > 0);
+  });
+});
+
+duplicarMesInput.addEventListener('input', actualizarPreviewDuplicarMes);
+
+formDuplicarMes.addEventListener('submit', (event) => {
+  event.preventDefault();
+  confirmarDuplicarMes();
 });
 
 buscarLote.addEventListener('input', () => {
