@@ -172,7 +172,7 @@ app.innerHTML = `
       <header class="mobile-topbar user-topbar">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span class="brand-icon" aria-hidden="true">⌂</span>
+          <span class="user-title-mark" aria-hidden="true">†</span>
           <span>Adoraci&oacute;n Eucar&iacute;stica</span>
         </button>
         <div class="avatar" aria-hidden="true"></div>
@@ -180,7 +180,7 @@ app.innerHTML = `
 
       <div class="screen-content user-content">
         <section class="hero-adoracion" aria-label="Invitacion a la adoracion">
-          <span class="hero-symbol" aria-hidden="true">✦</span>
+          <span class="hero-symbol" aria-hidden="true">†</span>
           <div>
             <strong>&quot;&iquest;No hab&eacute;is podido velar una hora conmigo?&quot;</strong>
             <p>Elige un hueco y confirma tu presencia.</p>
@@ -190,26 +190,22 @@ app.innerHTML = `
         <section class="booking-controls" aria-label="Controles de reserva">
           <div class="booking-heading">
             <div>
-              <!-- <p class="booking-kicker">Reserva de turnos</p> --> 
               <h1>Turnos disponibles</h1> 
-              <!-- <p id="usuario-dia-label" class="soft-pill">Hoy</p> -->
               <p id="usuario-semana-label" class="week-range">Semana actual</p>
             </div>
-            <div class="view-toggle" role="group" aria-label="Cambiar vista de turnos">
-              <button class="is-active" type="button" data-action="vista-turnos" data-mode="diaria" aria-pressed="true">D&iacute;a</button>
-              <button type="button" data-action="vista-turnos" data-mode="semanal" aria-pressed="false">Semana</button>
+            <div class="booking-actions">
+              <p id="usuario-dia-label" class="soft-pill">Vista semanal</p>
+              <div class="view-toggle" role="group" aria-label="Cambiar vista de turnos">
+                <button class="is-active" type="button" data-action="vista-turnos" data-mode="diaria" aria-pressed="true">D&iacute;a</button>
+                <button type="button" data-action="vista-turnos" data-mode="semanal" aria-pressed="false">Semana</button>
+              </div>
+              <div class="week-actions" aria-label="Navegacion semanal">
+                <button class="icon-round" type="button" data-action="semana-prev" aria-label="Semana anterior">‹</button>
+                <button class="icon-round" type="button" data-action="semana-next" aria-label="Semana siguiente">›</button>
+              </div>
             </div>
           </div>
 
-          <div class="week-heading">
-            <div>
-              <!-- <h2 class="warm-title">Selecciona un d&iacute;a</h2> -->
-            </div>
-            <div class="week-actions" aria-label="Navegacion semanal">
-              <button class="icon-round" type="button" data-action="semana-prev" aria-label="Semana anterior">‹</button>
-              <button class="icon-round" type="button" data-action="semana-next" aria-label="Semana siguiente">›</button>
-            </div>
-          </div>
           <div id="usuario-dias" class="day-strip" aria-label="Dias disponibles"></div>
         </section>
 
@@ -527,7 +523,7 @@ const loteFiltros = getElement<HTMLDivElement>('#lote-filtros');
 const lotesLista = getElement<HTMLDivElement>('#lotes-lista');
 const usuarioDias = getElement<HTMLDivElement>('#usuario-dias');
 const usuarioTurnos = getElement<HTMLDivElement>('#usuario-turnos');
-// const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
+const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
 const usuarioSemanaLabel = getElement<HTMLParagraphElement>('#usuario-semana-label');
 const modalInscripcion = getElement<HTMLDialogElement>('#modal-inscripcion');
 const formInscripcionModal = getElement<HTMLFormElement>('#form-inscripcion-modal');
@@ -1638,15 +1634,19 @@ function agruparTurnosCalendario(turnos: Turno[]): TurnoCalendario[] {
   return [...grupos.values()];
 }
 
-function getEstadoDiaCalendario(dia: string, turnos: TurnoCalendario[], bloqueos: BloqueoCalendario[]): 'disponible' | 'bloqueado' | 'vacio' {
+function getEstadoDiaCalendario(dia: string, turnos: TurnoCalendario[], bloqueos: BloqueoCalendario[]): 'disponible' | 'completo' | 'sin-exposicion' | 'vacio' {
   const turnosDia = turnos.filter((turno) => turno.dia === dia);
 
   if (turnosDia.some((turno) => turno.plazasDisponibles > 0)) {
     return 'disponible';
   }
 
-  if (turnosDia.length > 0 || bloqueos.some((bloqueo) => bloqueo.dia === dia)) {
-    return 'bloqueado';
+  if (turnosDia.length > 0) {
+    return 'completo';
+  }
+
+  if (bloqueos.some((bloqueo) => bloqueo.dia === dia)) {
+    return 'sin-exposicion';
   }
 
   return 'vacio';
@@ -1726,11 +1726,12 @@ function renderUsuario(): void {
     const hoy = key === fechaToInput(new Date());
     const label = hoy ? 'HOY' : new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '').toUpperCase();
     const estado = getEstadoDiaCalendario(key, turnosSemana, bloqueosSemana);
-    const estadoTexto = estado === 'disponible'
-      ? 'Disponible'
-      : estado === 'bloqueado'
-        ? 'Sin plazas o sin exposicion'
-        : 'Sin turnos';
+    const estadoTexto = {
+      disponible: 'Libre',
+      completo: 'Completo',
+      'sin-exposicion': 'Sin exposicion',
+      vacio: 'Sin turnos'
+    }[estado];
 
     return `
       <button class="day-card is-${estado} ${key === fechaUsuarioSeleccionada ? 'is-active' : ''}" type="button" data-dia="${key}" aria-label="${escapeHtml(`${label} ${date.getDate()}, ${estadoTexto}`)}">
@@ -1743,7 +1744,7 @@ function renderUsuario(): void {
   }).join('');
 
   usuarioSemanaLabel.textContent = formatRangoSemana(semanaUsuarioInicio);
-  // usuarioDiaLabel.textContent = vistaTurnos === 'diaria' ? 'Vista diaria' : 'Vista semanal';
+  usuarioDiaLabel.textContent = vistaTurnos === 'diaria' ? 'Vista diaria' : 'Vista semanal';
 
   if (turnosSemana.length === 0 && bloqueosSemana.length === 0) {
     usuarioTurnos.innerHTML = `
@@ -1796,7 +1797,7 @@ function renderUsuario(): void {
             const bloqueos = bloqueosSemana.filter((bloqueo) => bloqueo.dia === key && bloqueo.horaInicio === horaInicio && bloqueo.horaFin === horaFin);
 
             if (turnos.length === 0 && bloqueos.length === 0) {
-              return '<div class="calendar-cell is-empty" aria-hidden="true"></div>';
+              return '<div class="calendar-cell is-empty"><span class="empty-slot"><span aria-hidden="true">▣</span><small>Sin turnos</small></span></div>';
             }
 
             return `
@@ -1831,13 +1832,13 @@ function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
 function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | null): string {
   const ocupacion = getOcupacion(turno);
   const completo = turno.plazasDisponibles === 0;
-  const libre = turno.plazasDisponibles === turno.plazasTotales;
+  const disponible = turno.plazasDisponibles > 0;
   const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
-  const estado = propio ? 'Mi turno' : completo ? 'Cubierto' : libre ? 'Libre' : 'Parcial';
+  const estado = propio ? 'Mi turno' : completo ? 'Completo' : 'Libre';
   const plazas = `${turno.plazasDisponibles}/${turno.plazasTotales}`;
 
   return `
-    <article class="calendar-event ${completo ? 'is-covered' : libre ? 'is-free' : 'is-partial'} ${propio ? 'is-mine' : ''}">
+    <article class="calendar-event ${disponible ? 'is-free' : 'is-covered'} ${propio ? 'is-mine' : ''}">
       <div class="calendar-event-top">
         <strong>${escapeHtml(estado)}</strong>
         <span>${escapeHtml(plazas)}</span>
@@ -1846,7 +1847,7 @@ function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | 
       <div class="calendar-progress" aria-hidden="true"><span style="width: ${ocupacion}%"></span></div>
       ${propio || completo
         ? `<span class="calendar-event-status">${propio ? 'Inscrito' : `${turno.inscritos.length} adorador(es)`}</span>`
-        : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">${libre ? 'Cubrir' : 'Unirme'}</button>`
+        : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">Reservar</button>`
       }
     </article>
   `;
