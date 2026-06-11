@@ -190,8 +190,9 @@ app.innerHTML = `
         <section class="booking-controls" aria-label="Controles de reserva">
           <div class="booking-heading">
             <div>
-              <p class="booking-kicker">Reserva de turnos</p>
-              <h1>Turnos disponibles</h1>
+              <!-- <p class="booking-kicker">Reserva de turnos</p> --> 
+              <h1>Turnos disponibles</h1> 
+              <!-- <p id="usuario-dia-label" class="soft-pill">Hoy</p> -->
               <p id="usuario-semana-label" class="week-range">Semana actual</p>
             </div>
             <div class="view-toggle" role="group" aria-label="Cambiar vista de turnos">
@@ -202,8 +203,7 @@ app.innerHTML = `
 
           <div class="week-heading">
             <div>
-              <h2 class="warm-title">Selecciona un d&iacute;a</h2>
-              <span id="usuario-dia-label" class="soft-pill">Hoy</span>
+              <!-- <h2 class="warm-title">Selecciona un d&iacute;a</h2> -->
             </div>
             <div class="week-actions" aria-label="Navegacion semanal">
               <button class="icon-round" type="button" data-action="semana-prev" aria-label="Semana anterior">‹</button>
@@ -527,7 +527,7 @@ const loteFiltros = getElement<HTMLDivElement>('#lote-filtros');
 const lotesLista = getElement<HTMLDivElement>('#lotes-lista');
 const usuarioDias = getElement<HTMLDivElement>('#usuario-dias');
 const usuarioTurnos = getElement<HTMLDivElement>('#usuario-turnos');
-const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
+// const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
 const usuarioSemanaLabel = getElement<HTMLParagraphElement>('#usuario-semana-label');
 const modalInscripcion = getElement<HTMLDialogElement>('#modal-inscripcion');
 const formInscripcionModal = getElement<HTMLFormElement>('#form-inscripcion-modal');
@@ -1743,7 +1743,7 @@ function renderUsuario(): void {
   }).join('');
 
   usuarioSemanaLabel.textContent = formatRangoSemana(semanaUsuarioInicio);
-  usuarioDiaLabel.textContent = vistaTurnos === 'diaria' ? 'Vista diaria' : 'Vista semanal';
+  // usuarioDiaLabel.textContent = vistaTurnos === 'diaria' ? 'Vista diaria' : 'Vista semanal';
 
   if (turnosSemana.length === 0 && bloqueosSemana.length === 0) {
     usuarioTurnos.innerHTML = `
