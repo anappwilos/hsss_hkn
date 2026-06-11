@@ -1,5 +1,6 @@
 export interface Turno {
   id: string;
+  loteId?: string;
   dia: string;
   horaInicio: string;
   horaFin: string;

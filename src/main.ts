@@ -5,6 +5,12 @@ type Vista = 'inicio' | 'admin-login' | 'admin' | 'configuracion' | 'registro-ad
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
 type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
+type BloqueoCalendario = {
+  dia: string;
+  horaInicio: string;
+  horaFin: string;
+  motivo: string;
+};
 
 const app = document.querySelector<HTMLDivElement>('#app');
 const LAST_VIEW_KEY = 'hsss_last_view';
@@ -744,6 +750,47 @@ function getMonthBounds(monthValue: string): { inicio: string; fin: string } {
   };
 }
 
+function getMesesEnRango(fechaInicio: string, fechaFin: string): string[] {
+  const inicio = parseFecha(fechaInicio);
+  const fin = parseFecha(fechaFin);
+  const cursor = new Date(inicio.getFullYear(), inicio.getMonth(), 1);
+  const meses: string[] = [];
+
+  while (cursor <= fin) {
+    meses.push(fechaToMonthInput(cursor));
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return meses;
+}
+
+function getConflictoMensual(lote: LoteExposicion, ignoreId?: string): LoteExposicion | null {
+  const mesesLote = new Set(getMesesEnRango(lote.fechaInicio, lote.fechaFin));
+
+  return StorageDB.getLotes().find((existente) => {
+    if (existente.id === ignoreId) {
+      return false;
+    }
+
+    return getMesesEnRango(existente.fechaInicio, existente.fechaFin).some((mes) => mesesLote.has(mes));
+  }) ?? null;
+}
+
+function assertMesDisponible(lote: LoteExposicion, ignoreId?: string): void {
+  const conflicto = getConflictoMensual(lote, ignoreId);
+
+  if (!conflicto) {
+    return;
+  }
+
+  const meses = getMesesEnRango(lote.fechaInicio, lote.fechaFin)
+    .filter((mes) => getMesesEnRango(conflicto.fechaInicio, conflicto.fechaFin).includes(mes))
+    .map(formatMonthName)
+    .join(', ');
+
+  throw new Error(`Ya existe un lote para ${meses}: "${conflicto.nombre}". Modifica ese lote o elige otro mes.`);
+}
+
 function formatMonthName(monthValue: string): string {
   const [yearRaw, monthRaw] = monthValue.split('-');
   const date = new Date(Number(yearRaw), Number(monthRaw) - 1, 1);
@@ -801,14 +848,6 @@ function formatFecha(value: string): string {
     day: '2-digit',
     month: 'short',
     year: 'numeric'
-  }).format(parseFecha(value));
-}
-
-function formatDia(value: string): string {
-  return new Intl.DateTimeFormat('es-ES', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short'
   }).format(parseFecha(value));
 }
 
@@ -920,6 +959,7 @@ function crearTurnosDesdeLote(lote: LoteExposicion): Turno[] {
 
       turnos.push({
         id: crearId(),
+        loteId: lote.id,
         dia,
         horaInicio,
         horaFin,
@@ -939,10 +979,19 @@ function turnoSolapaInterrupcion(
   horaFin: string,
   interrupciones: InterrupcionLote[]
 ): boolean {
-  const turnoInicio = timeToMinutes(horaInicio);
-  const turnoFin = timeToMinutes(horaFin);
+  return getInterrupcionesSolapadas(dia, horaInicio, horaFin, interrupciones).length > 0;
+}
 
-  return interrupciones.some((interrupcion) => {
+function getInterrupcionesSolapadas(
+  dia: string,
+  horaInicio: string,
+  horaFin: string,
+  interrupciones: InterrupcionLote[]
+): InterrupcionLote[] {
+  const tramoInicio = timeToMinutes(horaInicio);
+  const tramoFin = timeToMinutes(horaFin);
+
+  return interrupciones.filter((interrupcion) => {
     if (dia < interrupcion.fechaInicio || dia > interrupcion.fechaFin) {
       return false;
     }
@@ -954,8 +1003,109 @@ function turnoSolapaInterrupcion(
     const interrupcionInicio = timeToMinutes(interrupcion.horaInicio);
     const interrupcionFin = timeToMinutes(interrupcion.horaFin);
 
-    return turnoInicio < interrupcionFin && turnoFin > interrupcionInicio;
+    return tramoInicio < interrupcionFin && tramoFin > interrupcionInicio;
   });
+}
+
+function getBloqueosCalendario(fechas: Date[]): BloqueoCalendario[] {
+  const hoy = fechaToInput(new Date());
+  const keys = new Set(fechas.map((date) => fechaToInput(date)));
+  const bloqueos: BloqueoCalendario[] = [];
+
+  for (const lote of StorageDB.getLotes()) {
+    if (lote.estado === 'borrador' || !lote.interrupciones?.length) {
+      continue;
+    }
+
+    const inicioMinutos = timeToMinutes(lote.horaInicio);
+    let finMinutos = timeToMinutes(lote.horaFin);
+
+    if (finMinutos <= inicioMinutos) {
+      finMinutos += 1440;
+    }
+
+    for (const date of fechas) {
+      const dia = fechaToInput(date);
+
+      if (!keys.has(dia) || dia < hoy || dia < lote.fechaInicio || dia > lote.fechaFin) {
+        continue;
+      }
+
+      if (!lote.diasSemana.includes(getWeekdayIso(date))) {
+        continue;
+      }
+
+      for (let minuto = inicioMinutos; minuto + lote.turnoMinutos <= finMinutos; minuto += lote.turnoMinutos) {
+        const horaInicio = minutesToTime(minuto);
+        const horaFin = minutesToTime(minuto + lote.turnoMinutos);
+        const interrupciones = getInterrupcionesSolapadas(dia, horaInicio, horaFin, lote.interrupciones);
+
+        if (interrupciones.length === 0) {
+          continue;
+        }
+
+        bloqueos.push({
+          dia,
+          horaInicio,
+          horaFin,
+          motivo: interrupciones.map((interrupcion) => interrupcion.motivo).join(', ')
+        });
+      }
+    }
+  }
+
+  return bloqueos;
+}
+
+function turnoPerteneceAlLote(turno: Turno, lote: LoteExposicion): boolean {
+  if (turno.loteId === lote.id) {
+    return true;
+  }
+
+  if (turno.dia < lote.fechaInicio || turno.dia > lote.fechaFin) {
+    return false;
+  }
+
+  if (!lote.diasSemana.includes(getWeekdayIso(parseFecha(turno.dia)))) {
+    return false;
+  }
+
+  return turno.horaInicio >= lote.horaInicio && turno.horaFin <= lote.horaFin;
+}
+
+function regenerarTurnosDeLote(lote: LoteExposicion, loteAnterior?: LoteExposicion): number {
+  const turnosNuevos = crearTurnosDesdeLote(lote);
+
+  if (turnosNuevos.length === 0) {
+    throw new Error('La configuracion no genera turnos. Revisa fechas, horas y dias.');
+  }
+
+  const anteriores = StorageDB.getTurnos();
+  const loteReferencia = loteAnterior ?? lote;
+  const turnosDelLote = anteriores.filter((turno) => turnoPerteneceAlLote(turno, loteReferencia));
+  const inscritosPorFranja = new Map<string, string[]>();
+
+  for (const turno of turnosDelLote) {
+    inscritosPorFranja.set(`${turno.dia}|${turno.horaInicio}|${turno.horaFin}`, turno.inscritos);
+  }
+
+  const turnosActualizados = turnosNuevos.map((turno) => {
+    const inscritos = (inscritosPorFranja.get(`${turno.dia}|${turno.horaInicio}|${turno.horaFin}`) ?? [])
+      .slice(0, turno.plazasTotales);
+
+    return {
+      ...turno,
+      inscritos,
+      plazasDisponibles: Math.max(0, turno.plazasTotales - inscritos.length)
+    };
+  });
+
+  StorageDB.saveTurnos([
+    ...anteriores.filter((turno) => !turnoPerteneceAlLote(turno, loteReferencia)),
+    ...turnosActualizados
+  ]);
+
+  return turnosActualizados.length;
 }
 
 function crearLoteDesdeFormulario(esBorrador: boolean): LoteExposicion {
@@ -1005,6 +1155,15 @@ function crearLoteDesdeFormulario(esBorrador: boolean): LoteExposicion {
 
 function guardarLote(esBorrador: boolean): void {
   const lote = crearLoteDesdeFormulario(esBorrador);
+  const loteAnterior = loteEditandoId
+    ? StorageDB.getLotes().find((item) => item.id === loteEditandoId)
+    : undefined;
+  assertMesDisponible(lote, loteEditandoId ?? undefined);
+  let turnosCreados = 0;
+
+  if (!esBorrador) {
+    turnosCreados = regenerarTurnosDeLote(lote, loteAnterior);
+  }
 
   if (loteEditandoId) {
     StorageDB.actualizarLote(lote);
@@ -1013,15 +1172,9 @@ function guardarLote(esBorrador: boolean): void {
   }
 
   if (!esBorrador) {
-    const turnos = crearTurnosDesdeLote(lote);
-
-    if (turnos.length === 0) {
-      throw new Error('La configuracion no genera turnos. Revisa fechas, horas y dias.');
-    }
-
-    const actuales = StorageDB.getTurnos();
-    StorageDB.saveTurnos([...actuales, ...turnos]);
-    alert(`Exposicion confirmada. Se crearon ${turnos.length} turnos.`);
+    alert(loteEditandoId
+      ? `Lote modificado. Se actualizaron ${turnosCreados} turnos.`
+      : `Exposicion confirmada. Se crearon ${turnosCreados} turnos.`);
   } else {
     alert('Borrador guardado.');
   }
@@ -1264,26 +1417,12 @@ function renderLotes(): void {
         <button class="dots-button" type="button" data-action="toggle-lote-menu" data-id="${lote.id}" aria-label="Opciones del lote" aria-expanded="${loteMenuAbiertoId === lote.id}">⋮</button>
         <div class="lote-menu ${loteMenuAbiertoId === lote.id ? 'is-open' : ''}">
           <button type="button" data-action="editar-lote" data-id="${lote.id}">Editar</button>
-          <button type="button" data-action="duplicar-lote" data-id="${lote.id}">Duplicar</button>
           <button type="button" data-action="duplicar-lote-mes" data-id="${lote.id}">Duplicar por mes</button>
           <button class="danger" type="button" data-action="eliminar-lote" data-id="${lote.id}">Eliminar</button>
         </div>
       </div>
     </article>
   `).join('');
-}
-
-function duplicarLote(lote: LoteExposicion): void {
-  const copia: LoteExposicion = {
-    ...lote,
-    id: crearId(),
-    nombre: `${lote.nombre} - Copia`,
-    estado: 'borrador',
-    creadoEn: Date.now()
-  };
-
-  StorageDB.agregarLote(copia);
-  renderLotes();
 }
 
 function getRangoDuplicadoMes(lote: LoteExposicion, mesDestino: string): { inicio: string; fin: string } {
@@ -1302,6 +1441,33 @@ function getRangoDuplicadoMes(lote: LoteExposicion, mesDestino: string): { inici
   };
 }
 
+function crearCopiaMensual(lote: LoteExposicion, mesDestino: string): LoteExposicion {
+  const rango = getRangoDuplicadoMes(lote, mesDestino);
+
+  return {
+    ...lote,
+    id: crearId(),
+    nombre: `${lote.nombre} - ${mesDestino}`,
+    fechaInicio: rango.inicio,
+    fechaFin: rango.fin,
+    estado: 'borrador',
+    creadoEn: Date.now()
+  };
+}
+
+function getSiguienteMesDisponible(lote: LoteExposicion): string {
+  for (let offset = 1; offset <= 36; offset += 1) {
+    const mes = fechaToMonthInput(addMonths(parseFecha(lote.fechaInicio), offset));
+    const copia = crearCopiaMensual(lote, mes);
+
+    if (!getConflictoMensual(copia)) {
+      return mes;
+    }
+  }
+
+  return fechaToMonthInput(addMonths(parseFecha(lote.fechaInicio), 1));
+}
+
 function actualizarPreviewDuplicarMes(): void {
   const lote = loteDuplicarMesId
     ? StorageDB.getLotes().find((item) => item.id === loteDuplicarMesId)
@@ -1309,23 +1475,33 @@ function actualizarPreviewDuplicarMes(): void {
 
   if (!lote || !duplicarMesInput.value) {
     duplicarMesPreview.innerHTML = '';
+    duplicarMesMensaje.textContent = '';
     return;
   }
 
-  const rango = getRangoDuplicadoMes(lote, duplicarMesInput.value);
+  const copia = crearCopiaMensual(lote, duplicarMesInput.value);
+  const conflicto = getConflictoMensual(copia);
 
   duplicarMesPreview.innerHTML = `
     <strong>${escapeHtml(lote.nombre)} - ${escapeHtml(duplicarMesInput.value)}</strong>
     <span>Mes original: ${escapeHtml(fechaToMonthInput(parseFecha(lote.fechaInicio)))}</span>
     <span>Mes destino: ${escapeHtml(duplicarMesInput.value)}</span>
-    <span>Nuevo rango: ${escapeHtml(formatFecha(rango.inicio))} - ${escapeHtml(formatFecha(rango.fin))}</span>
+    <span>Nuevo rango: ${escapeHtml(formatFecha(copia.fechaInicio))} - ${escapeHtml(formatFecha(copia.fechaFin))}</span>
     <span>Horario: ${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</span>
   `;
+
+  if (conflicto) {
+    duplicarMesMensaje.textContent = `Ya existe un lote para ese mes: "${conflicto.nombre}".`;
+    duplicarMesMensaje.dataset.tone = 'error';
+  } else {
+    duplicarMesMensaje.textContent = '';
+    duplicarMesMensaje.dataset.tone = '';
+  }
 }
 
 function abrirDuplicarMes(lote: LoteExposicion): void {
   loteDuplicarMesId = lote.id;
-  const mesSugerido = fechaToMonthInput(addMonths(parseFecha(lote.fechaInicio), 1));
+  const mesSugerido = getSiguienteMesDisponible(lote);
   duplicarMesInput.value = mesSugerido;
   duplicarMesDetalle.textContent = `Vas a duplicar "${lote.nombre}". Elige el mes al que quieres mover la copia.`;
   duplicarMesMensaje.textContent = '';
@@ -1349,16 +1525,15 @@ function confirmarDuplicarMes(): void {
     return;
   }
 
-  const rango = getRangoDuplicadoMes(lote, duplicarMesInput.value);
-  const copia: LoteExposicion = {
-    ...lote,
-    id: crearId(),
-    nombre: `${lote.nombre} - ${duplicarMesInput.value}`,
-    fechaInicio: rango.inicio,
-    fechaFin: rango.fin,
-    estado: 'borrador',
-    creadoEn: Date.now()
-  };
+  const copia = crearCopiaMensual(lote, duplicarMesInput.value);
+
+  try {
+    assertMesDisponible(copia);
+  } catch (error) {
+    duplicarMesMensaje.textContent = error instanceof Error ? error.message : 'Ese mes ya tiene un lote.';
+    duplicarMesMensaje.dataset.tone = 'error';
+    return;
+  }
 
   StorageDB.agregarLote(copia);
   loteMenuAbiertoId = null;
@@ -1397,9 +1572,19 @@ function renderUsuario(): void {
   const perfil = StorageDB.getPerfilAdorador();
   const fechas = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index))
     .filter((date) => fechaToInput(date) >= hoy);
-  const turnosDia = StorageDB.getTurnos()
-    .filter((turno) => turno.dia === fechaUsuarioSeleccionada && turno.dia >= hoy)
-    .toSorted((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+  const fechasSemana = new Set(fechas.map((date) => fechaToInput(date)));
+  const turnosSemana = StorageDB.getTurnos()
+    .filter((turno) => fechasSemana.has(turno.dia) && turno.dia >= hoy)
+    .toSorted((a, b) => {
+      const byTime = a.horaInicio.localeCompare(b.horaInicio);
+      return byTime !== 0 ? byTime : a.dia.localeCompare(b.dia);
+    });
+  const bloqueosSemana = getBloqueosCalendario(fechas);
+  const franjas = Array.from(new Set([
+    ...turnosSemana.map((turno) => `${turno.horaInicio}|${turno.horaFin}`),
+    ...bloqueosSemana.map((bloqueo) => `${bloqueo.horaInicio}|${bloqueo.horaFin}`)
+  ]))
+    .toSorted((a, b) => a.localeCompare(b));
 
   usuarioDias.innerHTML = fechas.map((date) => {
     const key = fechaToInput(date);
@@ -1416,9 +1601,9 @@ function renderUsuario(): void {
   }).join('');
 
   usuarioSemanaLabel.textContent = formatRangoSemana(semanaUsuarioInicio);
-  usuarioDiaLabel.textContent = formatDia(fechaUsuarioSeleccionada);
+  usuarioDiaLabel.textContent = 'Vista semanal';
 
-  if (turnosDia.length === 0) {
+  if (turnosSemana.length === 0 && bloqueosSemana.length === 0) {
     usuarioTurnos.innerHTML = `
       <div class="empty-card">
         <h2>No hay turnos publicados</h2>
@@ -1428,40 +1613,88 @@ function renderUsuario(): void {
     return;
   }
 
-  usuarioTurnos.innerHTML = turnosDia.map((turno, index) => {
-    const ocupacion = getOcupacion(turno);
-    const completo = turno.plazasDisponibles === 0;
-    const libre = turno.plazasDisponibles === turno.plazasTotales;
-    const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
-    const estado = completo ? 'Cubierto' : libre ? 'Libre' : 'Parcialmente Cubierto';
-    const helper = propio
-      ? 'Estas inscrito en este turno'
-      : completo
-        ? `${turno.inscritos.length} Adoradores`
-      : libre
-        ? 'Se necesita custodio'
-        : `${turno.plazasTotales - turno.plazasDisponibles} Adorador`;
+  usuarioTurnos.innerHTML = `
+    <div class="calendar-week" style="--calendar-days: ${fechas.length}; --calendar-min-width: ${82 + fechas.length * 152}px;">
+      <div class="calendar-corner" aria-hidden="true"></div>
+      ${fechas.map((date) => {
+        const key = fechaToInput(date);
+        const isToday = key === hoy;
+        const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '');
+        const month = new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(date);
 
-    return `
-      ${index === 4 ? '<div class="period-separator"><span></span><strong>TARDE</strong><span></span></div>' : ''}
-      <article class="slot-card ${completo ? 'is-covered' : libre ? 'is-free' : 'is-partial'} ${propio ? 'is-mine' : ''}">
-        <div class="slot-time">
-          <strong>${escapeHtml(turno.horaInicio)}</strong>
-          <span></span>
-          <small>${escapeHtml(turno.horaFin)}</small>
-        </div>
-        <div class="slot-info">
-          <h3>${estado}</h3>
-          <p>${escapeHtml(helper)}</p>
-          <div class="slot-progress"><span style="width: ${ocupacion}%"></span></div>
-        </div>
-        ${propio || completo
-          ? `<span class="check-mark" aria-hidden="true">${propio ? 'Yo' : '✓'}</span>`
-          : `<button class="button button-primary" type="button" data-action="inscribir" data-id="${turno.id}">${libre ? 'Cubrir este turno' : 'Unirme'}</button>`
-        }
-      </article>
-    `;
-  }).join('');
+        return `
+          <button class="calendar-day-head ${key === fechaUsuarioSeleccionada ? 'is-active' : ''} ${isToday ? 'is-today' : ''}" type="button" data-dia="${key}">
+            <span>${escapeHtml(isToday ? 'Hoy' : weekday)}</span>
+            <strong>${date.getDate()}</strong>
+            <small>${escapeHtml(month)}</small>
+          </button>
+        `;
+      }).join('')}
+      ${franjas.map((franja) => {
+        const [horaInicio, horaFin] = franja.split('|');
+
+        return `
+          <div class="calendar-time">
+            <strong>${escapeHtml(horaInicio)}</strong>
+            <small>${escapeHtml(horaFin)}</small>
+          </div>
+          ${fechas.map((date) => {
+            const key = fechaToInput(date);
+            const turnos = turnosSemana.filter((turno) => turno.dia === key && turno.horaInicio === horaInicio && turno.horaFin === horaFin);
+            const bloqueos = bloqueosSemana.filter((bloqueo) => bloqueo.dia === key && bloqueo.horaInicio === horaInicio && bloqueo.horaFin === horaFin);
+
+            if (turnos.length === 0 && bloqueos.length === 0) {
+              return '<div class="calendar-cell is-empty" aria-hidden="true"></div>';
+            }
+
+            return `
+              <div class="calendar-cell ${key === fechaUsuarioSeleccionada ? 'is-selected-day' : ''}">
+                ${bloqueos.map(renderBloqueoCalendario).join('')}
+                ${turnos.map((turno) => renderTurnoCalendario(turno, perfil)).join('')}
+              </div>
+            `;
+          }).join('')}
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
+  return `
+    <article class="calendar-event calendar-event--blocked">
+      <div class="calendar-event-top">
+        <strong>Sin exposici&oacute;n</strong>
+        <span>Bloqueado</span>
+      </div>
+      <p>${escapeHtml(bloqueo.horaInicio)} - ${escapeHtml(bloqueo.horaFin)}</p>
+      <span class="calendar-event-status">${escapeHtml(bloqueo.motivo || 'Interrupcion')}</span>
+    </article>
+  `;
+}
+
+function renderTurnoCalendario(turno: Turno, perfil: PerfilAdorador | null): string {
+  const ocupacion = getOcupacion(turno);
+  const completo = turno.plazasDisponibles === 0;
+  const libre = turno.plazasDisponibles === turno.plazasTotales;
+  const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
+  const estado = propio ? 'Mi turno' : completo ? 'Cubierto' : libre ? 'Libre' : 'Parcial';
+  const plazas = `${turno.plazasDisponibles}/${turno.plazasTotales}`;
+
+  return `
+    <article class="calendar-event ${completo ? 'is-covered' : libre ? 'is-free' : 'is-partial'} ${propio ? 'is-mine' : ''}">
+      <div class="calendar-event-top">
+        <strong>${escapeHtml(estado)}</strong>
+        <span>${escapeHtml(plazas)}</span>
+      </div>
+      <p>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
+      <div class="calendar-progress" aria-hidden="true"><span style="width: ${ocupacion}%"></span></div>
+      ${propio || completo
+        ? `<span class="calendar-event-status">${propio ? 'Inscrito' : `${turno.inscritos.length} adorador(es)`}</span>`
+        : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">${libre ? 'Cubrir' : 'Unirme'}</button>`
+      }
+    </article>
+  `;
 }
 
 function getTurnosEquivalentes(turnoBase: Turno): Turno[] {
@@ -1793,7 +2026,7 @@ document.addEventListener('click', (event) => {
   }
 
   const loteAction = target.closest<HTMLButtonElement>(
-    '[data-action="editar-lote"], [data-action="duplicar-lote"], [data-action="duplicar-lote-mes"], [data-action="eliminar-lote"]'
+    '[data-action="editar-lote"], [data-action="duplicar-lote-mes"], [data-action="eliminar-lote"]'
   );
 
   if (loteAction) {
@@ -1807,12 +2040,6 @@ document.addEventListener('click', (event) => {
     if (loteAction.dataset.action === 'editar-lote') {
       loteMenuAbiertoId = null;
       abrirConfig(lote);
-      return;
-    }
-
-    if (loteAction.dataset.action === 'duplicar-lote') {
-      loteMenuAbiertoId = null;
-      duplicarLote(lote);
       return;
     }
 
