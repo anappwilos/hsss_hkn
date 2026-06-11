@@ -5,11 +5,22 @@ type Vista = 'inicio' | 'admin-login' | 'admin' | 'configuracion' | 'registro-ad
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
 type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
+type VistaTurnos = 'diaria' | 'semanal';
 type BloqueoCalendario = {
   dia: string;
   horaInicio: string;
   horaFin: string;
   motivo: string;
+};
+type TurnoCalendario = {
+  id: string;
+  dia: string;
+  horaInicio: string;
+  horaFin: string;
+  plazasTotales: number;
+  plazasDisponibles: number;
+  inscritos: string[];
+  turnos: Turno[];
 };
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -41,6 +52,7 @@ let interrupcionesConfig: InterrupcionLote[] = [];
 let interrupcionDiasConfig = new Set<number>([1, 2, 3, 4, 5]);
 let fechaUsuarioSeleccionada = fechaToInput(new Date());
 let semanaUsuarioInicio = startOfWeekMonday(new Date());
+let vistaTurnos: VistaTurnos = 'semanal';
 let turnoModalId: string | null = null;
 let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
 let modalTipoAnotacion: TipoAnotacion = 'puntual';
@@ -166,33 +178,42 @@ app.innerHTML = `
         <div class="avatar" aria-hidden="true"></div>
       </header>
 
-      <div class="screen-content">
-        <section class="hero-adoracion">
+      <div class="screen-content user-content">
+        <section class="hero-adoracion" aria-label="Invitacion a la adoracion">
+          <span class="hero-symbol" aria-hidden="true">✦</span>
           <div>
             <strong>&quot;&iquest;No hab&eacute;is podido velar una hora conmigo?&quot;</strong>
-            <p>Tu presencia es el regalo m&aacute;s grande. Ay&uacute;danos a que el Sant&iacute;simo nunca est&eacute; solo.</p>
+            <p>Elige un hueco y confirma tu presencia.</p>
           </div>
         </section>
 
-        <section>
-          <div class="week-heading">
+        <section class="booking-controls" aria-label="Controles de reserva">
+          <div class="booking-heading">
             <div>
-              <h2 class="warm-title">Selecciona tu d&iacute;a</h2>
+              <p class="booking-kicker">Reserva de turnos</p>
+              <h1>Turnos disponibles</h1>
               <p id="usuario-semana-label" class="week-range">Semana actual</p>
             </div>
-            <div class="week-actions">
+            <div class="view-toggle" role="group" aria-label="Cambiar vista de turnos">
+              <button class="is-active" type="button" data-action="vista-turnos" data-mode="diaria" aria-pressed="true">D&iacute;a</button>
+              <button type="button" data-action="vista-turnos" data-mode="semanal" aria-pressed="false">Semana</button>
+            </div>
+          </div>
+
+          <div class="week-heading">
+            <div>
+              <h2 class="warm-title">Selecciona un d&iacute;a</h2>
+              <span id="usuario-dia-label" class="soft-pill">Hoy</span>
+            </div>
+            <div class="week-actions" aria-label="Navegacion semanal">
               <button class="icon-round" type="button" data-action="semana-prev" aria-label="Semana anterior">‹</button>
               <button class="icon-round" type="button" data-action="semana-next" aria-label="Semana siguiente">›</button>
             </div>
           </div>
-          <div id="usuario-dias" class="day-strip"></div>
+          <div id="usuario-dias" class="day-strip" aria-label="Dias disponibles"></div>
         </section>
 
-        <section>
-          <div class="slots-header">
-            <h2 class="warm-title">Turnos Disponibles</h2>
-            <span id="usuario-dia-label" class="soft-pill">Hoy</span>
-          </div>
+        <section class="turnos-section" aria-label="Turnos disponibles">
           <div id="usuario-turnos" class="slot-list"></div>
         </section>
       </div>
@@ -1561,10 +1582,118 @@ function prepararFechaUsuario(): void {
   semanaUsuarioInicio = startOfWeekMonday(parseFecha(fechaUsuarioSeleccionada));
 }
 
-function getOcupacion(turno: Turno): number {
+function getOcupacion(turno: Pick<Turno, 'plazasTotales' | 'plazasDisponibles'>): number {
   return turno.plazasTotales <= 0
     ? 0
     : Math.round(((turno.plazasTotales - turno.plazasDisponibles) / turno.plazasTotales) * 100);
+}
+
+function agruparTurnosCalendario(turnos: Turno[]): TurnoCalendario[] {
+  const grupos = new Map<string, TurnoCalendario>();
+
+  for (const turno of turnos) {
+    const key = `${turno.dia}|${turno.horaInicio}|${turno.horaFin}`;
+    const grupo = grupos.get(key);
+    const inscritos = grupo?.inscritos ?? [];
+
+    for (const inscrito of turno.inscritos) {
+      if (!inscritos.some((item) => normalizarNombre(item) === normalizarNombre(inscrito))) {
+        inscritos.push(inscrito);
+      }
+    }
+
+    if (grupo) {
+      grupo.plazasTotales += turno.plazasTotales;
+      grupo.plazasDisponibles += turno.plazasDisponibles;
+      grupo.inscritos = inscritos;
+      grupo.turnos.push(turno);
+
+      if (grupo.plazasDisponibles <= 0 && turno.plazasDisponibles > 0) {
+        grupo.id = turno.id;
+      }
+
+      continue;
+    }
+
+    grupos.set(key, {
+      id: turno.id,
+      dia: turno.dia,
+      horaInicio: turno.horaInicio,
+      horaFin: turno.horaFin,
+      plazasTotales: turno.plazasTotales,
+      plazasDisponibles: turno.plazasDisponibles,
+      inscritos,
+      turnos: [turno]
+    });
+  }
+
+  for (const grupo of grupos.values()) {
+    const turnoDisponible = grupo.turnos.find((turno) => turno.plazasDisponibles > 0);
+
+    if (turnoDisponible) {
+      grupo.id = turnoDisponible.id;
+    }
+  }
+
+  return [...grupos.values()];
+}
+
+function getEstadoDiaCalendario(dia: string, turnos: TurnoCalendario[], bloqueos: BloqueoCalendario[]): 'disponible' | 'bloqueado' | 'vacio' {
+  const turnosDia = turnos.filter((turno) => turno.dia === dia);
+
+  if (turnosDia.some((turno) => turno.plazasDisponibles > 0)) {
+    return 'disponible';
+  }
+
+  if (turnosDia.length > 0 || bloqueos.some((bloqueo) => bloqueo.dia === dia)) {
+    return 'bloqueado';
+  }
+
+  return 'vacio';
+}
+
+function renderListaTurnosDia(
+  date: Date,
+  turnos: TurnoCalendario[],
+  bloqueos: BloqueoCalendario[],
+  perfil: PerfilAdorador | null,
+  options: { showHeading: boolean }
+): string {
+  const key = fechaToInput(date);
+  const turnosDia = turnos.filter((turno) => turno.dia === key);
+  const bloqueosDia = bloqueos.filter((bloqueo) => bloqueo.dia === key);
+  const items = [
+    ...bloqueosDia.map((bloqueo) => ({
+      horaInicio: bloqueo.horaInicio,
+      horaFin: bloqueo.horaFin,
+      html: renderBloqueoCalendario(bloqueo)
+    })),
+    ...turnosDia.map((turno) => ({
+      horaInicio: turno.horaInicio,
+      horaFin: turno.horaFin,
+      html: renderTurnoCalendario(turno, perfil)
+    }))
+  ].toSorted((a, b) => {
+    const byStart = a.horaInicio.localeCompare(b.horaInicio);
+    return byStart !== 0 ? byStart : a.horaFin.localeCompare(b.horaFin);
+  });
+
+  const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(date);
+
+  return `
+    <section class="agenda-day ${items.length === 0 ? 'is-empty' : ''}">
+      ${options.showHeading ? `
+        <header class="agenda-day-header">
+          <strong>${escapeHtml(weekday)}</strong>
+          <span>${escapeHtml(formatFecha(key))}</span>
+        </header>
+      ` : ''}
+      ${items.length > 0
+        ? `<div class="agenda-day-list">${items.map((item) => item.html).join('')}</div>`
+        : '<p class="agenda-empty">No hay turnos publicados para este dia.</p>'
+      }
+    </section>
+  `;
 }
 
 function renderUsuario(): void {
@@ -1573,9 +1702,9 @@ function renderUsuario(): void {
   const fechas = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index))
     .filter((date) => fechaToInput(date) >= hoy);
   const fechasSemana = new Set(fechas.map((date) => fechaToInput(date)));
-  const turnosSemana = StorageDB.getTurnos()
+  const turnosSemana = agruparTurnosCalendario(StorageDB.getTurnos()
     .filter((turno) => fechasSemana.has(turno.dia) && turno.dia >= hoy)
-    .toSorted((a, b) => {
+  ).toSorted((a, b) => {
       const byTime = a.horaInicio.localeCompare(b.horaInicio);
       return byTime !== 0 ? byTime : a.dia.localeCompare(b.dia);
     });
@@ -1586,22 +1715,35 @@ function renderUsuario(): void {
   ]))
     .toSorted((a, b) => a.localeCompare(b));
 
+  document.querySelectorAll<HTMLButtonElement>('[data-action="vista-turnos"]').forEach((button) => {
+    const isActive = button.dataset.mode === vistaTurnos;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
   usuarioDias.innerHTML = fechas.map((date) => {
     const key = fechaToInput(date);
     const hoy = key === fechaToInput(new Date());
     const label = hoy ? 'HOY' : new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '').toUpperCase();
+    const estado = getEstadoDiaCalendario(key, turnosSemana, bloqueosSemana);
+    const estadoTexto = estado === 'disponible'
+      ? 'Disponible'
+      : estado === 'bloqueado'
+        ? 'Sin plazas o sin exposicion'
+        : 'Sin turnos';
 
     return `
-      <button class="day-card ${key === fechaUsuarioSeleccionada ? 'is-active' : ''}" type="button" data-dia="${key}">
+      <button class="day-card is-${estado} ${key === fechaUsuarioSeleccionada ? 'is-active' : ''}" type="button" data-dia="${key}" aria-label="${escapeHtml(`${label} ${date.getDate()}, ${estadoTexto}`)}">
         <span>${escapeHtml(label)}</span>
         <strong>${date.getDate()}</strong>
         <small>${new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(date)}</small>
+        <em>${escapeHtml(estadoTexto)}</em>
       </button>
     `;
   }).join('');
 
   usuarioSemanaLabel.textContent = formatRangoSemana(semanaUsuarioInicio);
-  usuarioDiaLabel.textContent = 'Vista semanal';
+  usuarioDiaLabel.textContent = vistaTurnos === 'diaria' ? 'Vista diaria' : 'Vista semanal';
 
   if (turnosSemana.length === 0 && bloqueosSemana.length === 0) {
     usuarioTurnos.innerHTML = `
@@ -1613,8 +1755,18 @@ function renderUsuario(): void {
     return;
   }
 
+  if (vistaTurnos === 'diaria') {
+    const selectedDate = parseFecha(fechaUsuarioSeleccionada);
+    usuarioTurnos.innerHTML = `
+      <div class="agenda-list is-daily">
+        ${renderListaTurnosDia(selectedDate, turnosSemana, bloqueosSemana, perfil, { showHeading: false })}
+      </div>
+    `;
+    return;
+  }
+
   usuarioTurnos.innerHTML = `
-    <div class="calendar-week" style="--calendar-days: ${fechas.length}; --calendar-min-width: ${82 + fechas.length * 152}px;">
+    <div class="calendar-week" style="--calendar-days: ${fechas.length}; --calendar-min-width: ${72 + fechas.length * 136}px;">
       <div class="calendar-corner" aria-hidden="true"></div>
       ${fechas.map((date) => {
         const key = fechaToInput(date);
@@ -1657,6 +1809,9 @@ function renderUsuario(): void {
         `;
       }).join('')}
     </div>
+    <div class="agenda-list is-weekly">
+      ${fechas.map((date) => renderListaTurnosDia(date, turnosSemana, bloqueosSemana, perfil, { showHeading: true })).join('')}
+    </div>
   `;
 }
 
@@ -1673,7 +1828,7 @@ function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
   `;
 }
 
-function renderTurnoCalendario(turno: Turno, perfil: PerfilAdorador | null): string {
+function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | null): string {
   const ocupacion = getOcupacion(turno);
   const completo = turno.plazasDisponibles === 0;
   const libre = turno.plazasDisponibles === turno.plazasTotales;
@@ -2013,6 +2168,14 @@ document.addEventListener('click', (event) => {
   if (target.closest('[data-action="semana-next"]')) {
     semanaUsuarioInicio = addDays(semanaUsuarioInicio, 7);
     fechaUsuarioSeleccionada = fechaToInput(semanaUsuarioInicio);
+    renderUsuario();
+    return;
+  }
+
+  const vistaTurnosButton = target.closest<HTMLButtonElement>('[data-action="vista-turnos"]');
+
+  if (vistaTurnosButton?.dataset.mode) {
+    vistaTurnos = vistaTurnosButton.dataset.mode as VistaTurnos;
     renderUsuario();
     return;
   }
