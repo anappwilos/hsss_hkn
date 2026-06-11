@@ -46,10 +46,141 @@ export interface PerfilAdorador {
   creadoEn: number;
 }
 
+export type SyncStatus = 'idle' | 'syncing' | 'online' | 'offline';
+
+export interface RemoteSnapshot {
+  lotes: LoteExposicion[];
+  turnos: Turno[];
+  updatedAt: number;
+}
+
+type SyncListener = (status: SyncStatus, message: string) => void;
+
 export class StorageDB {
   private static readonly DB_KEY = 'hsss_db';
   private static readonly LOTES_KEY = 'hsss_lotes';
   private static readonly PERFIL_ADORADOR_KEY = 'hsss_perfil_adorador';
+  private static readonly REMOTE_ENABLED = (import.meta.env.VITE_ENABLE_REMOTE_STORAGE ?? String(!import.meta.env.DEV)) !== 'false';
+  private static readonly API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+  private static applyingRemoteSnapshot = false;
+  private static syncQueue: Promise<void> = Promise.resolve();
+  private static syncListeners = new Set<SyncListener>();
+
+  public static subscribeSync(listener: SyncListener): () => void {
+    StorageDB.syncListeners.add(listener);
+    return () => StorageDB.syncListeners.delete(listener);
+  }
+
+  public static async loadRemote(): Promise<boolean> {
+    if (!StorageDB.REMOTE_ENABLED) {
+      StorageDB.emitSync('idle', 'Persistencia remota desactivada.');
+      return false;
+    }
+
+    StorageDB.emitSync('syncing', 'Cargando datos persistentes...');
+
+    try {
+      const response = await fetch(StorageDB.apiUrl('/api/state'), {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Servidor no disponible (${response.status})`);
+      }
+
+      const snapshot = StorageDB.normalizeSnapshot(await response.json());
+      const localSnapshot = StorageDB.getRemoteSnapshot();
+
+      if (!StorageDB.hasRemoteData(snapshot) && StorageDB.hasRemoteData(localSnapshot)) {
+        await StorageDB.saveRemote(localSnapshot);
+        return true;
+      }
+
+      StorageDB.applyRemoteSnapshot(snapshot);
+      StorageDB.emitSync('online', 'Datos sincronizados.');
+      return true;
+    } catch {
+      StorageDB.emitSync('offline', 'Sin conexion con la persistencia remota. Se usaran los datos locales.');
+      return false;
+    }
+  }
+
+  public static queueRemoteSync(): void {
+    if (!StorageDB.REMOTE_ENABLED || StorageDB.applyingRemoteSnapshot) {
+      return;
+    }
+
+    const snapshot = StorageDB.getRemoteSnapshot();
+    StorageDB.emitSync('syncing', 'Guardando cambios...');
+    StorageDB.syncQueue = StorageDB.syncQueue
+      .catch(() => undefined)
+      .then(() => StorageDB.saveRemote(snapshot));
+    void StorageDB.syncQueue.catch(() => undefined);
+  }
+
+  public static getRemoteSnapshot(): RemoteSnapshot {
+    return {
+      lotes: StorageDB.getLotes(),
+      turnos: StorageDB.getTurnos(),
+      updatedAt: Date.now()
+    };
+  }
+
+  private static apiUrl(path: string): string {
+    return `${StorageDB.API_BASE_URL}${path}`;
+  }
+
+  private static emitSync(status: SyncStatus, message: string): void {
+    StorageDB.syncListeners.forEach((listener) => listener(status, message));
+  }
+
+  private static async saveRemote(snapshot: RemoteSnapshot): Promise<void> {
+    try {
+      const response = await fetch(StorageDB.apiUrl('/api/state'), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify(snapshot)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Servidor no disponible (${response.status})`);
+      }
+
+      StorageDB.emitSync('online', 'Cambios guardados.');
+    } catch {
+      StorageDB.emitSync('offline', 'No se pudieron guardar los cambios en Render. Permanecen en este dispositivo.');
+      throw new Error('Remote sync failed');
+    }
+  }
+
+  private static applyRemoteSnapshot(snapshot: RemoteSnapshot): void {
+    StorageDB.applyingRemoteSnapshot = true;
+    StorageDB.saveLotes(snapshot.lotes);
+    StorageDB.saveTurnos(snapshot.turnos);
+    StorageDB.applyingRemoteSnapshot = false;
+  }
+
+  private static normalizeSnapshot(value: unknown): RemoteSnapshot {
+    if (!value || typeof value !== 'object') {
+      return { lotes: [], turnos: [], updatedAt: Date.now() };
+    }
+
+    const snapshot = value as Partial<RemoteSnapshot>;
+
+    return {
+      lotes: Array.isArray(snapshot.lotes) ? snapshot.lotes : [],
+      turnos: Array.isArray(snapshot.turnos) ? snapshot.turnos : [],
+      updatedAt: typeof snapshot.updatedAt === 'number' ? snapshot.updatedAt : Date.now()
+    };
+  }
+
+  private static hasRemoteData(snapshot: RemoteSnapshot): boolean {
+    return snapshot.lotes.length > 0 || snapshot.turnos.length > 0;
+  }
 
   public static getTurnos(): Turno[] {
     const raw = localStorage.getItem(StorageDB.DB_KEY);
@@ -68,6 +199,7 @@ export class StorageDB {
 
   public static saveTurnos(turnos: Turno[]): void {
     localStorage.setItem(StorageDB.DB_KEY, JSON.stringify(turnos));
+    StorageDB.queueRemoteSync();
   }
 
   public static getLotes(): LoteExposicion[] {
@@ -87,6 +219,7 @@ export class StorageDB {
 
   public static saveLotes(lotes: LoteExposicion[]): void {
     localStorage.setItem(StorageDB.LOTES_KEY, JSON.stringify(lotes));
+    StorageDB.queueRemoteSync();
   }
 
   public static getPerfilAdorador(): PerfilAdorador | null {
@@ -192,5 +325,6 @@ export class StorageDB {
     localStorage.removeItem(StorageDB.DB_KEY);
     localStorage.removeItem(StorageDB.LOTES_KEY);
     localStorage.removeItem(StorageDB.PERFIL_ADORADOR_KEY);
+    StorageDB.queueRemoteSync();
   }
 }

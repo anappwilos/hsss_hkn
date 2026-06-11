@@ -1,5 +1,6 @@
 import './style.css';
-import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type Turno } from './storage';
+import { NotificationService, type AppNotification } from './notifications';
+import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno } from './storage';
 
 type Vista = 'inicio' | 'admin-login' | 'admin' | 'configuracion' | 'registro-adorador' | 'usuario';
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
@@ -170,20 +171,26 @@ app.innerHTML = `
 
     <section id="vista-usuario" class="view user-view" style="display: none;">
       <header class="mobile-topbar user-topbar">
-        <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+        <div class="user-topbar-left">
+          <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+          <button class="icon-only home-button" type="button" data-view="inicio" aria-label="Ir al inicio">⌂</button>
+        </div>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span class="user-title-mark" aria-hidden="true">†</span>
+          <span class="user-title-mark" aria-hidden="true">☼</span>
           <span>Adoraci&oacute;n Eucar&iacute;stica</span>
         </button>
-        <div class="avatar" aria-hidden="true"></div>
+        <button id="btn-notificaciones" class="avatar-button notification-button" type="button" aria-label="Activar notificaciones">
+          <span class="avatar" aria-hidden="true">M</span>
+          <span class="avatar-caret" aria-hidden="true">⌄</span>
+        </button>
       </header>
 
       <div class="screen-content user-content">
         <section class="hero-adoracion" aria-label="Invitacion a la adoracion">
-          <span class="hero-symbol" aria-hidden="true">†</span>
-          <div>
-            <strong>&quot;&iquest;No hab&eacute;is podido velar una hora conmigo?&quot;</strong>
-            <p>Elige un hueco y confirma tu presencia.</p>
+          <div class="hero-copy">
+            <h1>Velar una hora juntos</h1>
+            <p>&ldquo;&iquest;No hab&eacute;is podido velar una hora conmigo?&rdquo;</p>
+            <span aria-hidden="true"></span>
           </div>
         </section>
 
@@ -194,7 +201,7 @@ app.innerHTML = `
               <p id="usuario-semana-label" class="week-range">Semana actual</p>
             </div>
             <div class="booking-actions">
-              <p id="usuario-dia-label" class="soft-pill">Vista semanal</p>
+              <span id="usuario-dia-label" class="sr-only">Vista semanal</span>
               <div class="view-toggle" role="group" aria-label="Cambiar vista de turnos">
                 <button class="is-active" type="button" data-action="vista-turnos" data-mode="diaria" aria-pressed="true">D&iacute;a</button>
                 <button type="button" data-action="vista-turnos" data-mode="semanal" aria-pressed="false">Semana</button>
@@ -505,6 +512,8 @@ app.innerHTML = `
       </form>
 
     </section>
+    <div id="sync-status" class="sync-status" role="status" hidden></div>
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-relevant="additions"></div>
   </main>
 `;
 
@@ -525,6 +534,7 @@ const usuarioDias = getElement<HTMLDivElement>('#usuario-dias');
 const usuarioTurnos = getElement<HTMLDivElement>('#usuario-turnos');
 const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
 const usuarioSemanaLabel = getElement<HTMLParagraphElement>('#usuario-semana-label');
+const btnNotificaciones = getElement<HTMLButtonElement>('#btn-notificaciones');
 const modalInscripcion = getElement<HTMLDialogElement>('#modal-inscripcion');
 const formInscripcionModal = getElement<HTMLFormElement>('#form-inscripcion-modal');
 const modalTurnoTitle = getElement<HTMLHeadingElement>('#modal-turno-title');
@@ -577,6 +587,8 @@ const interrupcionHoraFin = getElement<HTMLInputElement>('#interrupcion-hora-fin
 const interrupcionDias = getElement<HTMLDivElement>('#interrupcion-dias');
 const btnAddInterrupcion = getElement<HTMLButtonElement>('#btn-add-interrupcion');
 const interrupcionesLista = getElement<HTMLDivElement>('#interrupciones-lista');
+const syncStatus = getElement<HTMLDivElement>('#sync-status');
+const toastRegion = getElement<HTMLDivElement>('#toast-region');
 
 function getElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -586,6 +598,57 @@ function getElement<T extends Element>(selector: string): T {
   }
 
   return element;
+}
+
+function renderNotificationButton(): void {
+  const isSupported = NotificationService.isSupported();
+  const isEnabled = isSupported && NotificationService.isEnabled();
+  btnNotificaciones.hidden = !isSupported;
+  btnNotificaciones.classList.toggle('is-enabled', isEnabled);
+  btnNotificaciones.innerHTML = '<span class="avatar" aria-hidden="true">M</span><span class="avatar-caret" aria-hidden="true">⌄</span>';
+  btnNotificaciones.setAttribute('aria-label', isEnabled ? 'Notificaciones activas' : 'Activar notificaciones');
+}
+
+async function activarNotificaciones(): Promise<void> {
+  await NotificationService.requestPermission();
+  renderNotificationButton();
+}
+
+function mostrarToast(notification: AppNotification): void {
+  const toast = document.createElement('article');
+  toast.className = `app-toast app-toast--${notification.tone ?? 'info'}`;
+  toast.innerHTML = `
+    <strong>${escapeHtml(notification.title)}</strong>
+    <span>${escapeHtml(notification.message)}</span>
+  `;
+  toastRegion.append(toast);
+  window.setTimeout(() => toast.remove(), 5200);
+}
+
+let syncStatusTimeout = 0;
+
+function actualizarEstadoPersistencia(status: SyncStatus, message: string): void {
+  window.clearTimeout(syncStatusTimeout);
+  syncStatus.hidden = false;
+  syncStatus.textContent = message;
+  syncStatus.dataset.status = status;
+
+  if (status === 'online' || status === 'idle') {
+    syncStatusTimeout = window.setTimeout(() => {
+      syncStatus.hidden = true;
+    }, 2600);
+  }
+}
+
+function refrescarVistaActual(): void {
+  if (vistaActual === 'admin') {
+    renderLotes();
+  }
+
+  if (vistaActual === 'usuario') {
+    prepararFechaUsuario();
+    renderUsuario();
+  }
 }
 
 function isVista(value: string | null): value is Vista {
@@ -649,6 +712,7 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): 
 
   if (nextView === 'usuario') {
     prepararFechaUsuario();
+    renderNotificationButton();
     renderUsuario();
   }
 
@@ -1192,8 +1256,18 @@ function guardarLote(esBorrador: boolean): void {
     alert(loteEditandoId
       ? `Lote modificado. Se actualizaron ${turnosCreados} turnos.`
       : `Exposicion confirmada. Se crearon ${turnosCreados} turnos.`);
+    NotificationService.notify({
+      title: loteEditandoId ? 'Lote actualizado' : 'Exposicion confirmada',
+      message: `Se actualizaron ${turnosCreados} turno(s).`,
+      tone: 'success'
+    });
   } else {
     alert('Borrador guardado.');
+    NotificationService.notify({
+      title: 'Borrador guardado',
+      message: 'El lote queda disponible para completarlo mas tarde.',
+      tone: 'success'
+    });
   }
 
   resetConfig();
@@ -1557,6 +1631,11 @@ function confirmarDuplicarMes(): void {
   renderLotes();
   duplicarMesMensaje.textContent = 'Copia mensual creada como borrador.';
   duplicarMesMensaje.dataset.tone = 'success';
+  NotificationService.notify({
+    title: 'Copia mensual creada',
+    message: 'El nuevo lote se ha guardado como borrador.',
+    tone: 'success'
+  });
 
   window.setTimeout(() => {
     cerrarDuplicarMes();
@@ -1777,9 +1856,7 @@ function renderUsuario(): void {
 
         return `
           <button class="calendar-day-head ${key === fechaUsuarioSeleccionada ? 'is-active' : ''} ${isToday ? 'is-today' : ''}" type="button" data-dia="${key}">
-            <span>${escapeHtml(isToday ? 'Hoy' : weekday)}</span>
-            <strong>${date.getDate()}</strong>
-            <small>${escapeHtml(month)}</small>
+            <span>${escapeHtml(`${isToday ? 'Hoy' : weekday} ${date.getDate()} ${month}`.toUpperCase())}</span>
           </button>
         `;
       }).join('')}
@@ -1797,7 +1874,7 @@ function renderUsuario(): void {
             const bloqueos = bloqueosSemana.filter((bloqueo) => bloqueo.dia === key && bloqueo.horaInicio === horaInicio && bloqueo.horaFin === horaFin);
 
             if (turnos.length === 0 && bloqueos.length === 0) {
-              return '<div class="calendar-cell is-empty"><span class="empty-slot"><span aria-hidden="true">▣</span><small>Sin turnos</small></span></div>';
+              return '<div class="calendar-cell is-empty"><span class="empty-slot"><span aria-hidden="true">⌂</span><small>Sin turnos</small></span></div>';
             }
 
             return `
@@ -1835,15 +1912,15 @@ function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | 
   const disponible = turno.plazasDisponibles > 0;
   const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
   const estado = propio ? 'Mi turno' : completo ? 'Completo' : 'Libre';
-  const plazas = `${turno.plazasDisponibles}/${turno.plazasTotales}`;
+  const plazas = `${turno.plazasDisponibles} ${turno.plazasDisponibles === 1 ? 'plaza' : 'plazas'}`;
 
   return `
     <article class="calendar-event ${disponible ? 'is-free' : 'is-covered'} ${propio ? 'is-mine' : ''}">
       <div class="calendar-event-top">
         <strong>${escapeHtml(estado)}</strong>
-        <span>${escapeHtml(plazas)}</span>
       </div>
-      <p>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
+      <p class="calendar-event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
+      <p class="calendar-event-capacity">${escapeHtml(plazas)}</p>
       <div class="calendar-progress" aria-hidden="true"><span style="width: ${ocupacion}%"></span></div>
       ${propio || completo
         ? `<span class="calendar-event-status">${propio ? 'Inscrito' : `${turno.inscritos.length} adorador(es)`}</span>`
@@ -2053,6 +2130,13 @@ function inscribirDesdeModal(): void {
 
   renderUsuario();
   setModalMessage(`Inscripcion completada en ${inscritos} turno(s). ${omitidos > 0 ? `${omitidos} turno(s) omitidos por falta de plazas o duplicado.` : ''}`, 'success');
+  NotificationService.notify({
+    title: 'Inscripcion confirmada',
+    message: `${inscritos} compromiso(s) guardado(s) correctamente.`,
+    tone: 'success',
+    browser: true,
+    tag: `inscripcion-${turnoBase.id}`
+  });
 
   window.setTimeout(() => {
     cerrarModalInscripcion();
@@ -2081,6 +2165,11 @@ document.addEventListener('click', (event) => {
 
   if (target.closest('#btn-usuario')) {
     mostrarVista(StorageDB.getPerfilAdorador() ? 'usuario' : 'registro-adorador');
+    return;
+  }
+
+  if (target.closest('#btn-notificaciones')) {
+    void activarNotificaciones();
     return;
   }
 
@@ -2512,5 +2601,17 @@ formLote.addEventListener('submit', (event) => {
   }
 });
 
+window.addEventListener(NotificationService.EVENT_NAME, (event) => {
+  mostrarToast((event as CustomEvent<AppNotification>).detail);
+});
+
+NotificationService.init();
+StorageDB.subscribeSync(actualizarEstadoPersistencia);
+
 resetConfig();
 mostrarVista(getVistaInicial(), { recordHistory: false });
+void StorageDB.loadRemote().then((loaded) => {
+  if (loaded) {
+    refrescarVistaActual();
+  }
+});

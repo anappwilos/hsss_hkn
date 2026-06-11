@@ -17,4 +17,24 @@ VITE_ADMIN_PASSWORD=change-me
 npm install
 npm run dev
 npm run build
+npm start
 ```
+
+## Persistencia y Render
+
+La app puede desplegarse como servicio web en Render con un servidor Node propio:
+
+- Build Command: `npm run render-build`
+- Start Command: `npm start`
+- Environment: define `VITE_ADMIN_EMAIL` y `VITE_ADMIN_PASSWORD`
+
+Para que los datos sobrevivan a reinicios y despliegues, anade un Persistent Disk en Render y define `DATA_DIR` con la ruta del disco, por ejemplo `/var/data`. El servidor guardara `adora-plus-state.json` en esa carpeta.
+
+En produccion el cliente sincroniza lotes y turnos contra `/api/state`. En desarrollo remoto esta desactivado por defecto; puedes activarlo con:
+
+```env
+VITE_ENABLE_REMOTE_STORAGE=true
+VITE_API_BASE_URL=http://localhost:3000
+```
+
+El perfil personal del adorador sigue guardandose en su dispositivo. Los compromisos inscritos si se sincronizan dentro de los turnos compartidos.
