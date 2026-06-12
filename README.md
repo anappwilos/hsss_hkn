@@ -105,7 +105,7 @@ La app puede desplegarse en Render como un Blueprint desde `render.yaml`. Render
 1. Sube este repositorio a GitHub/GitLab/Bitbucket.
 2. En Render, crea un **New Blueprint Instance** y selecciona el repositorio.
 3. Render leera `render.yaml` y creara:
-   - Servicio web `a-solas` con `buildCommand: npm ci && npm run build`, `startCommand: npm start` y healthcheck `/api/health`.
+   - Servicio web `a-solas` con `buildCommand: npm install && npm run build`, `startCommand: npm start` y healthcheck `/api/health`.
    - Base PostgreSQL `a-solas-db`. El Blueprint usa `plan: free` para arrancar sin coste; para produccion estable conviene cambiarlo a `basic-256mb` o superior antes de crear el servicio.
 4. Cuando Render pida variables marcadas con `sync: false`, define:
    - `VITE_ADMIN_EMAIL`: correo del administrador.
