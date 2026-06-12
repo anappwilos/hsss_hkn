@@ -1904,6 +1904,154 @@ select:focus-visible {
   background: rgba(255, 255, 255, 0.72);
 }
 
+
+.section-kicker {
+  margin: 0 0 6px;
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-covered-panel,
+.my-turns-panel {
+  display: grid;
+  gap: 18px;
+  border: 1px solid #eadfd8;
+  border-radius: 22px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-covered-panel {
+  margin: 22px 0;
+}
+
+.my-turns-panel {
+  margin: 0 0 22px;
+}
+
+.admin-covered-header,
+.my-turns-header {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-covered-header h2,
+.my-turns-header h2,
+.my-turns-list h3 {
+  margin: 0;
+  color: #241b16;
+  font-family: var(--font-serif);
+  font-weight: 650;
+}
+
+.admin-covered-header p,
+.my-turns-header p,
+.my-turns-header small {
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.4;
+}
+
+.admin-covered-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-covered-stats span {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #f0dfd5;
+  border-radius: 14px;
+  padding: 12px;
+  color: var(--color-muted);
+  background: #fff8f3;
+  font-size: 0.86rem;
+}
+
+.admin-covered-stats strong {
+  color: var(--color-primary);
+  font-size: 1.35rem;
+}
+
+.admin-covered-list,
+.admin-profile-list,
+.my-turns-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-covered-card,
+.my-turn-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #eadfd8;
+  border-radius: 18px;
+  padding: 14px;
+  background: #fffaf7;
+}
+
+.admin-covered-slot,
+.admin-profile-card,
+.my-turn-card {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-covered-slot strong,
+.my-turn-card strong,
+.admin-profile-card strong {
+  color: #241b16;
+}
+
+.admin-covered-slot span,
+.my-turn-card span,
+.admin-profile-card span {
+  color: #5f4f47;
+}
+
+.admin-covered-slot small,
+.admin-profile-card small {
+  color: var(--color-muted);
+}
+
+.admin-profile-card {
+  border-left: 4px solid var(--color-primary);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.admin-profile-card.is-missing {
+  border-left-color: var(--color-danger);
+  background: #fff5f2;
+}
+
+.my-turns-header .button {
+  justify-self: start;
+}
+
+.empty-card.compact {
+  padding: 18px;
+}
+
+.empty-card.compact h3 {
+  margin: 0 0 6px;
+}
+
+@media (min-width: 720px) {
+  .admin-covered-header,
+  .my-turns-header,
+  .admin-covered-card {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.95fr);
+    align-items: start;
+  }
+}
+
 .app-modal {
   width: min(92vw, 620px);
   max-height: min(88vh, 860px);

@@ -168,6 +168,8 @@ app.innerHTML = `
           <button class="chip" type="button" data-filter="finalizado">Finalizados</button>
         </div>
 
+        <section id="admin-turnos-cubiertos" class="admin-covered-panel" aria-label="Turnos cubiertos y perfiles inscritos"></section>
+
         <div id="lotes-lista" class="lotes-list"></div>
       </div>
 
@@ -198,6 +200,8 @@ app.innerHTML = `
             <span aria-hidden="true"></span>
           </div>
         </section>
+
+        <section id="usuario-mis-turnos" class="my-turns-panel" aria-label="Mi perfil y mis turnos guardados"></section>
 
         <section class="booking-controls" aria-label="Controles de reserva">
           <div class="booking-heading">
@@ -268,13 +272,6 @@ app.innerHTML = `
               <option value="fijo">Fijo</option>
               <option value="suplente">Suplente</option>
               <option value="puntual" selected>Puntual</option>
-            </select>
-          </label>
-          <label class="registro-field registro-select-field">
-            <span>Rol</span>
-            <select id="registro-rol" required>
-              <option value="usuario" selected>Usuario</option>
-              <option value="administrador">Administrador</option>
             </select>
           </label>
           <p id="registro-mensaje" class="registro-message" role="status"></p>
@@ -550,10 +547,12 @@ const adminLoginMensaje = getElement<HTMLParagraphElement>('#admin-login-mensaje
 const buscarLote = getElement<HTMLInputElement>('#buscar-lote');
 const loteFiltros = getElement<HTMLDivElement>('#lote-filtros');
 const lotesLista = getElement<HTMLDivElement>('#lotes-lista');
+const adminTurnosCubiertos = getElement<HTMLElement>('#admin-turnos-cubiertos');
 const usuarioDias = getElement<HTMLDivElement>('#usuario-dias');
 const usuarioTurnos = getElement<HTMLDivElement>('#usuario-turnos');
 const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
 const usuarioSemanaLabel = getElement<HTMLParagraphElement>('#usuario-semana-label');
+const usuarioMisTurnos = getElement<HTMLElement>('#usuario-mis-turnos');
 const btnNotificaciones = getElement<HTMLButtonElement>('#btn-notificaciones');
 const modalInscripcion = getElement<HTMLDialogElement>('#modal-inscripcion');
 const formInscripcionModal = getElement<HTMLFormElement>('#form-inscripcion-modal');
@@ -582,7 +581,6 @@ const registroApellidos = getElement<HTMLInputElement>('#registro-apellidos');
 const registroEmail = getElement<HTMLInputElement>('#registro-email');
 const registroTelefono = getElement<HTMLInputElement>('#registro-telefono');
 const registroFrecuencia = getElement<HTMLSelectElement>('#registro-frecuencia');
-const registroRol = getElement<HTMLSelectElement>('#registro-rol');
 const registroMensaje = getElement<HTMLParagraphElement>('#registro-mensaje');
 const registroSubmit = getElement<HTMLButtonElement>('#registro-submit');
 const formLote = getElement<HTMLFormElement>('#form-lote');
@@ -686,11 +684,13 @@ function actualizarEstadoPersistencia(status: SyncStatus, message: string): void
 
 function refrescarVistaActual(): void {
   if (vistaActual === 'admin') {
+    renderAdminTurnosCubiertos();
     renderLotes();
   }
 
   if (vistaActual === 'usuario') {
     prepararFechaUsuario();
+    renderMisTurnos();
     renderUsuario();
   }
 }
@@ -751,12 +751,14 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): 
   vistaConfiguracion.style.display = nextView === 'configuracion' ? 'block' : 'none';
 
   if (nextView === 'admin') {
+    renderAdminTurnosCubiertos();
     renderLotes();
   }
 
   if (nextView === 'usuario') {
     prepararFechaUsuario();
     renderNotificationButton();
+    renderMisTurnos();
     renderUsuario();
   }
 
@@ -1528,7 +1530,129 @@ function actualizarResumenLote(): void {
   resumenLote.textContent = `Se habilitaran turnos desde ${inicio} hasta ${fin}, de ${loteHoraInicio.value || '--:--'} a ${loteHoraFin.value || '--:--'}, los dias ${dias || 'seleccionados'}.${interrupciones}`;
 }
 
+function getUsuarioByNombre(nombreCompleto: string): PerfilAdorador | undefined {
+  const nombreNormalizado = normalizarNombre(nombreCompleto);
+  return StorageDB.getUsuarios().find((usuario) => normalizarNombre(usuario.nombreCompleto) === nombreNormalizado);
+}
+
+function getTurnosOrdenados(): Turno[] {
+  return StorageDB.getTurnos().toSorted((a, b) => {
+    const byDate = a.dia.localeCompare(b.dia);
+    return byDate !== 0 ? byDate : a.horaInicio.localeCompare(b.horaInicio);
+  });
+}
+
+function renderAdminTurnosCubiertos(): void {
+  if (!isAdminAuthenticated()) {
+    adminTurnosCubiertos.innerHTML = '';
+    return;
+  }
+
+  const hoy = fechaToInput(new Date());
+  const turnosCubiertos = getTurnosOrdenados().filter((turno) => turno.inscritos.length > 0);
+  const proximosCubiertos = turnosCubiertos.filter((turno) => turno.dia >= hoy);
+  const totalCompromisos = turnosCubiertos.reduce((total, turno) => total + turno.inscritos.length, 0);
+  const usuariosConTurno = new Set(turnosCubiertos.flatMap((turno) => turno.inscritos.map(normalizarNombre))).size;
+
+  adminTurnosCubiertos.innerHTML = `
+    <header class="admin-covered-header">
+      <div>
+        <p class="section-kicker">Solo administradores</p>
+        <h2>Turnos cubiertos y perfiles</h2>
+        <p>Consulta los turnos reservados por los adoradores y sus datos de contacto. Esta informacion no se muestra a usuarios normales.</p>
+      </div>
+      <div class="admin-covered-stats" aria-label="Resumen de turnos cubiertos">
+        <span><strong>${proximosCubiertos.length}</strong> proximos cubiertos</span>
+        <span><strong>${totalCompromisos}</strong> compromisos</span>
+        <span><strong>${usuariosConTurno}</strong> adoradores</span>
+      </div>
+    </header>
+    ${proximosCubiertos.length > 0
+      ? `<div class="admin-covered-list">${proximosCubiertos.slice(0, 12).map(renderAdminTurnoCubierto).join('')}</div>`
+      : `<div class="empty-card compact"><h3>No hay turnos cubiertos</h3><p>Cuando un adorador reserve un turno, aparecera aqui con sus datos de perfil.</p></div>`
+    }
+  `;
+}
+
+function renderAdminTurnoCubierto(turno: Turno): string {
+  const lote = turno.loteId ? StorageDB.getLotes().find((item) => item.id === turno.loteId) : undefined;
+
+  return `
+    <article class="admin-covered-card">
+      <div class="admin-covered-slot">
+        <strong>${escapeHtml(formatFecha(turno.dia))}</strong>
+        <span>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
+        <small>${escapeHtml(lote?.nombre ?? 'Lote sin identificar')}</small>
+      </div>
+      <div class="admin-profile-list">
+        ${turno.inscritos.map((inscrito) => renderAdminPerfilInscrito(inscrito)).join('')}
+      </div>
+    </article>
+  `;
+}
+
+function renderAdminPerfilInscrito(nombreCompleto: string): string {
+  const usuario = getUsuarioByNombre(nombreCompleto);
+
+  if (!usuario) {
+    return `
+      <section class="admin-profile-card is-missing">
+        <strong>${escapeHtml(nombreCompleto)}</strong>
+        <span>Perfil no sincronizado</span>
+        <small>El turno esta guardado, pero faltan correo y telefono del adorador.</small>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="admin-profile-card">
+      <strong>${escapeHtml(usuario.nombreCompleto)}</strong>
+      <span>${escapeHtml(usuario.email)}</span>
+      <span>${escapeHtml(usuario.telefono)}</span>
+      <small>Frecuencia: ${escapeHtml(formatFrecuencia(usuario.frecuencia))} · Rol: ${escapeHtml(formatRol(usuario.rol))}</small>
+    </section>
+  `;
+}
+
+function renderMisTurnos(): void {
+  const perfil = StorageDB.getPerfilAdorador();
+
+  if (!perfil) {
+    usuarioMisTurnos.innerHTML = '';
+    return;
+  }
+
+  const hoy = fechaToInput(new Date());
+  const misTurnos = getTurnosOrdenados()
+    .filter((turno) => turno.dia >= hoy && estaInscrito(turno, perfil.nombreCompleto));
+
+  usuarioMisTurnos.innerHTML = `
+    <header class="my-turns-header">
+      <div>
+        <p class="section-kicker">Mi perfil</p>
+        <h2>${escapeHtml(perfil.nombreCompleto)}</h2>
+        <p>${escapeHtml(perfil.email)} · ${escapeHtml(perfil.telefono)}</p>
+        <small>Frecuencia: ${escapeHtml(formatFrecuencia(perfil.frecuencia))}</small>
+      </div>
+      <button class="button button-secondary" type="button" data-view="registro-adorador">Editar perfil</button>
+    </header>
+    <section class="my-turns-list" aria-label="Mis turnos guardados">
+      <h3>Mis turnos guardados</h3>
+      ${misTurnos.length > 0
+        ? misTurnos.slice(0, 6).map((turno) => `
+          <article class="my-turn-card">
+            <strong>${escapeHtml(formatFecha(turno.dia))}</strong>
+            <span>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
+          </article>
+        `).join('')
+        : '<p class="empty-inline">Todavia no tienes turnos guardados.</p>'
+      }
+    </section>
+  `;
+}
+
 function renderLotes(): void {
+  renderAdminTurnosCubiertos();
   const lotes = StorageDB.getLotes()
     .map((lote) => ({
       ...lote,
@@ -1837,6 +1961,7 @@ function renderListaTurnosDia(
 }
 
 function renderUsuario(): void {
+  renderMisTurnos();
   const hoy = fechaToInput(new Date());
   const perfil = StorageDB.getPerfilAdorador();
   const fechas = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index))
@@ -2189,7 +2314,9 @@ function inscribirDesdeModal(): void {
     }
   }
 
+  renderMisTurnos();
   renderUsuario();
+  renderAdminTurnosCubiertos();
   setModalMessage(`Inscripcion completada en ${inscritos} turno(s). ${omitidos > 0 ? `${omitidos} turno(s) omitidos por falta de plazas o duplicado.` : ''}`, 'success');
   notificarYPersistir({
     title: 'Inscripcion confirmada',
@@ -2459,7 +2586,6 @@ formRegistroAdorador.addEventListener('submit', (event) => {
   const email = registroEmail.value.trim().toLowerCase();
   const telefono = limpiarTelefono(registroTelefono.value);
   const frecuencia = registroFrecuencia.value as UsuarioFrecuencia;
-  const rol = registroRol.value as UsuarioRol;
 
   StorageDB.savePerfilAdorador(crearPerfilAdorador(`${nombre} ${apellidos}`, {
     nombre,
@@ -2467,7 +2593,7 @@ formRegistroAdorador.addEventListener('submit', (event) => {
     email,
     telefono,
     frecuencia,
-    rol
+    rol: 'usuario'
   }));
 
   mostrarVista('usuario');
@@ -2543,7 +2669,6 @@ function rellenarRegistroSiExiste(): void {
   registroEmail.value = perfil.email;
   registroTelefono.value = perfil.telefono;
   registroFrecuencia.value = perfil.frecuencia ?? 'puntual';
-  registroRol.value = perfil.rol ?? 'usuario';
   validarRegistroAdorador(false);
 }
 
