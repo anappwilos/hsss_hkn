@@ -15,10 +15,30 @@ VITE_ADMIN_PASSWORD=change-me
 
 ```bash
 npm install
+npm run db:up
+npm run dev:api
 npm run dev
 npm run build
 npm start
 ```
+
+## URLs locales
+
+Con el entorno de desarrollo levantado, usa estas URLs:
+
+- App web: `http://localhost:5173`
+- API local: `http://localhost:3000`
+- Healthcheck API: `http://localhost:3000/api/health`
+- Estado compartido: `http://localhost:3000/api/state`
+- PostgreSQL: `localhost:5432`
+
+La URL que debes abrir en el navegador mientras desarrollas es:
+
+```txt
+http://localhost:5173
+```
+
+`http://localhost:3000` es la API Node. No es la pantalla principal en desarrollo; Vite sirve la app en el puerto `5173` y llama a la API usando `VITE_API_BASE_URL`.
 
 ## Persistencia local con PostgreSQL
 
@@ -43,7 +63,38 @@ npm run dev:api
 npm run dev
 ```
 
+Flujo completo desde cero:
+
+```bash
+npm install
+npm run db:up
+npm run dev:api
+npm run dev
+```
+
+Despues abre `http://localhost:5173`.
+
 El frontend seguira usando `localStorage` como cache inmediata, y sincronizara lotes y turnos con la API local en `/api/state`. Si `DATABASE_URL` no esta definido, la API usa `data/adora-plus-state.json` como fallback local.
+
+Puedes comprobar que la API esta viva abriendo:
+
+```txt
+http://localhost:3000/api/health
+```
+
+Deberia devolver:
+
+```json
+{"ok":true}
+```
+
+Para parar PostgreSQL local:
+
+```bash
+npm run db:down
+```
+
+Nota: `npm run db:down` detiene el contenedor, pero conserva el volumen de datos. Si necesitas borrar la base local completa, ejecuta manualmente `docker compose down -v`.
 
 ## Persistencia y Render
 
