@@ -98,13 +98,22 @@ Nota: `npm run db:down` detiene el contenedor, pero conserva el volumen de datos
 
 ## Persistencia y Render
 
-La app puede desplegarse como servicio web en Render con un servidor Node propio:
+La app puede desplegarse como servicio web en Render con un servidor Node propio.
+
+### Despliegue automático con Blueprints
+
+Esta aplicación incluye un archivo `render.yaml` que facilita el despliegue. Para usarlo:
+
+1. Sube el código a tu repositorio de GitHub o GitLab.
+2. En el dashboard de Render, ve a **Blueprints** y selecciona tu repositorio.
+3. Render detectará automáticamente el archivo `render.yaml` y creará el Web Service y la base de datos PostgreSQL.
+4. Asegúrate de configurar `VITE_ADMIN_EMAIL` en las variables de entorno si quieres un correo específico (por defecto pedirá uno o generará valores seguros).
+
+Si prefieres hacerlo manualmente:
 
 - Build Command: `npm run render-build`
 - Start Command: `npm start`
-- Environment: define `VITE_ADMIN_EMAIL`, `VITE_ADMIN_PASSWORD` y `DATABASE_URL`
-
-Para que los datos sobrevivan a reinicios y despliegues, crea una base PostgreSQL en Render y usa su Internal Database URL como `DATABASE_URL`. Si Render exige SSL para esa conexion, define tambien `DATABASE_SSL=true`.
+- Environment: define `VITE_ADMIN_EMAIL`, `VITE_ADMIN_PASSWORD`, `DATABASE_URL` y `DATABASE_SSL=true`.
 
 En produccion el cliente sincroniza lotes y turnos contra `/api/state` del mismo dominio. En desarrollo, Vite usa `VITE_API_BASE_URL=http://localhost:3000` para llamar a la API local.
 
