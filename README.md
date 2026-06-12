@@ -98,15 +98,23 @@ Nota: `npm run db:down` detiene el contenedor, pero conserva el volumen de datos
 
 ## Persistencia y Render
 
-La app puede desplegarse como servicio web en Render con un servidor Node propio:
+La app puede desplegarse en Render como un Blueprint desde `render.yaml`. Render Blueprints permiten definir servicios, bases de datos y variables de entorno en un archivo versionado; el servicio web usa runtime `node`, `buildCommand` y `startCommand`, y `DATABASE_URL` puede referenciar una base Render Postgres con `fromDatabase`.
 
-- Build Command: `npm run render-build`
-- Start Command: `npm start`
-- Environment: define `VITE_ADMIN_EMAIL`, `VITE_ADMIN_PASSWORD` y `DATABASE_URL`
+### Despliegue recomendado con Blueprint
 
-Para que los datos sobrevivan a reinicios y despliegues, crea una base PostgreSQL en Render y usa su Internal Database URL como `DATABASE_URL`. Si Render exige SSL para esa conexion, define tambien `DATABASE_SSL=true`.
+1. Sube este repositorio a GitHub/GitLab/Bitbucket.
+2. En Render, crea un **New Blueprint Instance** y selecciona el repositorio.
+3. Render leera `render.yaml` y creara:
+   - Servicio web `adoraplus` con `buildCommand: npm ci && npm run build`, `startCommand: npm start` y healthcheck `/api/health`.
+   - Base PostgreSQL `adoraplus-db`. El Blueprint usa `plan: free` para arrancar sin coste; para produccion estable conviene cambiarlo a `basic-256mb` o superior antes de crear el servicio.
+4. Cuando Render pida variables marcadas con `sync: false`, define:
+   - `VITE_ADMIN_EMAIL`: correo del administrador.
+   - `VITE_ADMIN_PASSWORD`: contrasena del administrador.
+5. Al terminar el despliegue, abre `https://<tu-servicio>.onrender.com/api/health`; deberia devolver `{"ok":true}`.
 
-En produccion el cliente sincroniza lotes y turnos contra `/api/state` del mismo dominio. En desarrollo, Vite usa `VITE_API_BASE_URL=http://localhost:3000` para llamar a la API local.
+El Blueprint inyecta `DATABASE_URL` desde la base `adoraplus-db` y activa `VITE_ENABLE_REMOTE_STORAGE=true`. En produccion el cliente sincroniza contra `/api/state` del mismo dominio, por lo que `VITE_API_BASE_URL` debe quedarse vacio/no definido. Si usas una base externa que exige SSL para `DATABASE_URL`, define tambien `DATABASE_SSL=true`.
+
+En desarrollo, Vite usa `VITE_API_BASE_URL=http://localhost:3000` para llamar a la API local.
 
 La persistencia remota sincroniza el estado compartido en `/api/state` e inicializa tablas relacionales auxiliares en PostgreSQL para consultar estos dominios principales:
 
