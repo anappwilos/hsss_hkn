@@ -22,6 +22,12 @@ const pool = databaseUrl
     })
   : null;
 
+if (pool) {
+  pool.on('error', (err) => {
+    console.error('Unexpected error on idle client', err);
+  });
+}
+
 const emptyState = {
   usuarios: [],
   lotes: [],
@@ -42,40 +48,55 @@ const mimeTypes = new Map([
 ]);
 
 await mkdir(dataDir, { recursive: true });
-await initializeStore();
 
-const server = createServer(async (request, response) => {
-  try {
-    setCommonHeaders(response);
-
-    if (request.method === 'OPTIONS') {
-      response.writeHead(204);
-      response.end();
-      return;
+async function startApp() {
+  if (pool) {
+    try {
+      await initializeStore();
+    } catch (error) {
+      console.error('Failed to initialize store:', error);
+      console.log('Falling back to local file storage due to database error.');
     }
-
-    const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
-
-    if (url.pathname === '/api/health') {
-      sendJson(response, 200, { ok: true });
-      return;
-    }
-
-    if (url.pathname === '/api/state') {
-      await handleState(request, response);
-      return;
-    }
-
-    await serveStatic(url.pathname, response);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unexpected server error';
-    sendJson(response, 500, { error: message });
   }
-});
 
-server.listen(port, () => {
-  console.log(`A solas escuchando en http://localhost:${port}`);
-  console.log(pool ? 'Datos persistentes en PostgreSQL.' : `Datos persistentes en ${stateFile}`);
+  const server = createServer(async (request, response) => {
+    try {
+      setCommonHeaders(response);
+
+      if (request.method === 'OPTIONS') {
+        response.writeHead(204);
+        response.end();
+        return;
+      }
+
+      const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+
+      if (url.pathname === '/api/health') {
+        sendJson(response, 200, { ok: true });
+        return;
+      }
+
+      if (url.pathname === '/api/state') {
+        await handleState(request, response);
+        return;
+      }
+
+      await serveStatic(url.pathname, response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected server error';
+      sendJson(response, 500, { error: message });
+    }
+  });
+
+  server.listen(port, () => {
+    console.log(`A solas escuchando en http://localhost:${port}`);
+    console.log(pool ? 'Datos persistentes en PostgreSQL.' : `Datos persistentes en ${stateFile}`);
+  });
+}
+
+startApp().catch(err => {
+  console.error('Fatal error starting application:', err);
+  process.exit(1);
 });
 
 async function loadEnvFile() {
@@ -112,57 +133,60 @@ async function initializeStore() {
     return;
   }
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS app_state (
-      id text PRIMARY KEY,
-      state jsonb NOT NULL,
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )
-  `);
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS app_state (
+        id text PRIMARY KEY,
+        state jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS usuarios (
-      id text PRIMARY KEY,
-      nombre text NOT NULL,
-      apellidos text NOT NULL,
-      nombre_completo text NOT NULL,
-      email text NOT NULL UNIQUE,
-      telefono text NOT NULL,
-      frecuencia text NOT NULL CHECK (frecuencia IN ('fijo', 'suplente', 'puntual')),
-      rol text NOT NULL CHECK (rol IN ('administrador', 'usuario')),
-      creado_en timestamptz NOT NULL DEFAULT now(),
-      actualizado_en timestamptz NOT NULL DEFAULT now()
-    )
-  `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id text PRIMARY KEY,
+        nombre text NOT NULL,
+        apellidos text NOT NULL,
+        nombre_completo text NOT NULL,
+        email text NOT NULL UNIQUE,
+        telefono text NOT NULL,
+        frecuencia text NOT NULL CHECK (frecuencia IN ('fijo', 'suplente', 'puntual')),
+        rol text NOT NULL CHECK (rol IN ('administrador', 'usuario')),
+        creado_en timestamptz NOT NULL DEFAULT now(),
+        actualizado_en timestamptz NOT NULL DEFAULT now()
+      )
+    `);
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS lotes (
-      id text PRIMARY KEY,
-      data jsonb NOT NULL,
-      creado_en timestamptz NOT NULL DEFAULT now(),
-      actualizado_en timestamptz NOT NULL DEFAULT now()
-    )
-  `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS lotes (
+        id text PRIMARY KEY,
+        data jsonb NOT NULL,
+        creado_en timestamptz NOT NULL DEFAULT now(),
+        actualizado_en timestamptz NOT NULL DEFAULT now()
+      )
+    `);
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS notificaciones (
-      id text PRIMARY KEY,
-      usuario_id text REFERENCES usuarios(id) ON DELETE SET NULL,
-      titulo text NOT NULL,
-      mensaje text NOT NULL,
-      tipo text NOT NULL CHECK (tipo IN ('sistema', 'inscripcion', 'lote', 'recordatorio')),
-      estado text NOT NULL CHECK (estado IN ('pendiente', 'enviada', 'leida')),
-      creado_en timestamptz NOT NULL DEFAULT now(),
-      leido_en timestamptz
-    )
-  `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notificaciones (
+        id text PRIMARY KEY,
+        usuario_id text REFERENCES usuarios(id) ON DELETE SET NULL,
+        titulo text NOT NULL,
+        mensaje text NOT NULL,
+        tipo text NOT NULL CHECK (tipo IN ('sistema', 'inscripcion', 'lote', 'recordatorio')),
+        estado text NOT NULL CHECK (estado IN ('pendiente', 'enviada', 'leida')),
+        creado_en timestamptz NOT NULL DEFAULT now(),
+        leido_en timestamptz
+      )
+    `);
 
-  await pool.query(
-    `INSERT INTO app_state (id, state)
-     VALUES ('default', $1::jsonb)
-     ON CONFLICT (id) DO NOTHING`,
-    [JSON.stringify(emptyState)]
-  );
+    await client.query(
+      "INSERT INTO app_state (id, state) VALUES ('default', $1::jsonb) ON CONFLICT (id) DO NOTHING",
+      [JSON.stringify(emptyState)]
+    );
+  } finally {
+    client.release();
+  }
 }
 
 async function handleState(request, response) {
@@ -184,8 +208,12 @@ async function handleState(request, response) {
 
 async function readState() {
   if (pool) {
-    const result = await pool.query('SELECT state FROM app_state WHERE id = $1', ['default']);
-    return normalizeState(result.rows[0]?.state);
+    try {
+      const result = await pool.query("SELECT state FROM app_state WHERE id = $1", ['default']);
+      return normalizeState(result.rows[0]?.state);
+    } catch (err) {
+      console.error('Database read error, falling back to local storage:', err);
+    }
   }
 
   try {
@@ -198,15 +226,16 @@ async function readState() {
 
 async function writeState(state) {
   if (pool) {
-    await pool.query(
-      `INSERT INTO app_state (id, state, updated_at)
-       VALUES ('default', $1::jsonb, now())
-       ON CONFLICT (id)
-       DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
-      [JSON.stringify(state)]
-    );
-    await writeRelationalState(state);
-    return;
+    try {
+      await pool.query(
+        "INSERT INTO app_state (id, state, updated_at) VALUES ('default', $1::jsonb, now()) ON CONFLICT (id) DO UPDATE SET state = EXCLUDED.state, updated_at = now()",
+        [JSON.stringify(state)]
+      );
+      await writeRelationalState(state);
+      return;
+    } catch (err) {
+      console.error('Database write error, falling back to local storage:', err);
+    }
   }
 
   const tmpFile = `${stateFile}.tmp`;
@@ -286,24 +315,21 @@ async function writeRelationalState(state) {
 
     for (const usuario of state.usuarios) {
       await client.query(
-        `INSERT INTO usuarios (id, nombre, apellidos, nombre_completo, email, telefono, frecuencia, rol, creado_en, actualizado_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))`,
+        "INSERT INTO usuarios (id, nombre, apellidos, nombre_completo, email, telefono, frecuencia, rol, creado_en, actualizado_en) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))",
         [usuario.id, usuario.nombre, usuario.apellidos, usuario.nombreCompleto, usuario.email, usuario.telefono, usuario.frecuencia, usuario.rol, usuario.creadoEn, usuario.actualizadoEn]
       );
     }
 
     for (const lote of state.lotes) {
       await client.query(
-        `INSERT INTO lotes (id, data, creado_en, actualizado_en)
-         VALUES ($1, $2::jsonb, to_timestamp($3 / 1000.0), now())`,
+        "INSERT INTO lotes (id, data, creado_en, actualizado_en) VALUES ($1, $2::jsonb, to_timestamp($3 / 1000.0), now())",
         [lote.id, JSON.stringify(lote), typeof lote.creadoEn === 'number' ? lote.creadoEn : Date.now()]
       );
     }
 
     for (const notificacion of state.notificaciones) {
       await client.query(
-        `INSERT INTO notificaciones (id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en)
-         VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7 / 1000.0), CASE WHEN $8::double precision IS NULL THEN NULL ELSE to_timestamp($8 / 1000.0) END)`,
+        "INSERT INTO notificaciones (id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en) VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7 / 1000.0), CASE WHEN $8::double precision IS NULL THEN NULL ELSE to_timestamp($8 / 1000.0) END)",
         [notificacion.id, state.usuarios.some((usuario) => usuario.id === notificacion.usuarioId) ? notificacion.usuarioId : null, notificacion.titulo, notificacion.mensaje, notificacion.tipo, notificacion.estado, notificacion.creadoEn, notificacion.leidoEn ?? null]
       );
     }
