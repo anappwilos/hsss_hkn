@@ -55,7 +55,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -571,7 +572,8 @@ select:focus-visible {
   transition: opacity 140ms ease, transform 140ms ease;
 }
 
-.registro-field input {
+.registro-field input,
+.registro-field select {
   width: 100%;
   min-height: 76px;
   border: 1.5px solid #3f4d65;
@@ -584,18 +586,30 @@ select:focus-visible {
   transition: border-color 160ms ease, background-color 160ms ease, outline-color 160ms ease;
 }
 
-.registro-field input:focus {
+.registro-field select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #8d7c73 50%), linear-gradient(135deg, #8d7c73 50%, transparent 50%);
+  background-position: calc(100% - 28px) 50%, calc(100% - 20px) 50%;
+  background-repeat: no-repeat;
+  background-size: 8px 8px, 8px 8px;
+  padding-right: 52px;
+}
+
+.registro-field input:focus,
+.registro-field select:focus {
   outline-color: rgba(195, 99, 37, 0.16);
   border-color: var(--color-primary);
 }
 
 .registro-field:has(input:not(:placeholder-shown)) span,
+.registro-field:has(select) span,
 .registro-field:focus-within span {
   opacity: 0;
   transform: translateY(-8px);
 }
 
-.registro-field.has-error input {
+.registro-field.has-error input,
+.registro-field.has-error select {
   border-color: var(--color-danger);
   background: #fff5f2;
 }

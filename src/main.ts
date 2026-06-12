@@ -1,12 +1,17 @@
 import './style.css';
 import { NotificationService, type AppNotification } from './notifications';
-import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno } from './storage';
+import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type UsuarioFrecuencia, type UsuarioRol } from './storage';
 
 type Vista = 'inicio' | 'admin-login' | 'admin' | 'configuracion' | 'registro-adorador' | 'usuario';
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
 type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
 type VistaTurnos = 'diaria' | 'semanal';
+type NotificationPersistenceOptions = {
+  usuarioId?: string;
+  tipo?: 'sistema' | 'inscripcion' | 'lote' | 'recordatorio';
+  estado?: 'pendiente' | 'enviada' | 'leida';
+};
 type BloqueoCalendario = {
   dia: string;
   horaInicio: string;
@@ -256,6 +261,21 @@ app.innerHTML = `
           <label class="registro-field">
             <span>Tel&eacute;fono</span>
             <input id="registro-telefono" type="tel" autocomplete="tel" inputmode="tel" placeholder=" " required />
+          </label>
+          <label class="registro-field registro-select-field">
+            <span>Frecuencia</span>
+            <select id="registro-frecuencia" required>
+              <option value="fijo">Fijo</option>
+              <option value="suplente">Suplente</option>
+              <option value="puntual" selected>Puntual</option>
+            </select>
+          </label>
+          <label class="registro-field registro-select-field">
+            <span>Rol</span>
+            <select id="registro-rol" required>
+              <option value="usuario" selected>Usuario</option>
+              <option value="administrador">Administrador</option>
+            </select>
           </label>
           <p id="registro-mensaje" class="registro-message" role="status"></p>
           <p class="registro-privacy">Tus datos se guardan solo en este dispositivo para reconocer tus turnos y agilizar nuevas inscripciones.</p>
@@ -561,6 +581,8 @@ const registroNombre = getElement<HTMLInputElement>('#registro-nombre');
 const registroApellidos = getElement<HTMLInputElement>('#registro-apellidos');
 const registroEmail = getElement<HTMLInputElement>('#registro-email');
 const registroTelefono = getElement<HTMLInputElement>('#registro-telefono');
+const registroFrecuencia = getElement<HTMLSelectElement>('#registro-frecuencia');
+const registroRol = getElement<HTMLSelectElement>('#registro-rol');
 const registroMensaje = getElement<HTMLParagraphElement>('#registro-mensaje');
 const registroSubmit = getElement<HTMLButtonElement>('#registro-submit');
 const formLote = getElement<HTMLFormElement>('#form-lote');
@@ -610,8 +632,30 @@ function renderNotificationButton(): void {
 }
 
 async function activarNotificaciones(): Promise<void> {
-  await NotificationService.requestPermission();
+  const granted = await NotificationService.requestPermission();
+  persistirNotificacion({
+    title: granted ? 'Notificaciones activas' : 'Permiso de notificaciones no concedido',
+    message: granted ? 'El usuario activo las notificaciones del navegador.' : 'El usuario no concedio permiso para las notificaciones del navegador.',
+    tone: granted ? 'success' : 'error'
+  }, { tipo: 'sistema', estado: granted ? 'enviada' : 'pendiente' });
   renderNotificationButton();
+}
+
+function persistirNotificacion(notification: AppNotification, options: NotificationPersistenceOptions = {}): void {
+  StorageDB.agregarNotificacion({
+    id: crearId(),
+    usuarioId: options.usuarioId,
+    titulo: notification.title,
+    mensaje: notification.message,
+    tipo: options.tipo ?? 'sistema',
+    estado: options.estado ?? 'enviada',
+    creadoEn: Date.now()
+  });
+}
+
+function notificarYPersistir(notification: AppNotification, options: NotificationPersistenceOptions = {}): void {
+  persistirNotificacion(notification, options);
+  NotificationService.notify(notification);
 }
 
 function mostrarToast(notification: AppNotification): void {
@@ -943,7 +987,7 @@ function normalizarNombre(value: string): string {
 
 function crearPerfilAdorador(
   nombreCompleto: string,
-  overrides: Partial<Pick<PerfilAdorador, 'nombre' | 'apellidos' | 'email' | 'telefono'>> = {}
+  overrides: Partial<Pick<PerfilAdorador, 'nombre' | 'apellidos' | 'email' | 'telefono' | 'frecuencia' | 'rol'>> = {}
 ): PerfilAdorador {
   const partes = nombreCompleto.trim().replace(/\s+/g, ' ').split(' ');
   const nombre = overrides.nombre ?? partes[0] ?? '';
@@ -956,7 +1000,10 @@ function crearPerfilAdorador(
     apellidos,
     email: overrides.email ?? '',
     telefono: overrides.telefono ?? '',
-    creadoEn: Date.now()
+    frecuencia: overrides.frecuencia ?? 'puntual',
+    rol: overrides.rol ?? 'usuario',
+    creadoEn: Date.now(),
+    actualizadoEn: Date.now()
   };
 }
 
@@ -964,6 +1011,20 @@ function getNombrePrivado(nombreCompleto: string): string {
   const partes = nombreCompleto.trim().split(/\s+/);
   const inicial = partes[0]?.charAt(0).toUpperCase() ?? 'A';
   return `Adorador ${inicial}.`;
+}
+
+function formatFrecuencia(frecuencia: UsuarioFrecuencia = 'puntual'): string {
+  const labels: Record<UsuarioFrecuencia, string> = {
+    fijo: 'Fijo',
+    suplente: 'Suplente',
+    puntual: 'Puntual'
+  };
+
+  return labels[frecuencia];
+}
+
+function formatRol(rol: UsuarioRol = 'usuario'): string {
+  return rol === 'administrador' ? 'Administrador' : 'Usuario';
 }
 
 function estaInscrito(turno: Turno, nombreCompleto: string): boolean {
@@ -1631,11 +1692,11 @@ function confirmarDuplicarMes(): void {
   renderLotes();
   duplicarMesMensaje.textContent = 'Copia mensual creada como borrador.';
   duplicarMesMensaje.dataset.tone = 'success';
-  NotificationService.notify({
+  notificarYPersistir({
     title: 'Copia mensual creada',
     message: 'El nuevo lote se ha guardado como borrador.',
     tone: 'success'
-  });
+  }, { tipo: 'lote' });
 
   window.setTimeout(() => {
     cerrarDuplicarMes();
@@ -1999,9 +2060,9 @@ function abrirModalInscripcion(idTurno: string): void {
   modalTurnoTitle.textContent = `${turno.horaInicio} - ${turno.horaFin}`;
   modalTurnoDetail.textContent = `${formatFecha(turno.dia)} · ${turno.plazasDisponibles}/${turno.plazasTotales} plazas libres`;
   modalPerfilResumen.innerHTML = `
-    <strong>Perfil local</strong>
+    <strong>Perfil sincronizado</strong>
     <span>${escapeHtml(getNombrePrivado(perfil.nombreCompleto))}</span>
-    <small>Tu identidad completa se usa solo para registrar el compromiso en este dispositivo.</small>
+    <small>Frecuencia: ${escapeHtml(formatFrecuencia(perfil.frecuencia))} · Rol: ${escapeHtml(formatRol(perfil.rol))}</small>
   `;
 
   setModalMessage('', 'info');
@@ -2130,13 +2191,13 @@ function inscribirDesdeModal(): void {
 
   renderUsuario();
   setModalMessage(`Inscripcion completada en ${inscritos} turno(s). ${omitidos > 0 ? `${omitidos} turno(s) omitidos por falta de plazas o duplicado.` : ''}`, 'success');
-  NotificationService.notify({
+  notificarYPersistir({
     title: 'Inscripcion confirmada',
     message: `${inscritos} compromiso(s) guardado(s) correctamente.`,
     tone: 'success',
     browser: true,
     tag: `inscripcion-${turnoBase.id}`
-  });
+  }, { usuarioId: perfil.id, tipo: 'inscripcion' });
 
   window.setTimeout(() => {
     cerrarModalInscripcion();
@@ -2397,12 +2458,16 @@ formRegistroAdorador.addEventListener('submit', (event) => {
   const apellidos = limpiarTextoRegistro(registroApellidos.value);
   const email = registroEmail.value.trim().toLowerCase();
   const telefono = limpiarTelefono(registroTelefono.value);
+  const frecuencia = registroFrecuencia.value as UsuarioFrecuencia;
+  const rol = registroRol.value as UsuarioRol;
 
   StorageDB.savePerfilAdorador(crearPerfilAdorador(`${nombre} ${apellidos}`, {
     nombre,
     apellidos,
     email,
-    telefono
+    telefono,
+    frecuencia,
+    rol
   }));
 
   mostrarVista('usuario');
@@ -2477,6 +2542,8 @@ function rellenarRegistroSiExiste(): void {
   registroApellidos.value = perfil.apellidos || perfil.nombreCompleto.split(' ').slice(1).join(' ');
   registroEmail.value = perfil.email;
   registroTelefono.value = perfil.telefono;
+  registroFrecuencia.value = perfil.frecuencia ?? 'puntual';
+  registroRol.value = perfil.rol ?? 'usuario';
   validarRegistroAdorador(false);
 }
 

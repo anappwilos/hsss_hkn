@@ -36,21 +36,45 @@ export interface LoteExposicion {
   creadoEn: number;
 }
 
-export interface PerfilAdorador {
+export type UsuarioFrecuencia = 'fijo' | 'suplente' | 'puntual';
+export type UsuarioRol = 'administrador' | 'usuario';
+
+export interface Usuario {
   id: string;
   nombreCompleto: string;
   nombre: string;
   apellidos: string;
   email: string;
   telefono: string;
+  frecuencia: UsuarioFrecuencia;
+  rol: UsuarioRol;
   creadoEn: number;
+  actualizadoEn: number;
 }
+
+export type NotificacionTipo = 'sistema' | 'inscripcion' | 'lote' | 'recordatorio';
+export type NotificacionEstado = 'pendiente' | 'enviada' | 'leida';
+
+export interface NotificacionRegistro {
+  id: string;
+  usuarioId?: string;
+  titulo: string;
+  mensaje: string;
+  tipo: NotificacionTipo;
+  estado: NotificacionEstado;
+  creadoEn: number;
+  leidoEn?: number;
+}
+
+export interface PerfilAdorador extends Usuario {}
 
 export type SyncStatus = 'idle' | 'syncing' | 'online' | 'offline';
 
 export interface RemoteSnapshot {
+  usuarios: Usuario[];
   lotes: LoteExposicion[];
   turnos: Turno[];
+  notificaciones: NotificacionRegistro[];
   updatedAt: number;
 }
 
@@ -60,6 +84,8 @@ export class StorageDB {
   private static readonly DB_KEY = 'hsss_db';
   private static readonly LOTES_KEY = 'hsss_lotes';
   private static readonly PERFIL_ADORADOR_KEY = 'hsss_perfil_adorador';
+  private static readonly USUARIOS_KEY = 'hsss_usuarios';
+  private static readonly NOTIFICACIONES_KEY = 'hsss_notificaciones';
   private static readonly REMOTE_ENABLED = (import.meta.env.VITE_ENABLE_REMOTE_STORAGE ?? String(!import.meta.env.DEV)) !== 'false';
   private static readonly API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
   private static applyingRemoteSnapshot = false;
@@ -121,8 +147,10 @@ export class StorageDB {
 
   public static getRemoteSnapshot(): RemoteSnapshot {
     return {
+      usuarios: StorageDB.getUsuarios(),
       lotes: StorageDB.getLotes(),
       turnos: StorageDB.getTurnos(),
+      notificaciones: StorageDB.getNotificaciones(),
       updatedAt: Date.now()
     };
   }
@@ -159,27 +187,31 @@ export class StorageDB {
 
   private static applyRemoteSnapshot(snapshot: RemoteSnapshot): void {
     StorageDB.applyingRemoteSnapshot = true;
+    StorageDB.saveUsuarios(snapshot.usuarios);
     StorageDB.saveLotes(snapshot.lotes);
     StorageDB.saveTurnos(snapshot.turnos);
+    StorageDB.saveNotificaciones(snapshot.notificaciones);
     StorageDB.applyingRemoteSnapshot = false;
   }
 
   private static normalizeSnapshot(value: unknown): RemoteSnapshot {
     if (!value || typeof value !== 'object') {
-      return { lotes: [], turnos: [], updatedAt: Date.now() };
+      return { usuarios: [], lotes: [], turnos: [], notificaciones: [], updatedAt: Date.now() };
     }
 
     const snapshot = value as Partial<RemoteSnapshot>;
 
     return {
+      usuarios: StorageDB.normalizeUsuarios(snapshot.usuarios),
       lotes: Array.isArray(snapshot.lotes) ? snapshot.lotes : [],
       turnos: Array.isArray(snapshot.turnos) ? snapshot.turnos : [],
+      notificaciones: StorageDB.normalizeNotificaciones(snapshot.notificaciones),
       updatedAt: typeof snapshot.updatedAt === 'number' ? snapshot.updatedAt : Date.now()
     };
   }
 
   private static hasRemoteData(snapshot: RemoteSnapshot): boolean {
-    return snapshot.lotes.length > 0 || snapshot.turnos.length > 0;
+    return snapshot.usuarios.length > 0 || snapshot.lotes.length > 0 || snapshot.turnos.length > 0 || snapshot.notificaciones.length > 0;
   }
 
   public static getTurnos(): Turno[] {
@@ -238,7 +270,127 @@ export class StorageDB {
   }
 
   public static savePerfilAdorador(perfil: PerfilAdorador): void {
-    localStorage.setItem(StorageDB.PERFIL_ADORADOR_KEY, JSON.stringify(perfil));
+    const usuario = StorageDB.normalizeUsuario(perfil);
+    localStorage.setItem(StorageDB.PERFIL_ADORADOR_KEY, JSON.stringify(usuario));
+    StorageDB.upsertUsuario(usuario);
+  }
+
+  public static getUsuarios(): Usuario[] {
+    const raw = localStorage.getItem(StorageDB.USUARIOS_KEY);
+
+    if (!raw) {
+      const perfil = StorageDB.getPerfilAdorador();
+      return perfil ? [perfil] : [];
+    }
+
+    try {
+      const data = JSON.parse(raw) as unknown[];
+      return StorageDB.normalizeUsuarios(data);
+    } catch {
+      return [];
+    }
+  }
+
+  public static saveUsuarios(usuarios: Usuario[]): void {
+    localStorage.setItem(StorageDB.USUARIOS_KEY, JSON.stringify(StorageDB.normalizeUsuarios(usuarios)));
+    StorageDB.queueRemoteSync();
+  }
+
+  public static upsertUsuario(usuario: Usuario): void {
+    const usuarios = StorageDB.getUsuarios();
+    const normalized = StorageDB.normalizeUsuario(usuario);
+    const index = usuarios.findIndex((item) => item.id === normalized.id || item.email.toLowerCase() === normalized.email.toLowerCase());
+
+    if (index === -1) {
+      StorageDB.saveUsuarios([...usuarios, normalized]);
+      return;
+    }
+
+    usuarios[index] = {
+      ...usuarios[index],
+      ...normalized,
+      id: usuarios[index].id || normalized.id,
+      creadoEn: usuarios[index].creadoEn || normalized.creadoEn,
+      actualizadoEn: Date.now()
+    };
+    StorageDB.saveUsuarios(usuarios);
+  }
+
+  public static getNotificaciones(): NotificacionRegistro[] {
+    const raw = localStorage.getItem(StorageDB.NOTIFICACIONES_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const data = JSON.parse(raw) as unknown[];
+      return StorageDB.normalizeNotificaciones(data);
+    } catch {
+      return [];
+    }
+  }
+
+  public static saveNotificaciones(notificaciones: NotificacionRegistro[]): void {
+    localStorage.setItem(StorageDB.NOTIFICACIONES_KEY, JSON.stringify(StorageDB.normalizeNotificaciones(notificaciones)));
+    StorageDB.queueRemoteSync();
+  }
+
+  public static agregarNotificacion(notificacion: NotificacionRegistro): void {
+    StorageDB.saveNotificaciones([notificacion, ...StorageDB.getNotificaciones()].slice(0, 200));
+  }
+
+  private static normalizeUsuarios(value: unknown): Usuario[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .map((usuario) => StorageDB.normalizeUsuario(usuario))
+      .filter((usuario) => usuario.nombreCompleto && usuario.email);
+  }
+
+  private static normalizeUsuario(value: unknown): Usuario {
+    const source = value && typeof value === 'object' ? value as Partial<Usuario> : {};
+    const nombre = String(source.nombre ?? '').trim();
+    const apellidos = String(source.apellidos ?? '').trim();
+    const nombreCompleto = String(source.nombreCompleto ?? `${nombre} ${apellidos}`).trim().replace(/\s+/g, ' ');
+    const creadoEn = typeof source.creadoEn === 'number' ? source.creadoEn : Date.now();
+
+    return {
+      id: source.id || (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`),
+      nombreCompleto,
+      nombre: nombre || nombreCompleto.split(' ')[0] || '',
+      apellidos: apellidos || nombreCompleto.split(' ').slice(1).join(' '),
+      email: String(source.email ?? '').trim().toLowerCase(),
+      telefono: String(source.telefono ?? '').trim(),
+      frecuencia: source.frecuencia === 'fijo' || source.frecuencia === 'suplente' || source.frecuencia === 'puntual' ? source.frecuencia : 'puntual',
+      rol: source.rol === 'administrador' ? 'administrador' : 'usuario',
+      creadoEn,
+      actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn
+    };
+  }
+
+  private static normalizeNotificaciones(value: unknown): NotificacionRegistro[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.map((item) => {
+      const source = item && typeof item === 'object' ? item as Partial<NotificacionRegistro> : {};
+      const creadoEn = typeof source.creadoEn === 'number' ? source.creadoEn : Date.now();
+
+      return {
+        id: source.id || (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`),
+        usuarioId: source.usuarioId,
+        titulo: String(source.titulo ?? 'Notificacion'),
+        mensaje: String(source.mensaje ?? ''),
+        tipo: source.tipo === 'inscripcion' || source.tipo === 'lote' || source.tipo === 'recordatorio' ? source.tipo : 'sistema',
+        estado: source.estado === 'enviada' || source.estado === 'leida' ? source.estado : 'pendiente',
+        creadoEn,
+        leidoEn: typeof source.leidoEn === 'number' ? source.leidoEn : undefined
+      };
+    });
   }
 
   public static agregarLote(lote: LoteExposicion): void {

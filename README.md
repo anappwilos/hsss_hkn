@@ -108,4 +108,10 @@ Para que los datos sobrevivan a reinicios y despliegues, crea una base PostgreSQ
 
 En produccion el cliente sincroniza lotes y turnos contra `/api/state` del mismo dominio. En desarrollo, Vite usa `VITE_API_BASE_URL=http://localhost:3000` para llamar a la API local.
 
-El perfil personal del adorador sigue guardandose en su dispositivo. Los compromisos inscritos si se sincronizan dentro de los turnos compartidos.
+La persistencia remota sincroniza el estado compartido en `/api/state` e inicializa tablas relacionales auxiliares en PostgreSQL para consultar estos dominios principales:
+
+- `usuarios`: nombre, apellidos, nombre completo, correo electronico, telefono, frecuencia (`fijo`, `suplente`, `puntual`) y rol (`administrador`, `usuario`).
+- `lotes`: copia JSON de cada lote de exposicion para facilitar auditoria y consultas por identificador.
+- `notificaciones`: historial de avisos del sistema, inscripciones, lotes y recordatorios con estado (`pendiente`, `enviada`, `leida`).
+
+El perfil personal del adorador tambien se guarda en su dispositivo como cache inmediata, y al registrarse se sincroniza como usuario compartido. Los compromisos inscritos se sincronizan dentro de los turnos compartidos.

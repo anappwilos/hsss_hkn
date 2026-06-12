@@ -23,8 +23,10 @@ const pool = databaseUrl
   : null;
 
 const emptyState = {
+  usuarios: [],
   lotes: [],
   turnos: [],
+  notificaciones: [],
   updatedAt: 0
 };
 
@@ -118,6 +120,43 @@ async function initializeStore() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuarios (
+      id text PRIMARY KEY,
+      nombre text NOT NULL,
+      apellidos text NOT NULL,
+      nombre_completo text NOT NULL,
+      email text NOT NULL UNIQUE,
+      telefono text NOT NULL,
+      frecuencia text NOT NULL CHECK (frecuencia IN ('fijo', 'suplente', 'puntual')),
+      rol text NOT NULL CHECK (rol IN ('administrador', 'usuario')),
+      creado_en timestamptz NOT NULL DEFAULT now(),
+      actualizado_en timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lotes (
+      id text PRIMARY KEY,
+      data jsonb NOT NULL,
+      creado_en timestamptz NOT NULL DEFAULT now(),
+      actualizado_en timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notificaciones (
+      id text PRIMARY KEY,
+      usuario_id text REFERENCES usuarios(id) ON DELETE SET NULL,
+      titulo text NOT NULL,
+      mensaje text NOT NULL,
+      tipo text NOT NULL CHECK (tipo IN ('sistema', 'inscripcion', 'lote', 'recordatorio')),
+      estado text NOT NULL CHECK (estado IN ('pendiente', 'enviada', 'leida')),
+      creado_en timestamptz NOT NULL DEFAULT now(),
+      leido_en timestamptz
+    )
+  `);
+
   await pool.query(
     `INSERT INTO app_state (id, state)
      VALUES ('default', $1::jsonb)
@@ -166,6 +205,7 @@ async function writeState(state) {
        DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
       [JSON.stringify(state)]
     );
+    await writeRelationalState(state);
     return;
   }
 
@@ -178,10 +218,103 @@ function normalizeState(value) {
   const source = value && typeof value === 'object' ? value : {};
 
   return {
+    usuarios: normalizeUsuarios(source.usuarios),
     lotes: Array.isArray(source.lotes) ? source.lotes : [],
     turnos: Array.isArray(source.turnos) ? source.turnos : [],
+    notificaciones: normalizeNotificaciones(source.notificaciones),
     updatedAt: typeof source.updatedAt === 'number' ? source.updatedAt : Date.now()
   };
+}
+
+function normalizeUsuarios(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((usuario) => {
+      const source = usuario && typeof usuario === 'object' ? usuario : {};
+      const nombre = String(source.nombre || '').trim();
+      const apellidos = String(source.apellidos || '').trim();
+      const nombreCompleto = String(source.nombreCompleto || `${nombre} ${apellidos}`).trim().replace(/\s+/g, ' ');
+      const creadoEn = typeof source.creadoEn === 'number' ? source.creadoEn : Date.now();
+
+      return {
+        id: String(source.id || '').trim(),
+        nombreCompleto,
+        nombre: nombre || nombreCompleto.split(' ')[0] || '',
+        apellidos: apellidos || nombreCompleto.split(' ').slice(1).join(' '),
+        email: String(source.email || '').trim().toLowerCase(),
+        telefono: String(source.telefono || '').trim(),
+        frecuencia: ['fijo', 'suplente', 'puntual'].includes(source.frecuencia) ? source.frecuencia : 'puntual',
+        rol: source.rol === 'administrador' ? 'administrador' : 'usuario',
+        creadoEn,
+        actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn
+      };
+    })
+    .filter((usuario) => usuario.id && usuario.nombreCompleto && usuario.email);
+}
+
+function normalizeNotificaciones(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((notificacion) => {
+    const source = notificacion && typeof notificacion === 'object' ? notificacion : {};
+    const creadoEn = typeof source.creadoEn === 'number' ? source.creadoEn : Date.now();
+
+    return {
+      id: String(source.id || '').trim(),
+      usuarioId: source.usuarioId ? String(source.usuarioId) : undefined,
+      titulo: String(source.titulo || 'Notificacion'),
+      mensaje: String(source.mensaje || ''),
+      tipo: ['inscripcion', 'lote', 'recordatorio'].includes(source.tipo) ? source.tipo : 'sistema',
+      estado: ['enviada', 'leida'].includes(source.estado) ? source.estado : 'pendiente',
+      creadoEn,
+      leidoEn: typeof source.leidoEn === 'number' ? source.leidoEn : undefined
+    };
+  }).filter((notificacion) => notificacion.id && notificacion.titulo);
+}
+
+async function writeRelationalState(state) {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    await client.query('TRUNCATE notificaciones, lotes, usuarios');
+
+    for (const usuario of state.usuarios) {
+      await client.query(
+        `INSERT INTO usuarios (id, nombre, apellidos, nombre_completo, email, telefono, frecuencia, rol, creado_en, actualizado_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))`,
+        [usuario.id, usuario.nombre, usuario.apellidos, usuario.nombreCompleto, usuario.email, usuario.telefono, usuario.frecuencia, usuario.rol, usuario.creadoEn, usuario.actualizadoEn]
+      );
+    }
+
+    for (const lote of state.lotes) {
+      await client.query(
+        `INSERT INTO lotes (id, data, creado_en, actualizado_en)
+         VALUES ($1, $2::jsonb, to_timestamp($3 / 1000.0), now())`,
+        [lote.id, JSON.stringify(lote), typeof lote.creadoEn === 'number' ? lote.creadoEn : Date.now()]
+      );
+    }
+
+    for (const notificacion of state.notificaciones) {
+      await client.query(
+        `INSERT INTO notificaciones (id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en)
+         VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7 / 1000.0), CASE WHEN $8::double precision IS NULL THEN NULL ELSE to_timestamp($8 / 1000.0) END)`,
+        [notificacion.id, state.usuarios.some((usuario) => usuario.id === notificacion.usuarioId) ? notificacion.usuarioId : null, notificacion.titulo, notificacion.mensaje, notificacion.tipo, notificacion.estado, notificacion.creadoEn, notificacion.leidoEn ?? null]
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function readJsonBody(request) {
