@@ -1,6 +1,6 @@
-# AdoraPlus
+# A solas
 
-Aplicacion local para crear lotes de exposicion, generar turnos e inscribir adoradores.
+Version 0.5.0 de la aplicacion de la capilla A solas para crear lotes de exposicion, generar turnos e inscribir adoradores.
 
 ## Configuracion
 
@@ -51,7 +51,7 @@ npm run db:up
 Copia `.env.example` a `.env` y usa:
 
 ```env
-DATABASE_URL=postgresql://adoraplus:adoraplus_dev@localhost:5432/adoraplus
+DATABASE_URL=postgresql://a_solas:a_solas_dev@localhost:5432/a_solas
 VITE_ENABLE_REMOTE_STORAGE=true
 VITE_API_BASE_URL=http://localhost:3000
 ```
@@ -74,7 +74,7 @@ npm run dev
 
 Despues abre `http://localhost:5173`.
 
-El frontend seguira usando `localStorage` como cache inmediata, y sincronizara lotes y turnos con la API local en `/api/state`. Si `DATABASE_URL` no esta definido, la API usa `data/adora-plus-state.json` como fallback local.
+El frontend seguira usando `localStorage` como cache inmediata, y sincronizara lotes y turnos con la API local en `/api/state`. Si `DATABASE_URL` no esta definido, la API usa `data/a-solas-state.json` como fallback local.
 
 Puedes comprobar que la API esta viva abriendo:
 
@@ -105,14 +105,14 @@ La app puede desplegarse en Render como un Blueprint desde `render.yaml`. Render
 1. Sube este repositorio a GitHub/GitLab/Bitbucket.
 2. En Render, crea un **New Blueprint Instance** y selecciona el repositorio.
 3. Render leera `render.yaml` y creara:
-   - Servicio web `adoraplus` con `buildCommand: npm ci && npm run build`, `startCommand: npm start` y healthcheck `/api/health`.
-   - Base PostgreSQL `adoraplus-db`. El Blueprint usa `plan: free` para arrancar sin coste; para produccion estable conviene cambiarlo a `basic-256mb` o superior antes de crear el servicio.
+   - Servicio web `a-solas` con `buildCommand: npm ci && npm run build`, `startCommand: npm start` y healthcheck `/api/health`.
+   - Base PostgreSQL `a-solas-db`. El Blueprint usa `plan: free` para arrancar sin coste; para produccion estable conviene cambiarlo a `basic-256mb` o superior antes de crear el servicio.
 4. Cuando Render pida variables marcadas con `sync: false`, define:
    - `VITE_ADMIN_EMAIL`: correo del administrador.
    - `VITE_ADMIN_PASSWORD`: contrasena del administrador.
 5. Al terminar el despliegue, abre `https://<tu-servicio>.onrender.com/api/health`; deberia devolver `{"ok":true}`.
 
-El Blueprint inyecta `DATABASE_URL` desde la base `adoraplus-db` y activa `VITE_ENABLE_REMOTE_STORAGE=true`. En produccion el cliente sincroniza contra `/api/state` del mismo dominio, por lo que `VITE_API_BASE_URL` debe quedarse vacio/no definido. Si usas una base externa que exige SSL para `DATABASE_URL`, define tambien `DATABASE_SSL=true`.
+El Blueprint inyecta `DATABASE_URL` desde la base `a-solas-db` y activa `VITE_ENABLE_REMOTE_STORAGE=true`. En produccion el cliente sincroniza contra `/api/state` del mismo dominio, por lo que `VITE_API_BASE_URL` debe quedarse vacio/no definido. Si usas una base externa que exige SSL para `DATABASE_URL`, define tambien `DATABASE_SSL=true`.
 
 En desarrollo, Vite usa `VITE_API_BASE_URL=http://localhost:3000` para llamar a la API local.
 

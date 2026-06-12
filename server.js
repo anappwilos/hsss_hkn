@@ -11,7 +11,7 @@ await loadEnvFile();
 const port = Number(process.env.PORT || 3000);
 const distDir = path.join(__dirname, 'dist');
 const dataDir = process.env.DATA_DIR || process.env.RENDER_DISK_PATH || path.join(__dirname, 'data');
-const stateFile = path.join(dataDir, 'adora-plus-state.json');
+const stateFile = path.join(dataDir, 'a-solas-state.json');
 const maxBodyBytes = 1024 * 1024;
 const databaseUrl = process.env.DATABASE_URL || '';
 const { Pool } = pg;
@@ -74,7 +74,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, () => {
-  console.log(`AdoraPlus escuchando en http://localhost:${port}`);
+  console.log(`A solas escuchando en http://localhost:${port}`);
   console.log(pool ? 'Datos persistentes en PostgreSQL.' : `Datos persistentes en ${stateFile}`);
 });
 

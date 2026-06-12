@@ -11,7 +11,7 @@ self.addEventListener('message', (event) => {
     return;
   }
 
-  const title = event.data.title || 'AdoraPlus';
+  const title = event.data.title || 'A solas';
   const options = {
     body: event.data.body || '',
     tag: event.data.tag,

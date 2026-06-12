@@ -35,6 +35,7 @@ const ADMIN_SESSION_KEY = 'hsss_admin_session';
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase();
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
 const validViews = new Set<Vista>(['inicio', 'admin-login', 'admin', 'configuracion', 'registro-adorador', 'usuario']);
+const APP_VERSION = '0.5.0';
 
 if (!app) {
   throw new Error('No se encontro el contenedor #app');
@@ -81,7 +82,7 @@ app.innerHTML = `
         </div>
 
         <header class="welcome-copy">
-          <h1>Bienvenido a AdoraPlus</h1>
+          <h1>Bienvenido a A solas</h1>
           <p>Selecciona tu perfil para continuar y acceder a tu espacio de adoraci&oacute;n.</p>
         </header>
 
@@ -105,7 +106,10 @@ app.innerHTML = `
           </button>
         </div>
 
-        <footer class="welcome-footer">PAZ Y BIEN</footer>
+        <footer class="welcome-footer">
+          <span>PAZ Y BIEN</span>
+          <strong class="app-version">A solas v${APP_VERSION}</strong>
+        </footer>
       </div>
     </section>
 
@@ -114,7 +118,7 @@ app.innerHTML = `
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
           <span class="brand-icon" aria-hidden="true">⌂</span>
-          <span>AdoraPlus</span>
+          <span>A solas</span>
         </button>
       </header>
 
@@ -145,7 +149,7 @@ app.innerHTML = `
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
           <span class="brand-icon" aria-hidden="true">⌂</span>
-          <span>AdoraPlus</span>
+          <span>A solas</span>
         </button>
         <button class="topbar-text-button" type="button" data-action="admin-logout">Salir</button>
       </header>
@@ -184,7 +188,7 @@ app.innerHTML = `
         </div>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
           <span class="user-title-mark" aria-hidden="true">☼</span>
-          <span>Adoraci&oacute;n Eucar&iacute;stica</span>
+          <span>A solas</span>
         </button>
         <button id="btn-notificaciones" class="avatar-button notification-button" type="button" aria-label="Activar notificaciones">
           <span class="avatar" aria-hidden="true">M</span>
@@ -235,7 +239,7 @@ app.innerHTML = `
     <section id="vista-registro-adorador" class="view registro-view" style="display: none;">
       <header class="mobile-topbar registro-topbar">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
-        <h1>Registro de Adorador</h1>
+        <h1>Registro A solas</h1>
         <span aria-hidden="true"></span>
       </header>
 

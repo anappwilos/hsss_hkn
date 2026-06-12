@@ -1,12 +1,12 @@
 {
-  "name": "hsss_hkn",
-  "short_name": "HSSS HKN",
-  "description": "Control offline-first de asistencia de turnos masivos.",
+  "name": "A solas",
+  "short_name": "A solas",
+  "description": "Gestion de turnos de adoracion de la capilla A solas.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0f766e",
+  "theme_color": "#a34f15",
   "icons": [
     {
       "src": "/favicon.svg",
