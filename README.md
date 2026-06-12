@@ -107,7 +107,8 @@ Esta aplicación incluye un archivo `render.yaml` que facilita el despliegue. Pa
 1. Sube el código a tu repositorio de GitHub o GitLab.
 2. En el dashboard de Render, ve a **Blueprints** y selecciona tu repositorio.
 3. Render detectará automáticamente el archivo `render.yaml` y creará el Web Service y la base de datos PostgreSQL.
-4. Asegúrate de configurar `VITE_ADMIN_EMAIL` en las variables de entorno si quieres un correo específico (por defecto pedirá uno o generará valores seguros).
+4. Render generará automáticamente una contraseña segura para `VITE_ADMIN_PASSWORD`. Puedes verla en la sección **Environment** del servicio web en el dashboard de Render.
+5. Asegúrate de configurar `VITE_ADMIN_EMAIL` en las variables de entorno si quieres un correo específico (por defecto pedirá uno o generará valores seguros).
 
 Si prefieres hacerlo manualmente:
 

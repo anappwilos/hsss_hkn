@@ -5,6 +5,7 @@ services:
     plan: free
     buildCommand: npm run render-build
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
