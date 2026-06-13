@@ -41,6 +41,7 @@ const mimeTypes = new Map([
   ['.webmanifest', 'application/manifest+json; charset=utf-8']
 ]);
 
+await waitForDatabase();
 await initializeStore();
 
 const server = createServer(async (request, response) => {
@@ -76,6 +77,22 @@ server.listen(port, () => {
   console.log(`A solas escuchando en http://localhost:${port}`);
   console.log('Datos persistentes solo en PostgreSQL.');
 });
+
+async function waitForDatabase(retries = 20, delayMs = 1000) {
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      await pool.query('SELECT 1');
+      return;
+    } catch (error) {
+      if (attempt === retries) {
+        throw error;
+      }
+
+      console.log(`Esperando PostgreSQL (${attempt}/${retries})...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
 
 async function loadEnvFile() {
   try {

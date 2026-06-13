@@ -42,7 +42,7 @@ http://localhost:5173
 
 ## Persistencia local con PostgreSQL
 
-Para probar la misma base que se usara en produccion, levanta PostgreSQL con Docker:
+Para probar la misma base que se usara en produccion, levanta PostgreSQL con Docker. En el primer arranque del volumen, Docker monta `db/init/001_schema.sql` en `/docker-entrypoint-initdb.d` y PostgreSQL crea automaticamente las tablas necesarias:
 
 ```bash
 npm run db:up
@@ -94,7 +94,7 @@ Para parar PostgreSQL local:
 npm run db:down
 ```
 
-Nota: `npm run db:down` detiene el contenedor, pero conserva el volumen de datos. Si necesitas borrar la base local completa, ejecuta manualmente `docker compose down -v`.
+Nota: `npm run db:down` detiene el contenedor, pero conserva el volumen de datos. Los scripts de `db/init` solo se ejecutan cuando el volumen se crea por primera vez; si necesitas recrear la base local completa y volver a aplicar el esquema inicial, ejecuta manualmente `docker compose down -v` y despues `npm run db:up`.
 
 ## Persistencia y Render
 
