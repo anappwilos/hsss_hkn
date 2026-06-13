@@ -2069,6 +2069,53 @@ select:focus-visible {
   }
 }
 
+
+.admin-panel-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 22px;
+}
+
+.admin-panel-tabs .chip {
+  width: 100%;
+  justify-content: center;
+}
+
+.admin-panel-section {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-users-list {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-users-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.my-turns-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.profile-avatar-button .avatar {
+  box-shadow:
+    0 0 0 3px rgba(163, 79, 21, 0.12),
+    var(--shadow-sm);
+}
+
+@media (max-width: 560px) {
+  .admin-panel-tabs {
+    grid-template-columns: 1fr;
+  }
+}
+
 .app-modal {
   width: min(92vw, 620px);
   max-height: min(88vh, 860px);

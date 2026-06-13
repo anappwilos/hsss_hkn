@@ -122,4 +122,4 @@ La persistencia remota sincroniza el estado compartido en `/api/state` e inicial
 - `lotes`: copia JSON de cada lote de exposicion para facilitar auditoria y consultas por identificador.
 - `notificaciones`: historial de avisos del sistema, inscripciones, lotes y recordatorios con estado (`pendiente`, `enviada`, `leida`).
 
-El perfil personal del adorador tambien se guarda en su dispositivo como cache inmediata, y al registrarse se sincroniza como usuario compartido. Los compromisos inscritos se sincronizan dentro de los turnos compartidos, se muestran al adorador en "Mis turnos guardados" y solo un administrador autenticado puede ver la vista de turnos cubiertos con datos completos de los perfiles.
+El perfil personal del adorador tambien se guarda en su dispositivo como cache inmediata, y al registrarse se sincroniza como usuario compartido. Los compromisos inscritos se sincronizan dentro de los turnos compartidos, se muestran al adorador en "Mis turnos guardados" y solo un administrador autenticado puede ver el panel administrativo de lotes, usuarios y turnos asignados con datos completos de los perfiles.

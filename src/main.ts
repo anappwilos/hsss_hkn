@@ -7,6 +7,7 @@ type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
 type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
 type VistaTurnos = 'diaria' | 'semanal';
+type AdminPanel = 'lotes' | 'usuarios' | 'turnos';
 type NotificationPersistenceOptions = {
   usuarioId?: string;
   tipo?: 'sistema' | 'inscripcion' | 'lote' | 'recordatorio';
@@ -60,6 +61,7 @@ let interrupcionDiasConfig = new Set<number>([1, 2, 3, 4, 5]);
 let fechaUsuarioSeleccionada = fechaToInput(new Date());
 let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let vistaTurnos: VistaTurnos = 'semanal';
+let adminPanel: AdminPanel = 'lotes';
 let turnoModalId: string | null = null;
 let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
 let modalTipoAnotacion: TipoAnotacion = 'puntual';
@@ -156,25 +158,39 @@ app.innerHTML = `
 
       <div class="screen-content">
         <header class="section-heading">
-          <h1>Lotes de Exposici&oacute;n</h1>
-          <p>Gestiona los bloques de tiempo para la exposici&oacute;n del Sant&iacute;simo.</p>
+          <h1>Panel administrador</h1>
+          <p>Gestiona lotes, usuarios registrados y turnos asignados de la capilla.</p>
         </header>
 
-        <label class="search-box">
-          <span aria-hidden="true">⌕</span>
-          <input id="buscar-lote" type="search" placeholder="Buscar lote..." autocomplete="off" />
-        </label>
+        <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
+          <button class="chip is-active" type="button" data-admin-panel="lotes">Lotes</button>
+          <button class="chip" type="button" data-admin-panel="usuarios">Usuarios</button>
+          <button class="chip" type="button" data-admin-panel="turnos">Turnos asignados</button>
+        </nav>
 
-        <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
-          <button class="chip is-active" type="button" data-filter="todos">Todos</button>
-          <button class="chip" type="button" data-filter="activo">Activos</button>
-          <button class="chip" type="button" data-filter="programado">Programados</button>
-          <button class="chip" type="button" data-filter="finalizado">Finalizados</button>
-        </div>
+        <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
+          <label class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <input id="buscar-lote" type="search" placeholder="Buscar lote..." autocomplete="off" />
+          </label>
 
-        <section id="admin-turnos-cubiertos" class="admin-covered-panel" aria-label="Turnos cubiertos y perfiles inscritos"></section>
+          <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
+            <button class="chip is-active" type="button" data-filter="todos">Todos</button>
+            <button class="chip" type="button" data-filter="activo">Activos</button>
+            <button class="chip" type="button" data-filter="programado">Programados</button>
+            <button class="chip" type="button" data-filter="finalizado">Finalizados</button>
+          </div>
 
-        <div id="lotes-lista" class="lotes-list"></div>
+          <div id="lotes-lista" class="lotes-list"></div>
+        </section>
+
+        <section id="admin-panel-usuarios" class="admin-panel-section" aria-label="Panel de usuarios" hidden>
+          <div id="admin-usuarios-lista" class="admin-users-list"></div>
+        </section>
+
+        <section id="admin-panel-turnos" class="admin-panel-section" aria-label="Panel de turnos asignados" hidden>
+          <div id="admin-turnos-cubiertos" class="admin-covered-panel" aria-label="Turnos cubiertos y perfiles inscritos"></div>
+        </section>
       </div>
 
       <button id="btn-nuevo-lote" class="fab" type="button" aria-label="Crear lote">+</button>
@@ -190,8 +206,8 @@ app.innerHTML = `
           <span class="user-title-mark" aria-hidden="true">☼</span>
           <span>A solas</span>
         </button>
-        <button id="btn-notificaciones" class="avatar-button notification-button" type="button" aria-label="Activar notificaciones">
-          <span class="avatar" aria-hidden="true">M</span>
+        <button id="btn-perfil-usuario" class="avatar-button profile-avatar-button" type="button" aria-label="Abrir mi perfil">
+          <span class="avatar" aria-hidden="true">A</span>
           <span class="avatar-caret" aria-hidden="true">⌄</span>
         </button>
       </header>
@@ -551,13 +567,19 @@ const adminLoginMensaje = getElement<HTMLParagraphElement>('#admin-login-mensaje
 const buscarLote = getElement<HTMLInputElement>('#buscar-lote');
 const loteFiltros = getElement<HTMLDivElement>('#lote-filtros');
 const lotesLista = getElement<HTMLDivElement>('#lotes-lista');
+const btnNuevoLote = getElement<HTMLButtonElement>('#btn-nuevo-lote');
+const adminPanelTabs = getElement<HTMLElement>('#admin-panel-tabs');
+const adminPanelLotes = getElement<HTMLElement>('#admin-panel-lotes');
+const adminPanelUsuarios = getElement<HTMLElement>('#admin-panel-usuarios');
+const adminPanelTurnos = getElement<HTMLElement>('#admin-panel-turnos');
+const adminUsuariosLista = getElement<HTMLElement>('#admin-usuarios-lista');
 const adminTurnosCubiertos = getElement<HTMLElement>('#admin-turnos-cubiertos');
 const usuarioDias = getElement<HTMLDivElement>('#usuario-dias');
 const usuarioTurnos = getElement<HTMLDivElement>('#usuario-turnos');
 const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
 const usuarioSemanaLabel = getElement<HTMLParagraphElement>('#usuario-semana-label');
 const usuarioMisTurnos = getElement<HTMLElement>('#usuario-mis-turnos');
-const btnNotificaciones = getElement<HTMLButtonElement>('#btn-notificaciones');
+const btnPerfilUsuario = getElement<HTMLButtonElement>('#btn-perfil-usuario');
 const modalInscripcion = getElement<HTMLDialogElement>('#modal-inscripcion');
 const formInscripcionModal = getElement<HTMLFormElement>('#form-inscripcion-modal');
 const modalTurnoTitle = getElement<HTMLHeadingElement>('#modal-turno-title');
@@ -624,13 +646,11 @@ function getElement<T extends Element>(selector: string): T {
   return element;
 }
 
-function renderNotificationButton(): void {
-  const isSupported = NotificationService.isSupported();
-  const isEnabled = isSupported && NotificationService.isEnabled();
-  btnNotificaciones.hidden = !isSupported;
-  btnNotificaciones.classList.toggle('is-enabled', isEnabled);
-  btnNotificaciones.innerHTML = '<span class="avatar" aria-hidden="true">M</span><span class="avatar-caret" aria-hidden="true">⌄</span>';
-  btnNotificaciones.setAttribute('aria-label', isEnabled ? 'Notificaciones activas' : 'Activar notificaciones');
+function renderProfileButton(): void {
+  const perfil = StorageDB.getPerfilAdorador();
+  const inicial = perfil?.nombreCompleto.trim().charAt(0).toUpperCase() || 'A';
+  btnPerfilUsuario.innerHTML = `<span class="avatar" aria-hidden="true">${escapeHtml(inicial)}</span><span class="avatar-caret" aria-hidden="true">⌄</span>`;
+  btnPerfilUsuario.setAttribute('aria-label', perfil ? 'Abrir mi perfil' : 'Crear mi perfil');
 }
 
 async function activarNotificaciones(): Promise<void> {
@@ -640,7 +660,7 @@ async function activarNotificaciones(): Promise<void> {
     message: granted ? 'El usuario activo las notificaciones del navegador.' : 'El usuario no concedio permiso para las notificaciones del navegador.',
     tone: granted ? 'success' : 'error'
   }, { tipo: 'sistema', estado: granted ? 'enviada' : 'pendiente' });
-  renderNotificationButton();
+  renderProfileButton();
 }
 
 function persistirNotificacion(notification: AppNotification, options: NotificationPersistenceOptions = {}): void {
@@ -688,8 +708,7 @@ function actualizarEstadoPersistencia(status: SyncStatus, message: string): void
 
 function refrescarVistaActual(): void {
   if (vistaActual === 'admin') {
-    renderAdminTurnosCubiertos();
-    renderLotes();
+    renderAdminPanel();
   }
 
   if (vistaActual === 'usuario') {
@@ -755,13 +774,12 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): 
   vistaConfiguracion.style.display = nextView === 'configuracion' ? 'block' : 'none';
 
   if (nextView === 'admin') {
-    renderAdminTurnosCubiertos();
-    renderLotes();
+    renderAdminPanel();
   }
 
   if (nextView === 'usuario') {
     prepararFechaUsuario();
-    renderNotificationButton();
+    renderProfileButton();
     renderMisTurnos();
     renderUsuario();
   }
@@ -1546,6 +1564,74 @@ function getTurnosOrdenados(): Turno[] {
   });
 }
 
+function renderAdminPanel(): void {
+  if (!isAdminAuthenticated()) {
+    return;
+  }
+
+  adminPanelTabs.querySelectorAll<HTMLButtonElement>('[data-admin-panel]').forEach((button) => {
+    const isActive = button.dataset.adminPanel === adminPanel;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
+  adminPanelLotes.hidden = adminPanel !== 'lotes';
+  adminPanelUsuarios.hidden = adminPanel !== 'usuarios';
+  adminPanelTurnos.hidden = adminPanel !== 'turnos';
+  btnNuevoLote.hidden = adminPanel !== 'lotes';
+
+  if (adminPanel === 'lotes') {
+    renderLotes();
+  }
+
+  if (adminPanel === 'usuarios') {
+    renderAdminUsuarios();
+  }
+
+  if (adminPanel === 'turnos') {
+    renderAdminTurnosCubiertos();
+  }
+}
+
+function renderAdminUsuarios(): void {
+  const usuarios = StorageDB.getUsuarios().toSorted((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto));
+
+  if (usuarios.length === 0) {
+    adminUsuariosLista.innerHTML = `
+      <div class="empty-card compact">
+        <h3>No hay usuarios registrados</h3>
+        <p>Cuando un adorador complete su perfil, aparecera aqui para administracion.</p>
+      </div>
+    `;
+    return;
+  }
+
+  adminUsuariosLista.innerHTML = `
+    <header class="admin-covered-header">
+      <div>
+        <p class="section-kicker">Usuarios</p>
+        <h2>Perfiles registrados</h2>
+        <p>Datos visibles solo para administradores.</p>
+      </div>
+      <div class="admin-covered-stats" aria-label="Resumen de usuarios">
+        <span><strong>${usuarios.length}</strong> usuarios</span>
+        <span><strong>${usuarios.filter((usuario) => usuario.frecuencia === 'fijo').length}</strong> fijos</span>
+        <span><strong>${usuarios.filter((usuario) => usuario.frecuencia === 'suplente').length}</strong> suplentes</span>
+      </div>
+    </header>
+    <div class="admin-users-grid">
+      ${usuarios.map((usuario) => `
+        <article class="admin-profile-card">
+          <strong>${escapeHtml(usuario.nombreCompleto)}</strong>
+          <span>${escapeHtml(usuario.email)}</span>
+          <span>${escapeHtml(usuario.telefono)}</span>
+          <small>Frecuencia: ${escapeHtml(formatFrecuencia(usuario.frecuencia))} · Rol: ${escapeHtml(formatRol(usuario.rol))}</small>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
 function renderAdminTurnosCubiertos(): void {
   if (!isAdminAuthenticated()) {
     adminTurnosCubiertos.innerHTML = '';
@@ -1638,7 +1724,10 @@ function renderMisTurnos(): void {
         <p>${escapeHtml(perfil.email)} · ${escapeHtml(perfil.telefono)}</p>
         <small>Frecuencia: ${escapeHtml(formatFrecuencia(perfil.frecuencia))}</small>
       </div>
-      <button class="button button-secondary" type="button" data-view="registro-adorador">Editar perfil</button>
+      <div class="my-turns-actions">
+        <button class="button button-secondary" type="button" data-view="registro-adorador">Editar perfil</button>
+        <button class="button button-secondary" type="button" data-action="activar-notificaciones">Notificaciones</button>
+      </div>
     </header>
     <section class="my-turns-list" aria-label="Mis turnos guardados">
       <h3>Mis turnos guardados</h3>
@@ -1656,7 +1745,6 @@ function renderMisTurnos(): void {
 }
 
 function renderLotes(): void {
-  renderAdminTurnosCubiertos();
   const lotes = StorageDB.getLotes()
     .map((lote) => ({
       ...lote,
@@ -2320,7 +2408,7 @@ function inscribirDesdeModal(): void {
 
   renderMisTurnos();
   renderUsuario();
-  renderAdminTurnosCubiertos();
+  renderAdminPanel();
   setModalMessage(`Inscripcion completada en ${inscritos} turno(s). ${omitidos > 0 ? `${omitidos} turno(s) omitidos por falta de plazas o duplicado.` : ''}`, 'success');
   notificarYPersistir({
     title: 'Inscripcion confirmada',
@@ -2360,8 +2448,21 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  if (target.closest('#btn-notificaciones')) {
+  if (target.closest('#btn-perfil-usuario')) {
+    mostrarVista('registro-adorador');
+    return;
+  }
+
+  if (target.closest('[data-action="activar-notificaciones"]')) {
     void activarNotificaciones();
+    return;
+  }
+
+  const adminPanelButton = target.closest<HTMLButtonElement>('[data-admin-panel]');
+
+  if (adminPanelButton?.dataset.adminPanel) {
+    adminPanel = adminPanelButton.dataset.adminPanel as AdminPanel;
+    renderAdminPanel();
     return;
   }
 
@@ -2600,6 +2701,7 @@ formRegistroAdorador.addEventListener('submit', (event) => {
     rol: 'usuario'
   }));
 
+  renderProfileButton();
   mostrarVista('usuario');
 });
 
