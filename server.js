@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,17 +10,17 @@ await loadEnvFile();
 
 const port = Number(process.env.PORT || 3000);
 const distDir = path.join(__dirname, 'dist');
-const dataDir = process.env.DATA_DIR || process.env.RENDER_DISK_PATH || path.join(__dirname, 'data');
-const stateFile = path.join(dataDir, 'a-solas-state.json');
 const maxBodyBytes = 1024 * 1024;
 const databaseUrl = process.env.DATABASE_URL || '';
 const { Pool } = pg;
-const pool = databaseUrl
-  ? new Pool({
-      connectionString: databaseUrl,
-      ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined
-    })
-  : null;
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL es obligatorio: la persistencia usa solo PostgreSQL. Ejecuta npm run db:up y define DATABASE_URL en .env.');
+}
+
+const pool = new Pool({
+  connectionString: databaseUrl,
+  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined
+});
 
 const emptyState = {
   usuarios: [],
@@ -41,7 +41,6 @@ const mimeTypes = new Map([
   ['.webmanifest', 'application/manifest+json; charset=utf-8']
 ]);
 
-await mkdir(dataDir, { recursive: true });
 await initializeStore();
 
 const server = createServer(async (request, response) => {
@@ -75,7 +74,7 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, () => {
   console.log(`A solas escuchando en http://localhost:${port}`);
-  console.log(pool ? 'Datos persistentes en PostgreSQL.' : `Datos persistentes en ${stateFile}`);
+  console.log('Datos persistentes solo en PostgreSQL.');
 });
 
 async function loadEnvFile() {
@@ -108,10 +107,6 @@ async function loadEnvFile() {
 }
 
 async function initializeStore() {
-  if (!pool) {
-    return;
-  }
-
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_state (
       id text PRIMARY KEY,
@@ -183,35 +178,19 @@ async function handleState(request, response) {
 }
 
 async function readState() {
-  if (pool) {
-    const result = await pool.query('SELECT state FROM app_state WHERE id = $1', ['default']);
-    return normalizeState(result.rows[0]?.state);
-  }
-
-  try {
-    const raw = await readFile(stateFile, 'utf8');
-    return normalizeState(JSON.parse(raw));
-  } catch {
-    return { ...emptyState };
-  }
+  const result = await pool.query('SELECT state FROM app_state WHERE id = $1', ['default']);
+  return normalizeState(result.rows[0]?.state);
 }
 
 async function writeState(state) {
-  if (pool) {
-    await pool.query(
-      `INSERT INTO app_state (id, state, updated_at)
-       VALUES ('default', $1::jsonb, now())
-       ON CONFLICT (id)
-       DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
-      [JSON.stringify(state)]
-    );
-    await writeRelationalState(state);
-    return;
-  }
-
-  const tmpFile = `${stateFile}.tmp`;
-  await writeFile(tmpFile, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-  await rename(tmpFile, stateFile);
+  await pool.query(
+    `INSERT INTO app_state (id, state, updated_at)
+     VALUES ('default', $1::jsonb, now())
+     ON CONFLICT (id)
+     DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
+    [JSON.stringify(state)]
+  );
+  await writeRelationalState(state);
 }
 
 function normalizeState(value) {

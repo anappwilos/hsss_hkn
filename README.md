@@ -74,7 +74,7 @@ npm run dev
 
 Despues abre `http://localhost:5173`.
 
-El frontend seguira usando `localStorage` como cache inmediata, y sincronizara lotes y turnos con la API local en `/api/state`. Si `DATABASE_URL` no esta definido, la API usa `data/a-solas-state.json` como fallback local.
+La app ya no persiste estado de negocio en `localStorage`: el navegador mantiene solo datos en memoria durante la sesion y toda lectura/escritura durable pasa por la API local en `/api/state`, respaldada por PostgreSQL. `DATABASE_URL` es obligatorio para arrancar `npm run dev:api` o `npm start`.
 
 Puedes comprobar que la API esta viva abriendo:
 
@@ -116,10 +116,10 @@ El Blueprint inyecta `DATABASE_URL` desde la base `a-solas-db` y activa `VITE_EN
 
 En desarrollo, Vite usa `VITE_API_BASE_URL=http://localhost:3000` para llamar a la API local.
 
-La persistencia remota sincroniza el estado compartido en `/api/state` e inicializa tablas relacionales auxiliares en PostgreSQL para consultar estos dominios principales:
+La persistencia PostgreSQL sincroniza el estado compartido en `/api/state` e inicializa tablas relacionales auxiliares para consultar estos dominios principales:
 
 - `usuarios`: nombre, apellidos, nombre completo, correo electronico, telefono, frecuencia (`fijo`, `suplente`, `puntual`) y rol (`administrador`, `usuario`).
 - `lotes`: copia JSON de cada lote de exposicion para facilitar auditoria y consultas por identificador.
 - `notificaciones`: historial de avisos del sistema, inscripciones, lotes y recordatorios con estado (`pendiente`, `enviada`, `leida`).
 
-El perfil personal del adorador tambien se guarda en su dispositivo como cache inmediata, y al registrarse se sincroniza como usuario compartido. Los compromisos inscritos se sincronizan dentro de los turnos compartidos, se muestran al adorador en "Mis turnos guardados" y solo un administrador autenticado puede ver el panel administrativo de lotes, usuarios y turnos asignados con datos completos de los perfiles.
+El perfil personal del adorador se conserva en PostgreSQL como usuario compartido; no se guarda una copia durable en el dispositivo. Los compromisos inscritos se sincronizan dentro de los turnos compartidos, se muestran al adorador en "Mis turnos guardados" durante su sesion y solo un administrador autenticado puede ver el panel administrativo de lotes, usuarios y turnos asignados con datos completos de los perfiles.

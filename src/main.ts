@@ -31,11 +31,9 @@ type TurnoCalendario = {
 };
 
 const app = document.querySelector<HTMLDivElement>('#app');
-const LAST_VIEW_KEY = 'hsss_last_view';
 const ADMIN_SESSION_KEY = 'hsss_admin_session';
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase();
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
-const validViews = new Set<Vista>(['inicio', 'admin-login', 'admin', 'configuracion', 'registro-adorador', 'usuario']);
 const APP_VERSION = '0.5.0';
 
 if (!app) {
@@ -718,9 +716,6 @@ function refrescarVistaActual(): void {
   }
 }
 
-function isVista(value: string | null): value is Vista {
-  return value !== null && validViews.has(value as Vista);
-}
 
 function isAdminAuthenticated(): boolean {
   return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
@@ -736,17 +731,7 @@ function setAdminAuthenticated(value: boolean): void {
 }
 
 function getVistaInicial(): Vista {
-  const storedView = localStorage.getItem(LAST_VIEW_KEY);
-
-  if (!isVista(storedView)) {
-    return 'inicio';
-  }
-
-  if ((storedView === 'admin' || storedView === 'configuracion') && !isAdminAuthenticated()) {
-    return 'admin-login';
-  }
-
-  return storedView;
+  return 'inicio';
 }
 
 function mostrarAdminLoginMensaje(message: string, tone: 'info' | 'error' = 'info'): void {
@@ -765,7 +750,6 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): 
   }
 
   vistaActual = nextView;
-  localStorage.setItem(LAST_VIEW_KEY, nextView);
   vistaInicio.style.display = nextView === 'inicio' ? 'grid' : 'none';
   vistaAdminLogin.style.display = nextView === 'admin-login' ? 'block' : 'none';
   vistaAdmin.style.display = nextView === 'admin' ? 'block' : 'none';

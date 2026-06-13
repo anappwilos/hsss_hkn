@@ -81,16 +81,16 @@ export interface RemoteSnapshot {
 type SyncListener = (status: SyncStatus, message: string) => void;
 
 export class StorageDB {
-  private static readonly DB_KEY = 'hsss_db';
-  private static readonly LOTES_KEY = 'hsss_lotes';
-  private static readonly PERFIL_ADORADOR_KEY = 'hsss_perfil_adorador';
-  private static readonly USUARIOS_KEY = 'hsss_usuarios';
-  private static readonly NOTIFICACIONES_KEY = 'hsss_notificaciones';
-  private static readonly REMOTE_ENABLED = (import.meta.env.VITE_ENABLE_REMOTE_STORAGE ?? String(!import.meta.env.DEV)) !== 'false';
+  private static readonly REMOTE_ENABLED = (import.meta.env.VITE_ENABLE_REMOTE_STORAGE ?? 'true') !== 'false';
   private static readonly API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
   private static applyingRemoteSnapshot = false;
   private static syncQueue: Promise<void> = Promise.resolve();
   private static syncListeners = new Set<SyncListener>();
+  private static usuarios: Usuario[] = [];
+  private static lotes: LoteExposicion[] = [];
+  private static turnos: Turno[] = [];
+  private static notificaciones: NotificacionRegistro[] = [];
+  private static perfilAdoradorId: string | null = null;
 
   public static subscribeSync(listener: SyncListener): () => void {
     StorageDB.syncListeners.add(listener);
@@ -99,11 +99,11 @@ export class StorageDB {
 
   public static async loadRemote(): Promise<boolean> {
     if (!StorageDB.REMOTE_ENABLED) {
-      StorageDB.emitSync('idle', 'Persistencia remota desactivada.');
+      StorageDB.emitSync('idle', 'Persistencia PostgreSQL desactivada.');
       return false;
     }
 
-    StorageDB.emitSync('syncing', 'Cargando datos persistentes...');
+    StorageDB.emitSync('syncing', 'Cargando datos desde PostgreSQL...');
 
     try {
       const response = await fetch(StorageDB.apiUrl('/api/state'), {
@@ -115,19 +115,11 @@ export class StorageDB {
         throw new Error(`Servidor no disponible (${response.status})`);
       }
 
-      const snapshot = StorageDB.normalizeSnapshot(await response.json());
-      const localSnapshot = StorageDB.getRemoteSnapshot();
-
-      if (!StorageDB.hasRemoteData(snapshot) && StorageDB.hasRemoteData(localSnapshot)) {
-        await StorageDB.saveRemote(localSnapshot);
-        return true;
-      }
-
-      StorageDB.applyRemoteSnapshot(snapshot);
-      StorageDB.emitSync('online', 'Datos sincronizados.');
+      StorageDB.applyRemoteSnapshot(StorageDB.normalizeSnapshot(await response.json()));
+      StorageDB.emitSync('online', 'Datos sincronizados desde PostgreSQL.');
       return true;
     } catch {
-      StorageDB.emitSync('offline', 'Sin conexion con la persistencia remota. Se usaran los datos locales.');
+      StorageDB.emitSync('offline', 'Sin conexion con PostgreSQL. No se cargaron datos persistentes.');
       return false;
     }
   }
@@ -138,7 +130,7 @@ export class StorageDB {
     }
 
     const snapshot = StorageDB.getRemoteSnapshot();
-    StorageDB.emitSync('syncing', 'Guardando cambios...');
+    StorageDB.emitSync('syncing', 'Guardando cambios en PostgreSQL...');
     StorageDB.syncQueue = StorageDB.syncQueue
       .catch(() => undefined)
       .then(() => StorageDB.saveRemote(snapshot));
@@ -178,10 +170,10 @@ export class StorageDB {
         throw new Error(`Servidor no disponible (${response.status})`);
       }
 
-      StorageDB.emitSync('online', 'Cambios guardados.');
+      StorageDB.emitSync('online', 'Cambios guardados en PostgreSQL.');
     } catch {
-      StorageDB.emitSync('offline', 'No se pudieron guardar los cambios en Render. Permanecen en este dispositivo.');
-      throw new Error('Remote sync failed');
+      StorageDB.emitSync('offline', 'No se pudieron guardar los cambios en PostgreSQL. Revisa la API local.');
+      throw new Error('PostgreSQL sync failed');
     }
   }
 
@@ -210,89 +202,49 @@ export class StorageDB {
     };
   }
 
-  private static hasRemoteData(snapshot: RemoteSnapshot): boolean {
-    return snapshot.usuarios.length > 0 || snapshot.lotes.length > 0 || snapshot.turnos.length > 0 || snapshot.notificaciones.length > 0;
-  }
-
   public static getTurnos(): Turno[] {
-    const raw = localStorage.getItem(StorageDB.DB_KEY);
-
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const data = JSON.parse(raw) as Turno[];
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
+    return [...StorageDB.turnos];
   }
 
   public static saveTurnos(turnos: Turno[]): void {
-    localStorage.setItem(StorageDB.DB_KEY, JSON.stringify(turnos));
+    StorageDB.turnos = [...turnos];
     StorageDB.queueRemoteSync();
   }
 
   public static getLotes(): LoteExposicion[] {
-    const raw = localStorage.getItem(StorageDB.LOTES_KEY);
-
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const data = JSON.parse(raw) as LoteExposicion[];
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
+    return [...StorageDB.lotes];
   }
 
   public static saveLotes(lotes: LoteExposicion[]): void {
-    localStorage.setItem(StorageDB.LOTES_KEY, JSON.stringify(lotes));
+    StorageDB.lotes = [...lotes];
     StorageDB.queueRemoteSync();
   }
 
   public static getPerfilAdorador(): PerfilAdorador | null {
-    const raw = localStorage.getItem(StorageDB.PERFIL_ADORADOR_KEY);
-
-    if (!raw) {
+    if (!StorageDB.perfilAdoradorId) {
       return null;
     }
 
-    try {
-      const data = JSON.parse(raw) as PerfilAdorador;
-      return data.id && data.nombreCompleto ? data : null;
-    } catch {
-      return null;
-    }
+    return StorageDB.usuarios.find((usuario) => usuario.id === StorageDB.perfilAdoradorId) ?? null;
   }
 
   public static savePerfilAdorador(perfil: PerfilAdorador): void {
     const usuario = StorageDB.normalizeUsuario(perfil);
-    localStorage.setItem(StorageDB.PERFIL_ADORADOR_KEY, JSON.stringify(usuario));
+    StorageDB.perfilAdoradorId = usuario.id;
     StorageDB.upsertUsuario(usuario);
   }
 
   public static getUsuarios(): Usuario[] {
-    const raw = localStorage.getItem(StorageDB.USUARIOS_KEY);
-
-    if (!raw) {
-      const perfil = StorageDB.getPerfilAdorador();
-      return perfil ? [perfil] : [];
-    }
-
-    try {
-      const data = JSON.parse(raw) as unknown[];
-      return StorageDB.normalizeUsuarios(data);
-    } catch {
-      return [];
-    }
+    return [...StorageDB.usuarios];
   }
 
   public static saveUsuarios(usuarios: Usuario[]): void {
-    localStorage.setItem(StorageDB.USUARIOS_KEY, JSON.stringify(StorageDB.normalizeUsuarios(usuarios)));
+    StorageDB.usuarios = StorageDB.normalizeUsuarios(usuarios);
+
+    if (StorageDB.perfilAdoradorId && !StorageDB.usuarios.some((usuario) => usuario.id === StorageDB.perfilAdoradorId)) {
+      StorageDB.perfilAdoradorId = null;
+    }
+
     StorageDB.queueRemoteSync();
   }
 
@@ -317,22 +269,11 @@ export class StorageDB {
   }
 
   public static getNotificaciones(): NotificacionRegistro[] {
-    const raw = localStorage.getItem(StorageDB.NOTIFICACIONES_KEY);
-
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const data = JSON.parse(raw) as unknown[];
-      return StorageDB.normalizeNotificaciones(data);
-    } catch {
-      return [];
-    }
+    return [...StorageDB.notificaciones];
   }
 
   public static saveNotificaciones(notificaciones: NotificacionRegistro[]): void {
-    localStorage.setItem(StorageDB.NOTIFICACIONES_KEY, JSON.stringify(StorageDB.normalizeNotificaciones(notificaciones)));
+    StorageDB.notificaciones = StorageDB.normalizeNotificaciones(notificaciones);
     StorageDB.queueRemoteSync();
   }
 
@@ -474,9 +415,11 @@ export class StorageDB {
   }
 
   public static clearDB(): void {
-    localStorage.removeItem(StorageDB.DB_KEY);
-    localStorage.removeItem(StorageDB.LOTES_KEY);
-    localStorage.removeItem(StorageDB.PERFIL_ADORADOR_KEY);
+    StorageDB.usuarios = [];
+    StorageDB.lotes = [];
+    StorageDB.turnos = [];
+    StorageDB.notificaciones = [];
+    StorageDB.perfilAdoradorId = null;
     StorageDB.queueRemoteSync();
   }
 }

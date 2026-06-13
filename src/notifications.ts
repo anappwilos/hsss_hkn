@@ -10,7 +10,7 @@ export interface AppNotification {
 
 export class NotificationService {
   public static readonly EVENT_NAME = 'hsss:notification';
-  private static readonly ENABLED_KEY = 'hsss_notifications_enabled';
+  private static notificationsEnabled = false;
 
   public static init(): void {
     if ('serviceWorker' in navigator) {
@@ -23,7 +23,7 @@ export class NotificationService {
   }
 
   public static isEnabled(): boolean {
-    return localStorage.getItem(NotificationService.ENABLED_KEY) === 'true' && Notification.permission === 'granted';
+    return NotificationService.notificationsEnabled && Notification.permission === 'granted';
   }
 
   public static async requestPermission(): Promise<boolean> {
@@ -38,7 +38,7 @@ export class NotificationService {
 
     const permission = await Notification.requestPermission();
     const isGranted = permission === 'granted';
-    localStorage.setItem(NotificationService.ENABLED_KEY, String(isGranted));
+    NotificationService.notificationsEnabled = isGranted;
 
     NotificationService.notify({
       title: isGranted ? 'Notificaciones activas' : 'Permiso no concedido',
