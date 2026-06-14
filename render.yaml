@@ -3,7 +3,7 @@ services:
     name: a-solas-api
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -24,7 +24,7 @@ services:
 
   - type: static
     name: a-solas-web
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     publishPath: dist
     routes:
       - type: rewrite
