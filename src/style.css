@@ -810,28 +810,6 @@ select:focus-visible {
   background: #b4aaa6;
 }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 42px;
-  border-radius: 8px;
-  padding: 0 16px;
-  color: #272014;
-  background: var(--color-success-soft);
-  font-size: 1rem;
-  letter-spacing: 0.03em;
-}
-
-.status-badge--programado,
-.status-badge--borrador {
-  background: var(--color-danger-soft);
-}
-
-.status-badge--finalizado {
-  color: #7b706b;
-  background: #efe4df;
-}
-
 .lote-card h2,
 .empty-card h2 {
   margin: 18px 0 20px;
@@ -2279,13 +2257,9 @@ select:focus-visible {
 
 .admin-users-screen {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
-}
-
-.admin-users-screen.is-drawer-closed {
-  grid-template-columns: minmax(0, 1fr);
 }
 
 .admin-users-main {
@@ -2296,7 +2270,6 @@ select:focus-visible {
 
 .admin-users-hero,
 .admin-users-card,
-.admin-user-drawer,
 .admin-audit-row {
   border: 1px solid rgba(61, 52, 48, 0.1);
   border-radius: 8px;
@@ -2313,8 +2286,7 @@ select:focus-visible {
 }
 
 .admin-users-hero h2,
-.admin-users-card h3,
-.admin-user-drawer h3 {
+.admin-users-card h3 {
   margin: 0;
   color: var(--color-ink);
   font-size: clamp(1.55rem, 3vw, 2.15rem);
@@ -2322,8 +2294,7 @@ select:focus-visible {
 }
 
 .admin-users-hero p,
-.admin-users-card-head p,
-.admin-user-drawer p {
+.admin-users-card-head p {
   margin: 8px 0 0;
   color: var(--color-muted);
   line-height: 1.4;
@@ -2523,27 +2494,6 @@ select:focus-visible {
   font-size: 1rem;
 }
 
-.admin-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--color-muted);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.admin-status::before {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: currentColor;
-  content: "";
-}
-
-.admin-status--activo {
-  color: #267447;
-}
-
 .admin-role-chip {
   display: inline-flex;
   min-height: 28px;
@@ -2563,8 +2513,7 @@ select:focus-visible {
 }
 
 .admin-row-actions button,
-.admin-users-pagination button,
-.admin-user-drawer-head button {
+.admin-users-pagination button {
   display: grid;
   width: 34px;
   height: 34px;
@@ -2577,8 +2526,7 @@ select:focus-visible {
 }
 
 .admin-row-actions button:hover,
-.admin-users-pagination button:hover,
-.admin-user-drawer-head button:hover {
+.admin-users-pagination button:hover {
   color: #7c3b24;
   background: #f8e8e1;
 }
@@ -2649,23 +2597,6 @@ select:focus-visible {
   font-weight: 800;
 }
 
-.admin-user-drawer {
-  position: sticky;
-  top: 92px;
-  display: grid;
-  max-height: calc(100vh - 120px);
-  overflow: auto;
-  gap: 20px;
-  padding: 22px;
-}
-
-.admin-user-drawer-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px;
-  gap: 14px;
-  align-items: start;
-}
-
 .admin-user-mini-profile {
   display: grid;
   grid-template-columns: 62px minmax(0, 1fr);
@@ -2718,37 +2649,6 @@ select:focus-visible {
   padding-top: 8px;
 }
 
-.admin-user-security {
-  display: grid;
-  gap: 10px;
-  border: 1px solid rgba(124, 59, 36, 0.12);
-  border-radius: 8px;
-  padding: 16px;
-  background: #f8e8e1;
-}
-
-.admin-user-security h4 {
-  margin: 0;
-  color: var(--color-ink);
-}
-
-.admin-user-security p {
-  margin: 0;
-  font-size: 0.82rem;
-}
-
-.admin-user-security button {
-  min-height: 42px;
-  border: 1px solid rgba(61, 52, 48, 0.1);
-  border-radius: 8px;
-  padding: 0 12px;
-  color: #7c3b24;
-  background: #ffffff;
-  font-weight: 800;
-  text-align: left;
-  cursor: pointer;
-}
-
 .admin-users-grid {
   display: grid;
   gap: 12px;
@@ -2798,6 +2698,18 @@ select:focus-visible {
   border-radius: 24px;
   background: #fffaf7;
   box-shadow: var(--shadow-md);
+}
+
+.admin-user-modal-card {
+  width: min(100%, 620px);
+  gap: 22px;
+}
+
+.admin-user-modal-head h3 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1.08;
 }
 
 .modal-header {
@@ -3044,11 +2956,6 @@ select:focus-visible {
   .admin-users-screen {
     grid-template-columns: 1fr;
   }
-
-  .admin-user-drawer {
-    position: static;
-    max-height: none;
-  }
 }
 
 @media (max-width: 700px) {
@@ -3259,7 +3166,6 @@ select:focus-visible {
   }
 
   .admin-users-card,
-  .admin-user-drawer,
   .admin-users-hero {
     padding: 18px;
   }

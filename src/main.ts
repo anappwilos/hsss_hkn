@@ -8,7 +8,7 @@ type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
 type VistaTurnos = 'diaria' | 'semanal';
 type AdminPanel = 'lotes' | 'usuarios' | 'turnos';
-type AdminUsuarioFiltro = 'todos' | 'activos' | 'fijo' | 'puntual' | 'suplente' | 'administrador';
+type AdminUsuarioFiltro = 'todos' | 'fijo' | 'puntual' | 'suplente' | 'administrador';
 type NotificationPersistenceOptions = {
   usuarioId?: string;
   tipo?: 'sistema' | 'inscripcion' | 'lote' | 'recordatorio';
@@ -66,7 +66,6 @@ let adminPanel: AdminPanel = 'lotes';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
 let adminUsuarioEditandoId: string | null = null;
-let adminUsuarioDrawerVisible = true;
 let turnoModalId: string | null = null;
 let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
 let modalTipoAnotacion: TipoAnotacion = 'puntual';
@@ -183,9 +182,6 @@ app.innerHTML = `
 
           <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
             <button class="chip is-active" type="button" data-filter="todos">Todos</button>
-            <button class="chip" type="button" data-filter="activo">Activos</button>
-            <button class="chip" type="button" data-filter="programado">Programados</button>
-            <button class="chip" type="button" data-filter="finalizado">Finalizados</button>
           </div>
 
           <div id="lotes-lista" class="lotes-list"></div>
@@ -462,6 +458,10 @@ app.innerHTML = `
       </form>
     </dialog>
 
+    <dialog id="modal-admin-usuario" class="app-modal">
+      <div id="modal-admin-usuario-card" class="modal-card admin-user-modal-card"></div>
+    </dialog>
+
     <section id="vista-configuracion" class="view config-view" style="display: none;">
       <header class="mobile-topbar">
         <button class="icon-only" type="button" data-view="admin" aria-label="Volver">‹</button>
@@ -610,6 +610,8 @@ const duplicarMesInput = getElement<HTMLInputElement>('#duplicar-mes-input');
 const duplicarMesPreview = getElement<HTMLElement>('#duplicar-mes-preview');
 const duplicarMesMensaje = getElement<HTMLParagraphElement>('#duplicar-mes-mensaje');
 const modalInterrupciones = getElement<HTMLDialogElement>('#modal-interrupciones');
+const modalAdminUsuario = getElement<HTMLDialogElement>('#modal-admin-usuario');
+const modalAdminUsuarioCard = getElement<HTMLElement>('#modal-admin-usuario-card');
 const formRegistroAdorador = getElement<HTMLFormElement>('#form-registro-adorador');
 const registroNombre = getElement<HTMLInputElement>('#registro-nombre');
 const registroApellidos = getElement<HTMLInputElement>('#registro-apellidos');
@@ -817,6 +819,11 @@ function volverAtras(): void {
 
   if (modalInterrupciones.open) {
     modalInterrupciones.close();
+    return;
+  }
+
+  if (modalAdminUsuario.open) {
+    cerrarModalAdminUsuario();
     return;
   }
 
@@ -1640,19 +1647,9 @@ function getSiguienteTurnoUsuario(usuario: Usuario): Turno | undefined {
   return getTurnosOrdenados().find((turno) => turno.dia >= hoy && estaInscrito(turno, usuario.nombreCompleto));
 }
 
-function getAdminUsuarioEstado(_usuario: Usuario): { key: 'activo'; label: string } {
-  return { key: 'activo', label: 'Activo' };
-}
-
 function matchesAdminUsuarioFiltro(usuario: Usuario): boolean {
-  const estado = getAdminUsuarioEstado(usuario);
-
   if (adminUsuariosFiltro === 'todos') {
     return true;
-  }
-
-  if (adminUsuariosFiltro === 'activos') {
-    return estado.key === 'activo';
   }
 
   if (adminUsuariosFiltro === 'administrador') {
@@ -1683,15 +1680,10 @@ function renderAdminUsuarios(): void {
   const totalFijos = usuarios.filter((usuario) => usuario.frecuencia === 'fijo').length;
   const totalSuplentes = usuarios.filter((usuario) => usuario.frecuencia === 'suplente').length;
   const totalPuntuales = usuarios.filter((usuario) => usuario.frecuencia === 'puntual').length;
-  const totalActivos = usuarios.filter((usuario) => getAdminUsuarioEstado(usuario).key === 'activo').length;
-  const selectedUsuario = adminUsuarioEditandoId
-    ? usuarios.find((usuario) => usuario.id === adminUsuarioEditandoId)
-    : undefined;
-  const drawerUsuario = selectedUsuario ?? filtrados[0] ?? usuarios[0];
-  const selectedId = adminUsuarioDrawerVisible ? drawerUsuario?.id ?? null : null;
+  const selectedId = adminUsuarioEditandoId;
 
   adminUsuariosLista.innerHTML = `
-    <div class="admin-users-screen ${adminUsuarioDrawerVisible && drawerUsuario ? '' : 'is-drawer-closed'}">
+    <div class="admin-users-screen">
       <section class="admin-users-main">
         <header class="admin-users-hero">
           <div>
@@ -1706,7 +1698,7 @@ function renderAdminUsuarios(): void {
         </header>
 
         <section class="admin-user-metrics" aria-label="Resumen de usuarios">
-          <article><span>Total usuarios</span><strong>${usuarios.length}</strong><small>${formatPlural(totalActivos, 'activo', 'activos')}</small></article>
+          <article><span>Total usuarios</span><strong>${usuarios.length}</strong><small>perfiles registrados</small></article>
           <article><span>Fijos</span><strong>${totalFijos}</strong><small>cobertura estable</small></article>
           <article><span>Puntuales</span><strong>${totalPuntuales}</strong><small>inscripcion ocasional</small></article>
           <article><span>Suplentes</span><strong>${totalSuplentes}</strong><small>apoyo flexible</small></article>
@@ -1727,7 +1719,6 @@ function renderAdminUsuarios(): void {
 
           <div class="admin-user-filters" aria-label="Filtros de usuarios">
             ${renderAdminUsuarioFiltroButton('todos', 'Todos', usuarios.length)}
-            ${renderAdminUsuarioFiltroButton('activos', 'Activos', totalActivos)}
             ${renderAdminUsuarioFiltroButton('fijo', 'Fijos', totalFijos)}
             ${renderAdminUsuarioFiltroButton('puntual', 'Puntuales', totalPuntuales)}
             ${renderAdminUsuarioFiltroButton('suplente', 'Suplentes', totalSuplentes)}
@@ -1751,7 +1742,6 @@ function renderAdminUsuarios(): void {
         </section>
       </section>
 
-      ${adminUsuarioDrawerVisible && drawerUsuario ? renderAdminUsuarioDrawer(drawerUsuario) : ''}
     </div>
   `;
 }
@@ -1781,7 +1771,6 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
         <thead>
           <tr>
             <th>Nombre</th>
-            <th>Estado</th>
             <th>Frecuencia</th>
             <th>Rol</th>
             <th>Proximo turno</th>
@@ -1806,7 +1795,6 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
 }
 
 function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): string {
-  const estado = getAdminUsuarioEstado(usuario);
   const siguienteTurno = getSiguienteTurnoUsuario(usuario);
 
   return `
@@ -1820,7 +1808,6 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
           </div>
         </div>
       </td>
-      <td><span class="admin-status admin-status--${estado.key}">${escapeHtml(estado.label)}</span></td>
       <td>
         <strong class="admin-table-main">${escapeHtml(formatFrecuencia(usuario.frecuencia))}</strong>
         <small>${escapeHtml(getFrecuenciaDetalle(usuario.frecuencia))}</small>
@@ -1844,17 +1831,14 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
   `;
 }
 
-function renderAdminUsuarioDrawer(usuario: Usuario): string {
-  const estado = getAdminUsuarioEstado(usuario);
-
+function renderAdminUsuarioModal(usuario: Usuario): string {
   return `
-    <aside class="admin-user-drawer" aria-label="Editar usuario">
-      <header class="admin-user-drawer-head">
+      <header class="modal-header admin-user-modal-head">
         <div>
-          <p class="section-kicker">Editar usuario</p>
+          <p class="modal-kicker">Editar usuario</p>
           <h3>${escapeHtml(usuario.nombreCompleto)}</h3>
         </div>
-        <button type="button" data-action="admin-user-close" aria-label="Cerrar panel">×</button>
+        <button class="icon-only modal-close" type="button" data-action="admin-user-close" aria-label="Cerrar">×</button>
       </header>
 
       <section class="admin-user-mini-profile">
@@ -1862,7 +1846,6 @@ function renderAdminUsuarioDrawer(usuario: Usuario): string {
         <div>
           <h4>${escapeHtml(usuario.nombreCompleto)}</h4>
           <p>ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}</p>
-          <span class="admin-status admin-status--${estado.key}">${escapeHtml(estado.label)}</span>
         </div>
       </section>
 
@@ -1896,15 +1879,28 @@ function renderAdminUsuarioDrawer(usuario: Usuario): string {
           <button class="button button-secondary" type="button" data-action="admin-user-close">Cancelar</button>
         </div>
       </form>
-
-      <section class="admin-user-security">
-        <h4>Zona de seguridad</h4>
-        <p>Acciones sensibles registradas para auditoria.</p>
-        <button type="button" data-action="admin-user-security-note">Suspender usuario</button>
-        <button type="button" data-action="admin-user-security-note">Cambiar rol</button>
-      </section>
-    </aside>
   `;
+}
+
+function abrirModalAdminUsuario(id: string | null): void {
+  const usuario = id ? StorageDB.getUsuarios().find((item) => item.id === id) : undefined;
+
+  if (!usuario) {
+    mostrarAviso('Usuario no encontrado', 'No se pudo localizar el perfil para editarlo.', 'error');
+    return;
+  }
+
+  adminUsuarioEditandoId = usuario.id;
+  modalAdminUsuarioCard.innerHTML = renderAdminUsuarioModal(usuario);
+  modalAdminUsuario.showModal();
+  renderAdminUsuarios();
+}
+
+function cerrarModalAdminUsuario(): void {
+  modalAdminUsuario.close();
+  modalAdminUsuarioCard.innerHTML = '';
+  adminUsuarioEditandoId = null;
+  renderAdminUsuarios();
 }
 
 function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
@@ -1942,8 +1938,11 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   });
 
   adminUsuarioEditandoId = usuario.id;
-  adminUsuarioDrawerVisible = true;
-  renderAdminUsuarios();
+  if (modalAdminUsuario.open) {
+    cerrarModalAdminUsuario();
+  } else {
+    renderAdminUsuarios();
+  }
   mostrarAviso('Usuario actualizado', 'Los cambios del perfil se guardaron correctamente.', 'success');
 }
 
@@ -2137,7 +2136,6 @@ function renderLotes(): void {
   lotesLista.innerHTML = filtrados.map((lote) => `
     <article class="lote-card lote-card--${lote.estado}">
       <div>
-        <span class="status-badge status-badge--${lote.estado}">${escapeHtml(lote.estado.toUpperCase())}</span>
         <h2>${escapeHtml(lote.nombre)}</h2>
         <p class="lote-meta">▦ ${escapeHtml(formatFecha(lote.fechaInicio))} - ${escapeHtml(formatFecha(lote.fechaFin))}</p>
         <p class="lote-meta">◷ ${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</p>
@@ -2890,7 +2888,9 @@ document.addEventListener('click', (event) => {
   if (adminPanelButton?.dataset.adminPanel) {
     adminPanel = adminPanelButton.dataset.adminPanel as AdminPanel;
     adminUsuarioEditandoId = null;
-    adminUsuarioDrawerVisible = true;
+    if (modalAdminUsuario.open) {
+      cerrarModalAdminUsuario();
+    }
     renderAdminPanel();
     return;
   }
@@ -2900,34 +2900,24 @@ document.addEventListener('click', (event) => {
   if (adminUserFilterButton?.dataset.adminUserFilter) {
     adminUsuariosFiltro = adminUserFilterButton.dataset.adminUserFilter as AdminUsuarioFiltro;
     adminUsuarioEditandoId = null;
-    adminUsuarioDrawerVisible = true;
     renderAdminUsuarios();
     return;
   }
 
   const adminUserAction = target.closest<HTMLButtonElement>(
-    '[data-action="admin-user-edit"], [data-action="admin-user-focus"], [data-action="admin-user-close"], [data-action="admin-user-security-note"], [data-action="admin-audit-info"]'
+    '[data-action="admin-user-edit"], [data-action="admin-user-focus"], [data-action="admin-user-close"], [data-action="admin-audit-info"]'
   );
 
   if (adminUserAction) {
     const action = adminUserAction.dataset.action;
 
     if (action === 'admin-user-edit' || action === 'admin-user-focus') {
-      adminUsuarioEditandoId = adminUserAction.dataset.id ?? null;
-      adminUsuarioDrawerVisible = true;
-      renderAdminUsuarios();
+      abrirModalAdminUsuario(adminUserAction.dataset.id ?? null);
       return;
     }
 
     if (action === 'admin-user-close') {
-      adminUsuarioEditandoId = null;
-      adminUsuarioDrawerVisible = false;
-      renderAdminUsuarios();
-      return;
-    }
-
-    if (action === 'admin-user-security-note') {
-      mostrarAviso('Accion restringida', 'Esta accion sensible quedara preparada para superadministradores.', 'info');
+      cerrarModalAdminUsuario();
       return;
     }
 
