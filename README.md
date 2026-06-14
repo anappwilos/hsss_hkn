@@ -9,6 +9,8 @@ Copia `.env.example` a `.env` y define las credenciales del administrador:
 ```env
 VITE_ADMIN_EMAIL=admin@example.com
 VITE_ADMIN_PASSWORD=change-me
+VITE_SUPERADMIN_EMAIL=root@root.com
+VITE_SUPERADMIN_PASSWORD=change-root-password
 ```
 
 ## Comandos
@@ -110,6 +112,8 @@ La app puede desplegarse en Render como un Blueprint desde `render.yaml`. Render
 4. Cuando Render pida variables marcadas con `sync: false`, define:
    - `VITE_ADMIN_EMAIL`: correo del administrador.
    - `VITE_ADMIN_PASSWORD`: contrasena del administrador.
+   - `VITE_SUPERADMIN_EMAIL`: correo del superadministrador.
+   - `VITE_SUPERADMIN_PASSWORD`: contrasena del superadministrador.
 5. Al terminar el despliegue, abre `https://<tu-servicio>.onrender.com/api/health`; deberia devolver `{"ok":true}`.
 
 El Blueprint inyecta `DATABASE_URL` desde la base `a-solas-db` y activa `VITE_ENABLE_REMOTE_STORAGE=true`. En produccion el cliente sincroniza contra `/api/state` del mismo dominio, por lo que `VITE_API_BASE_URL` debe quedarse vacio/no definido. Si usas una base externa que exige SSL para `DATABASE_URL`, define tambien `DATABASE_SSL=true`.

@@ -1,6 +1,6 @@
 import './style.css';
 import { NotificationService, type AppNotification } from './notifications';
-import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type UsuarioFrecuencia, type UsuarioRol } from './storage';
+import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type Usuario, type UsuarioFrecuencia, type UsuarioRol } from './storage';
 
 type Vista = 'inicio' | 'admin-login' | 'admin' | 'configuracion' | 'registro-adorador' | 'usuario';
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
@@ -8,6 +8,7 @@ type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
 type VistaTurnos = 'diaria' | 'semanal';
 type AdminPanel = 'lotes' | 'usuarios' | 'turnos';
+type AdminUsuarioFiltro = 'todos' | 'activos' | 'fijo' | 'puntual' | 'suplente' | 'administrador';
 type NotificationPersistenceOptions = {
   usuarioId?: string;
   tipo?: 'sistema' | 'inscripcion' | 'lote' | 'recordatorio';
@@ -34,6 +35,8 @@ const app = document.querySelector<HTMLDivElement>('#app');
 const ADMIN_SESSION_KEY = 'hsss_admin_session';
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase();
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
+const SUPERADMIN_EMAIL = (import.meta.env.VITE_SUPERADMIN_EMAIL ?? 'root@root.com').trim().toLowerCase();
+const SUPERADMIN_PASSWORD = import.meta.env.VITE_SUPERADMIN_PASSWORD ?? 'root';
 const APP_VERSION = '0.5.0';
 
 if (!app) {
@@ -60,6 +63,10 @@ let fechaUsuarioSeleccionada = fechaToInput(new Date());
 let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let vistaTurnos: VistaTurnos = 'semanal';
 let adminPanel: AdminPanel = 'lotes';
+let adminUsuariosBusqueda = '';
+let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
+let adminUsuarioEditandoId: string | null = null;
+let adminUsuarioDrawerVisible = true;
 let turnoModalId: string | null = null;
 let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
 let modalTipoAnotacion: TipoAnotacion = 'puntual';
@@ -745,6 +752,12 @@ function getVistaInicial(): Vista {
 function mostrarAdminLoginMensaje(message: string, tone: 'info' | 'error' = 'info'): void {
   adminLoginMensaje.textContent = message;
   adminLoginMensaje.dataset.tone = tone;
+}
+
+function isAdminLoginValido(email: string, password: string): boolean {
+  const adminValido = Boolean(ADMIN_EMAIL && ADMIN_PASSWORD && email === ADMIN_EMAIL && password === ADMIN_PASSWORD);
+  const superadminValido = Boolean(SUPERADMIN_EMAIL && SUPERADMIN_PASSWORD && email === SUPERADMIN_EMAIL && password === SUPERADMIN_PASSWORD);
+  return adminValido || superadminValido;
 }
 
 function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): void {
@@ -1587,43 +1600,351 @@ function renderAdminPanel(): void {
   }
 }
 
+function getInicialesUsuario(usuario: Usuario): string {
+  const parts = usuario.nombreCompleto.trim().split(/\s+/).filter(Boolean);
+  return `${parts[0]?.[0] ?? 'A'}${parts[1]?.[0] ?? parts[0]?.[1] ?? ''}`.toUpperCase();
+}
+
+function maskEmail(value: string): string {
+  const [local = '', domain = ''] = value.split('@');
+
+  if (!local || !domain) {
+    return value || 'Sin correo';
+  }
+
+  return `${local[0] ?? '*'}***@${domain}`;
+}
+
+function maskPhone(value: string): string {
+  const digits = value.replace(/\D/g, '');
+
+  if (digits.length < 6) {
+    return value || 'Sin telefono';
+  }
+
+  return `${digits.slice(0, 3)} *** ${digits.slice(-3)}`;
+}
+
+function getFrecuenciaDetalle(frecuencia: UsuarioFrecuencia): string {
+  const labels: Record<UsuarioFrecuencia, string> = {
+    fijo: 'Compromiso estable',
+    suplente: 'Segun necesidad',
+    puntual: 'Reserva ocasional'
+  };
+
+  return labels[frecuencia];
+}
+
+function getSiguienteTurnoUsuario(usuario: Usuario): Turno | undefined {
+  const hoy = fechaToInput(new Date());
+  return getTurnosOrdenados().find((turno) => turno.dia >= hoy && estaInscrito(turno, usuario.nombreCompleto));
+}
+
+function getAdminUsuarioEstado(_usuario: Usuario): { key: 'activo'; label: string } {
+  return { key: 'activo', label: 'Activo' };
+}
+
+function matchesAdminUsuarioFiltro(usuario: Usuario): boolean {
+  const estado = getAdminUsuarioEstado(usuario);
+
+  if (adminUsuariosFiltro === 'todos') {
+    return true;
+  }
+
+  if (adminUsuariosFiltro === 'activos') {
+    return estado.key === 'activo';
+  }
+
+  if (adminUsuariosFiltro === 'administrador') {
+    return usuario.rol === 'administrador';
+  }
+
+  return usuario.frecuencia === adminUsuariosFiltro;
+}
+
+function matchesAdminUsuarioBusqueda(usuario: Usuario): boolean {
+  if (!adminUsuariosBusqueda) {
+    return true;
+  }
+
+  const query = normalizarNombre(adminUsuariosBusqueda);
+  return [
+    usuario.nombreCompleto,
+    usuario.email,
+    usuario.telefono,
+    formatFrecuencia(usuario.frecuencia),
+    formatRol(usuario.rol)
+  ].some((value) => normalizarNombre(value).includes(query));
+}
+
 function renderAdminUsuarios(): void {
   const usuarios = StorageDB.getUsuarios().toSorted((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto));
+  const filtrados = usuarios.filter((usuario) => matchesAdminUsuarioFiltro(usuario) && matchesAdminUsuarioBusqueda(usuario));
+  const totalFijos = usuarios.filter((usuario) => usuario.frecuencia === 'fijo').length;
+  const totalSuplentes = usuarios.filter((usuario) => usuario.frecuencia === 'suplente').length;
+  const totalPuntuales = usuarios.filter((usuario) => usuario.frecuencia === 'puntual').length;
+  const totalActivos = usuarios.filter((usuario) => getAdminUsuarioEstado(usuario).key === 'activo').length;
+  const selectedUsuario = adminUsuarioEditandoId
+    ? usuarios.find((usuario) => usuario.id === adminUsuarioEditandoId)
+    : undefined;
+  const drawerUsuario = selectedUsuario ?? filtrados[0] ?? usuarios[0];
+  const selectedId = adminUsuarioDrawerVisible ? drawerUsuario?.id ?? null : null;
 
+  adminUsuariosLista.innerHTML = `
+    <div class="admin-users-screen ${adminUsuarioDrawerVisible && drawerUsuario ? '' : 'is-drawer-closed'}">
+      <section class="admin-users-main">
+        <header class="admin-users-hero">
+          <div>
+            <p class="section-kicker">Solo administradores</p>
+            <h2>Gestion de usuarios</h2>
+            <p>Administra perfiles, roles, frecuencia y proximos turnos de los adoradores.</p>
+          </div>
+          <div class="admin-month-pill" aria-label="Periodo visible">
+            <span aria-hidden="true">□</span>
+            <strong>${escapeHtml(new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()))}</strong>
+          </div>
+        </header>
+
+        <section class="admin-user-metrics" aria-label="Resumen de usuarios">
+          <article><span>Total usuarios</span><strong>${usuarios.length}</strong><small>${formatPlural(totalActivos, 'activo', 'activos')}</small></article>
+          <article><span>Fijos</span><strong>${totalFijos}</strong><small>cobertura estable</small></article>
+          <article><span>Puntuales</span><strong>${totalPuntuales}</strong><small>inscripcion ocasional</small></article>
+          <article><span>Suplentes</span><strong>${totalSuplentes}</strong><small>apoyo flexible</small></article>
+        </section>
+
+        <section class="admin-users-card">
+          <div class="admin-users-card-head">
+            <div>
+              <p class="section-kicker">Directorio</p>
+              <h3>Perfiles registrados</h3>
+              <p>Datos visibles solo para administradores.</p>
+            </div>
+            <label class="admin-user-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="admin-usuarios-buscar" type="search" value="${escapeHtml(adminUsuariosBusqueda)}" placeholder="Buscar por nombre, email o telefono" autocomplete="off" />
+            </label>
+          </div>
+
+          <div class="admin-user-filters" aria-label="Filtros de usuarios">
+            ${renderAdminUsuarioFiltroButton('todos', 'Todos', usuarios.length)}
+            ${renderAdminUsuarioFiltroButton('activos', 'Activos', totalActivos)}
+            ${renderAdminUsuarioFiltroButton('fijo', 'Fijos', totalFijos)}
+            ${renderAdminUsuarioFiltroButton('puntual', 'Puntuales', totalPuntuales)}
+            ${renderAdminUsuarioFiltroButton('suplente', 'Suplentes', totalSuplentes)}
+            ${renderAdminUsuarioFiltroButton('administrador', 'Administradores', usuarios.filter((usuario) => usuario.rol === 'administrador').length)}
+          </div>
+
+          ${usuarios.length === 0
+            ? `<div class="empty-card compact"><h3>No hay usuarios registrados</h3><p>Cuando un adorador complete su perfil, aparecera aqui para administracion.</p></div>`
+            : renderAdminUsuariosTable(filtrados, selectedId)
+          }
+        </section>
+
+        <section class="admin-audit-row" data-action="admin-audit-info" role="button" tabindex="0">
+          <span class="admin-audit-icon" aria-hidden="true">+</span>
+          <div>
+            <h4>Ultima accion administrativa</h4>
+            <p>${usuarios.length > 0 ? 'Directorio sincronizado con PostgreSQL.' : 'Sin actividad de usuarios todavia.'}</p>
+            <small>Ver historial completo</small>
+          </div>
+          <span aria-hidden="true">-&gt;</span>
+        </section>
+      </section>
+
+      ${adminUsuarioDrawerVisible && drawerUsuario ? renderAdminUsuarioDrawer(drawerUsuario) : ''}
+    </div>
+  `;
+}
+
+function renderAdminUsuarioFiltroButton(filter: AdminUsuarioFiltro, label: string, count: number): string {
+  return `
+    <button class="${adminUsuariosFiltro === filter ? 'is-active' : ''}" type="button" data-admin-user-filter="${filter}">
+      ${escapeHtml(label)}
+      <span>${count}</span>
+    </button>
+  `;
+}
+
+function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null): string {
   if (usuarios.length === 0) {
-    adminUsuariosLista.innerHTML = `
+    return `
       <div class="empty-card compact">
-        <h3>No hay usuarios registrados</h3>
-        <p>Cuando un adorador complete su perfil, aparecera aqui para administracion.</p>
+        <h3>No hay resultados</h3>
+        <p>Ajusta la busqueda o cambia el filtro activo.</p>
       </div>
     `;
+  }
+
+  return `
+    <div class="admin-users-table-wrap">
+      <table class="admin-users-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th>Frecuencia</th>
+            <th>Rol</th>
+            <th>Proximo turno</th>
+            <th>Contacto</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${usuarios.map((usuario) => renderAdminUsuarioRow(usuario, selectedId)).join('')}
+        </tbody>
+      </table>
+    </div>
+    <footer class="admin-users-pagination">
+      <span>Mostrando ${usuarios.length} de ${StorageDB.getUsuarios().length} usuarios</span>
+      <div>
+        <button type="button" aria-label="Pagina anterior">‹</button>
+        <strong>1</strong>
+        <button type="button" aria-label="Pagina siguiente">›</button>
+      </div>
+    </footer>
+  `;
+}
+
+function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): string {
+  const estado = getAdminUsuarioEstado(usuario);
+  const siguienteTurno = getSiguienteTurnoUsuario(usuario);
+
+  return `
+    <tr class="${selectedId === usuario.id ? 'is-selected' : ''}">
+      <td>
+        <div class="admin-user-cell">
+          <span class="admin-user-avatar">${escapeHtml(getInicialesUsuario(usuario))}</span>
+          <div>
+            <strong>${escapeHtml(usuario.nombreCompleto)}</strong>
+            <small>ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}</small>
+          </div>
+        </div>
+      </td>
+      <td><span class="admin-status admin-status--${estado.key}">${escapeHtml(estado.label)}</span></td>
+      <td>
+        <strong class="admin-table-main">${escapeHtml(formatFrecuencia(usuario.frecuencia))}</strong>
+        <small>${escapeHtml(getFrecuenciaDetalle(usuario.frecuencia))}</small>
+      </td>
+      <td><span class="admin-role-chip">${escapeHtml(formatRol(usuario.rol))}</span></td>
+      <td>
+        <strong class="admin-table-main">${siguienteTurno ? escapeHtml(formatFecha(siguienteTurno.dia)) : '-'}</strong>
+        <small>${siguienteTurno ? `${escapeHtml(siguienteTurno.horaInicio)} - ${escapeHtml(siguienteTurno.horaFin)}` : 'Sin asignacion'}</small>
+      </td>
+      <td>
+        <small>${escapeHtml(maskEmail(usuario.email))}</small>
+        <small>${escapeHtml(maskPhone(usuario.telefono))}</small>
+      </td>
+      <td>
+        <div class="admin-row-actions">
+          <button type="button" data-action="admin-user-edit" data-id="${usuario.id}" aria-label="Editar usuario ${escapeHtml(usuario.nombreCompleto)}">✎</button>
+          <button type="button" data-action="admin-user-focus" data-id="${usuario.id}" aria-label="Ver usuario ${escapeHtml(usuario.nombreCompleto)}">◉</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function renderAdminUsuarioDrawer(usuario: Usuario): string {
+  const estado = getAdminUsuarioEstado(usuario);
+
+  return `
+    <aside class="admin-user-drawer" aria-label="Editar usuario">
+      <header class="admin-user-drawer-head">
+        <div>
+          <p class="section-kicker">Editar usuario</p>
+          <h3>${escapeHtml(usuario.nombreCompleto)}</h3>
+        </div>
+        <button type="button" data-action="admin-user-close" aria-label="Cerrar panel">×</button>
+      </header>
+
+      <section class="admin-user-mini-profile">
+        <span class="admin-user-avatar is-large">${escapeHtml(getInicialesUsuario(usuario))}</span>
+        <div>
+          <h4>${escapeHtml(usuario.nombreCompleto)}</h4>
+          <p>ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}</p>
+          <span class="admin-status admin-status--${estado.key}">${escapeHtml(estado.label)}</span>
+        </div>
+      </section>
+
+      <form class="admin-user-edit-form" data-admin-user-form="${usuario.id}">
+        <label>
+          <span>Nombre completo</span>
+          <input id="admin-user-edit-name" type="text" value="${escapeHtml(usuario.nombreCompleto)}" required />
+        </label>
+        <label>
+          <span>Email</span>
+          <input id="admin-user-edit-email" type="email" value="${escapeHtml(usuario.email)}" required />
+        </label>
+        <label>
+          <span>Telefono</span>
+          <input id="admin-user-edit-phone" type="tel" value="${escapeHtml(usuario.telefono)}" required />
+        </label>
+        <label>
+          <span>Frecuencia</span>
+          <select id="admin-user-edit-frequency">
+            ${(['fijo', 'suplente', 'puntual'] as UsuarioFrecuencia[]).map((value) => `<option value="${value}" ${usuario.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
+          </select>
+        </label>
+        <label>
+          <span>Rol</span>
+          <select id="admin-user-edit-role">
+            ${(['usuario', 'administrador'] as UsuarioRol[]).map((value) => `<option value="${value}" ${usuario.rol === value ? 'selected' : ''}>${escapeHtml(formatRol(value))}</option>`).join('')}
+          </select>
+        </label>
+        <div class="admin-user-edit-actions">
+          <button class="button button-primary" type="submit" data-action="admin-user-save">Guardar cambios</button>
+          <button class="button button-secondary" type="button" data-action="admin-user-close">Cancelar</button>
+        </div>
+      </form>
+
+      <section class="admin-user-security">
+        <h4>Zona de seguridad</h4>
+        <p>Acciones sensibles registradas para auditoria.</p>
+        <button type="button" data-action="admin-user-security-note">Suspender usuario</button>
+        <button type="button" data-action="admin-user-security-note">Cambiar rol</button>
+      </section>
+    </aside>
+  `;
+}
+
+function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
+  const id = form.dataset.adminUserForm;
+  const usuario = id ? StorageDB.getUsuarios().find((item) => item.id === id) : undefined;
+
+  if (!usuario) {
+    mostrarAviso('Usuario no encontrado', 'No se pudo localizar el perfil para guardar cambios.', 'error');
     return;
   }
 
-  adminUsuariosLista.innerHTML = `
-    <header class="admin-covered-header">
-      <div>
-        <p class="section-kicker">Usuarios</p>
-        <h2>Perfiles registrados</h2>
-        <p>Datos visibles solo para administradores.</p>
-      </div>
-      <div class="admin-covered-stats" aria-label="Resumen de usuarios">
-        <span><strong>${usuarios.length}</strong> usuarios</span>
-        <span><strong>${usuarios.filter((usuario) => usuario.frecuencia === 'fijo').length}</strong> fijos</span>
-        <span><strong>${usuarios.filter((usuario) => usuario.frecuencia === 'suplente').length}</strong> suplentes</span>
-      </div>
-    </header>
-    <div class="admin-users-grid">
-      ${usuarios.map((usuario) => `
-        <article class="admin-profile-card">
-          <strong>${escapeHtml(usuario.nombreCompleto)}</strong>
-          <span>${escapeHtml(usuario.email)}</span>
-          <span>${escapeHtml(usuario.telefono)}</span>
-          <small>Frecuencia: ${escapeHtml(formatFrecuencia(usuario.frecuencia))} · Rol: ${escapeHtml(formatRol(usuario.rol))}</small>
-        </article>
-      `).join('')}
-    </div>
-  `;
+  const nombreCompleto = limpiarTextoRegistro(form.querySelector<HTMLInputElement>('#admin-user-edit-name')?.value ?? '');
+  const email = form.querySelector<HTMLInputElement>('#admin-user-edit-email')?.value.trim().toLowerCase() ?? '';
+  const telefono = limpiarTelefono(form.querySelector<HTMLInputElement>('#admin-user-edit-phone')?.value ?? '');
+  const frecuencia = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency')?.value as UsuarioFrecuencia;
+  const rol = form.querySelector<HTMLSelectElement>('#admin-user-edit-role')?.value as UsuarioRol;
+
+  if (!nombreCompleto || !esEmailValido(email) || !esTelefonoValido(telefono)) {
+    mostrarAviso('Revisa el usuario', 'Nombre, email y telefono deben ser validos.', 'error');
+    return;
+  }
+
+  const partes = nombreCompleto.split(/\s+/);
+
+  StorageDB.upsertUsuario({
+    ...usuario,
+    nombreCompleto,
+    nombre: partes[0] ?? nombreCompleto,
+    apellidos: partes.slice(1).join(' '),
+    email,
+    telefono,
+    frecuencia,
+    rol,
+    actualizadoEn: Date.now()
+  });
+
+  adminUsuarioEditandoId = usuario.id;
+  adminUsuarioDrawerVisible = true;
+  renderAdminUsuarios();
+  mostrarAviso('Usuario actualizado', 'Los cambios del perfil se guardaron correctamente.', 'success');
 }
 
 function renderAdminTurnosCubiertos(): void {
@@ -2286,7 +2607,6 @@ function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
 function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | null): string {
   const ocupacion = getOcupacion(turno);
   const completo = turno.plazasDisponibles === 0;
-  const disponible = turno.plazasDisponibles > 0;
   const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
   const estado = propio ? 'Mi turno' : completo ? 'Completo' : 'Libre';
   const plazas = `${turno.plazasDisponibles} ${turno.plazasDisponibles === 1 ? 'plaza' : 'plazas'}`;
@@ -2569,8 +2889,52 @@ document.addEventListener('click', (event) => {
 
   if (adminPanelButton?.dataset.adminPanel) {
     adminPanel = adminPanelButton.dataset.adminPanel as AdminPanel;
+    adminUsuarioEditandoId = null;
+    adminUsuarioDrawerVisible = true;
     renderAdminPanel();
     return;
+  }
+
+  const adminUserFilterButton = target.closest<HTMLButtonElement>('[data-admin-user-filter]');
+
+  if (adminUserFilterButton?.dataset.adminUserFilter) {
+    adminUsuariosFiltro = adminUserFilterButton.dataset.adminUserFilter as AdminUsuarioFiltro;
+    adminUsuarioEditandoId = null;
+    adminUsuarioDrawerVisible = true;
+    renderAdminUsuarios();
+    return;
+  }
+
+  const adminUserAction = target.closest<HTMLButtonElement>(
+    '[data-action="admin-user-edit"], [data-action="admin-user-focus"], [data-action="admin-user-close"], [data-action="admin-user-security-note"], [data-action="admin-audit-info"]'
+  );
+
+  if (adminUserAction) {
+    const action = adminUserAction.dataset.action;
+
+    if (action === 'admin-user-edit' || action === 'admin-user-focus') {
+      adminUsuarioEditandoId = adminUserAction.dataset.id ?? null;
+      adminUsuarioDrawerVisible = true;
+      renderAdminUsuarios();
+      return;
+    }
+
+    if (action === 'admin-user-close') {
+      adminUsuarioEditandoId = null;
+      adminUsuarioDrawerVisible = false;
+      renderAdminUsuarios();
+      return;
+    }
+
+    if (action === 'admin-user-security-note') {
+      mostrarAviso('Accion restringida', 'Esta accion sensible quedara preparada para superadministradores.', 'info');
+      return;
+    }
+
+    if (action === 'admin-audit-info') {
+      mostrarAviso('Historial administrativo', 'El historial completo se incorporara en la siguiente fase.', 'info');
+      return;
+    }
   }
 
   if (target.closest('#btn-nuevo-lote')) {
@@ -2760,18 +3124,47 @@ document.addEventListener('keydown', (event) => {
   volverAtras();
 });
 
+document.addEventListener('input', (event) => {
+  const input = event.target as HTMLInputElement;
+
+  if (input.id !== 'admin-usuarios-buscar') {
+    return;
+  }
+
+  const caret = input.selectionStart ?? input.value.length;
+  adminUsuariosBusqueda = input.value;
+  renderAdminUsuarios();
+
+  window.requestAnimationFrame(() => {
+    const nextInput = document.querySelector<HTMLInputElement>('#admin-usuarios-buscar');
+    nextInput?.focus();
+    nextInput?.setSelectionRange(caret, caret);
+  });
+});
+
+document.addEventListener('submit', (event) => {
+  const form = (event.target as HTMLElement).closest<HTMLFormElement>('.admin-user-edit-form');
+
+  if (!form) {
+    return;
+  }
+
+  event.preventDefault();
+  guardarAdminUsuarioDesdeFormulario(form);
+});
+
 formAdminLogin.addEventListener('submit', (event) => {
   event.preventDefault();
 
   const email = adminEmail.value.trim().toLowerCase();
   const password = adminPassword.value;
 
-  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
-    mostrarAdminLoginMensaje('Faltan VITE_ADMIN_EMAIL y VITE_ADMIN_PASSWORD en el archivo .env.', 'error');
+  if ((!ADMIN_EMAIL || !ADMIN_PASSWORD) && (!SUPERADMIN_EMAIL || !SUPERADMIN_PASSWORD)) {
+    mostrarAdminLoginMensaje('Faltan credenciales de administrador en el archivo .env.', 'error');
     return;
   }
 
-  if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+  if (!isAdminLoginValido(email, password)) {
     mostrarAdminLoginMensaje('Correo o contrasena incorrectos.', 'error');
     return;
   }
