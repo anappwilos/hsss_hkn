@@ -64,6 +64,8 @@ let turnoModalId: string | null = null;
 let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
 let modalTipoAnotacion: TipoAnotacion = 'puntual';
 let loteMenuAbiertoId: string | null = null;
+let loteEliminarPendienteId: string | null = null;
+let loteEliminarPendienteTimeout = 0;
 let loteDuplicarMesId: string | null = null;
 let vistaActual: Vista | null = null;
 let ultimoNombreMesAutogenerado = '';
@@ -240,6 +242,7 @@ app.innerHTML = `
             </div>
           </div>
 
+          <div id="usuario-booking-stats" class="booking-stats" aria-label="Resumen de disponibilidad semanal"></div>
           <div id="usuario-dias" class="day-strip" aria-label="Dias disponibles"></div>
         </section>
 
@@ -576,6 +579,7 @@ const usuarioDias = getElement<HTMLDivElement>('#usuario-dias');
 const usuarioTurnos = getElement<HTMLDivElement>('#usuario-turnos');
 const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
 const usuarioSemanaLabel = getElement<HTMLParagraphElement>('#usuario-semana-label');
+const usuarioBookingStats = getElement<HTMLDivElement>('#usuario-booking-stats');
 const usuarioMisTurnos = getElement<HTMLElement>('#usuario-mis-turnos');
 const btnPerfilUsuario = getElement<HTMLButtonElement>('#btn-perfil-usuario');
 const modalInscripcion = getElement<HTMLDialogElement>('#modal-inscripcion');
@@ -678,6 +682,10 @@ function notificarYPersistir(notification: AppNotification, options: Notificatio
   NotificationService.notify(notification);
 }
 
+function mostrarAviso(title: string, message: string, tone: NonNullable<AppNotification['tone']> = 'info'): void {
+  NotificationService.notify({ title, message, tone });
+}
+
 function mostrarToast(notification: AppNotification): void {
   const toast = document.createElement('article');
   toast.className = `app-toast app-toast--${notification.tone ?? 'info'}`;
@@ -750,6 +758,7 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): 
   }
 
   vistaActual = nextView;
+  cancelarConfirmacionEliminarLote();
   vistaInicio.style.display = nextView === 'inicio' ? 'grid' : 'none';
   vistaAdminLogin.style.display = nextView === 'admin-login' ? 'block' : 'none';
   vistaAdmin.style.display = nextView === 'admin' ? 'block' : 'none';
@@ -800,6 +809,7 @@ function volverAtras(): void {
 
   if (loteMenuAbiertoId) {
     loteMenuAbiertoId = null;
+    cancelarConfirmacionEliminarLote();
     renderLotes();
     return;
   }
@@ -987,6 +997,10 @@ function formatFecha(value: string): string {
 function formatRangoSemana(inicioSemana: Date): string {
   const finSemana = addDays(inicioSemana, 6);
   return `${formatFecha(fechaToInput(inicioSemana))} - ${formatFecha(fechaToInput(finSemana))}`;
+}
+
+function formatPlural(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function normalizarNombre(value: string): string {
@@ -1322,16 +1336,12 @@ function guardarLote(esBorrador: boolean): void {
   }
 
   if (!esBorrador) {
-    alert(loteEditandoId
-      ? `Lote modificado. Se actualizaron ${turnosCreados} turnos.`
-      : `Exposicion confirmada. Se crearon ${turnosCreados} turnos.`);
     NotificationService.notify({
       title: loteEditandoId ? 'Lote actualizado' : 'Exposicion confirmada',
-      message: `Se actualizaron ${turnosCreados} turno(s).`,
+      message: loteEditandoId ? `Se actualizaron ${formatPlural(turnosCreados, 'turno', 'turnos')}.` : `Se crearon ${formatPlural(turnosCreados, 'turno', 'turnos')}.`,
       tone: 'success'
     });
   } else {
-    alert('Borrador guardado.');
     NotificationService.notify({
       title: 'Borrador guardado',
       message: 'El lote queda disponible para completarlo mas tarde.',
@@ -1419,7 +1429,7 @@ function renderInterrupciones(): void {
   renderDiasInterrupcion();
   sinExposicionResumen.textContent = interrupcionesConfig.length === 0
     ? 'Sin horas sin exposicion configuradas.'
-    : `${interrupcionesConfig.length} tramo(s) sin exposicion configurado(s).`;
+    : `${formatPlural(interrupcionesConfig.length, 'tramo sin exposicion configurado', 'tramos sin exposicion configurados')}.`;
 
   if (interrupcionesConfig.length === 0) {
     interrupcionesLista.innerHTML = '<p class="empty-inline">Sin interrupciones configuradas.</p>';
@@ -1462,32 +1472,32 @@ function agregarInterrupcion(): void {
   const diasSemanaInterrupcion = [...interrupcionDiasConfig].toSorted();
 
   if (!loteFechaInicio.value || !loteFechaFin.value) {
-    alert('Primero define el rango de fechas del lote.');
+    mostrarAviso('Revisa la interrupcion', 'Primero define el rango de fechas del lote.', 'error');
     return;
   }
 
   if (!horaInicio || !horaFin) {
-    alert('Completa la hora de inicio y fin de la interrupcion.');
+    mostrarAviso('Revisa la interrupcion', 'Completa la hora de inicio y fin de la interrupcion.', 'error');
     return;
   }
 
   if (diasSemanaInterrupcion.length === 0) {
-    alert('Selecciona al menos un dia recurrente para esta hora sin exposicion.');
+    mostrarAviso('Revisa la interrupcion', 'Selecciona al menos un dia recurrente para esta hora sin exposicion.', 'error');
     return;
   }
 
   if (usarFechasConcretas && (!fechaInicio || !fechaFin)) {
-    alert('Completa fecha inicio y fecha fin.');
+    mostrarAviso('Revisa la interrupcion', 'Completa fecha inicio y fecha fin.', 'error');
     return;
   }
 
   if (parseFecha(fechaInicio) > parseFecha(fechaFin)) {
-    alert('La fecha final de la interrupcion debe ser posterior a la inicial.');
+    mostrarAviso('Revisa la interrupcion', 'La fecha final de la interrupcion debe ser posterior a la inicial.', 'error');
     return;
   }
 
   if (timeToMinutes(horaInicio) >= timeToMinutes(horaFin)) {
-    alert('La hora final de la interrupcion debe ser posterior a la inicial.');
+    mostrarAviso('Revisa la interrupcion', 'La hora final de la interrupcion debe ser posterior a la inicial.', 'error');
     return;
   }
 
@@ -1531,7 +1541,7 @@ function actualizarResumenLote(): void {
 
   loteTotalHoras.textContent = `Total: ${horas.toLocaleString('es-ES')} horas continuas`;
   const interrupciones = interrupcionesConfig.length > 0
-    ? ` Se excluiran ${interrupcionesConfig.length} interrupcion(es).`
+    ? ` Se ${interrupcionesConfig.length === 1 ? 'excluira' : 'excluiran'} ${formatPlural(interrupcionesConfig.length, 'interrupcion', 'interrupciones')}.`
     : '';
   resumenLote.textContent = `Se habilitaran turnos desde ${inicio} hasta ${fin}, de ${loteHoraInicio.value || '--:--'} a ${loteHoraFin.value || '--:--'}, los dias ${dias || 'seleccionados'}.${interrupciones}`;
 }
@@ -1688,6 +1698,29 @@ function renderAdminPerfilInscrito(nombreCompleto: string): string {
   `;
 }
 
+function renderMiTurnoCard(turno: Turno): string {
+  const fecha = parseFecha(turno.dia);
+  const lote = turno.loteId ? StorageDB.getLotes().find((item) => item.id === turno.loteId) : undefined;
+  const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(fecha).replace('.', '');
+  const day = new Intl.DateTimeFormat('es-ES', { day: '2-digit' }).format(fecha);
+  const month = new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(fecha).replace('.', '');
+
+  return `
+    <article class="my-turn-card">
+      <div class="my-turn-date" aria-hidden="true">
+        <span>${escapeHtml(weekday)}</span>
+        <strong>${escapeHtml(day)}</strong>
+        <small>${escapeHtml(month)}</small>
+      </div>
+      <div class="my-turn-detail">
+        <strong>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</strong>
+        <span>${escapeHtml(lote?.nombre ?? formatFecha(turno.dia))}</span>
+      </div>
+      <span class="my-turn-state">Reservado</span>
+    </article>
+  `;
+}
+
 function renderMisTurnos(): void {
   const perfil = StorageDB.getPerfilAdorador();
 
@@ -1699,30 +1732,54 @@ function renderMisTurnos(): void {
   const hoy = fechaToInput(new Date());
   const misTurnos = getTurnosOrdenados()
     .filter((turno) => turno.dia >= hoy && estaInscrito(turno, perfil.nombreCompleto));
+  const dentroDeSieteDias = fechaToInput(addDays(new Date(), 7));
+  const estaSemana = misTurnos.filter((turno) => turno.dia <= dentroDeSieteDias).length;
+  const siguienteTurno = misTurnos[0];
+  const inicial = perfil.nombreCompleto.trim().charAt(0).toUpperCase() || 'A';
 
   usuarioMisTurnos.innerHTML = `
     <header class="my-turns-header">
-      <div>
-        <p class="section-kicker">Mi perfil</p>
-        <h2>${escapeHtml(perfil.nombreCompleto)}</h2>
-        <p>${escapeHtml(perfil.email)} · ${escapeHtml(perfil.telefono)}</p>
-        <small>Frecuencia: ${escapeHtml(formatFrecuencia(perfil.frecuencia))}</small>
+      <div class="profile-identity">
+        <span class="profile-initial" aria-hidden="true">${escapeHtml(inicial)}</span>
+        <div>
+          <p class="section-kicker">Mi perfil</p>
+          <h2>${escapeHtml(perfil.nombreCompleto)}</h2>
+          <div class="profile-contact-row" aria-label="Datos de contacto">
+            <span>${escapeHtml(perfil.email)}</span>
+            <span>${escapeHtml(perfil.telefono)}</span>
+          </div>
+        </div>
       </div>
       <div class="my-turns-actions">
         <button class="button button-secondary" type="button" data-view="registro-adorador">Editar perfil</button>
         <button class="button button-secondary" type="button" data-action="activar-notificaciones">Notificaciones</button>
       </div>
     </header>
+    <section class="profile-stats-grid" aria-label="Resumen del perfil">
+      <div class="profile-stat">
+        <span>Frecuencia</span>
+        <strong>${escapeHtml(formatFrecuencia(perfil.frecuencia))}</strong>
+      </div>
+      <div class="profile-stat">
+        <span>Proximos turnos</span>
+        <strong>${misTurnos.length}</strong>
+      </div>
+      <div class="profile-stat">
+        <span>Esta semana</span>
+        <strong>${estaSemana}</strong>
+      </div>
+    </section>
     <section class="my-turns-list" aria-label="Mis turnos guardados">
-      <h3>Mis turnos guardados</h3>
+      <header class="mini-section-header">
+        <div>
+          <p class="section-kicker">Compromisos</p>
+          <h3>Mis turnos guardados</h3>
+        </div>
+        <span>${siguienteTurno ? `Siguiente: ${escapeHtml(formatFecha(siguienteTurno.dia))}` : 'Sin turnos'}</span>
+      </header>
       ${misTurnos.length > 0
-        ? misTurnos.slice(0, 6).map((turno) => `
-          <article class="my-turn-card">
-            <strong>${escapeHtml(formatFecha(turno.dia))}</strong>
-            <span>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
-          </article>
-        `).join('')
-        : '<p class="empty-inline">Todavia no tienes turnos guardados.</p>'
+        ? misTurnos.slice(0, 6).map(renderMiTurnoCard).join('')
+        : '<p class="empty-inline">Todavia no tienes turnos guardados. Elige un dia con plazas libres para reservar tu primer turno.</p>'
       }
     </section>
   `;
@@ -1763,18 +1820,45 @@ function renderLotes(): void {
         <h2>${escapeHtml(lote.nombre)}</h2>
         <p class="lote-meta">▦ ${escapeHtml(formatFecha(lote.fechaInicio))} - ${escapeHtml(formatFecha(lote.fechaFin))}</p>
         <p class="lote-meta">◷ ${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</p>
-        ${(lote.interrupciones?.length ?? 0) > 0 ? `<p class="lote-meta">⏸ ${lote.interrupciones.length} interrupcion(es)</p>` : ''}
+        ${(lote.interrupciones?.length ?? 0) > 0 ? `<p class="lote-meta">⏸ ${formatPlural(lote.interrupciones.length, 'interrupcion', 'interrupciones')}</p>` : ''}
       </div>
       <div class="lote-actions">
         <button class="dots-button" type="button" data-action="toggle-lote-menu" data-id="${lote.id}" aria-label="Opciones del lote" aria-expanded="${loteMenuAbiertoId === lote.id}">⋮</button>
         <div class="lote-menu ${loteMenuAbiertoId === lote.id ? 'is-open' : ''}">
           <button type="button" data-action="editar-lote" data-id="${lote.id}">Editar</button>
           <button type="button" data-action="duplicar-lote-mes" data-id="${lote.id}">Duplicar por mes</button>
-          <button class="danger" type="button" data-action="eliminar-lote" data-id="${lote.id}">Eliminar</button>
+          <button class="danger ${loteEliminarPendienteId === lote.id ? 'is-confirming' : ''}" type="button" data-action="eliminar-lote" data-id="${lote.id}">
+            ${loteEliminarPendienteId === lote.id ? 'Confirmar eliminacion' : 'Eliminar'}
+          </button>
         </div>
       </div>
     </article>
   `).join('');
+}
+
+function cancelarConfirmacionEliminarLote(): void {
+  if (!loteEliminarPendienteId) {
+    return;
+  }
+
+  loteEliminarPendienteId = null;
+  window.clearTimeout(loteEliminarPendienteTimeout);
+}
+
+function pedirConfirmacionEliminarLote(lote: LoteExposicion): void {
+  loteEliminarPendienteId = lote.id;
+  window.clearTimeout(loteEliminarPendienteTimeout);
+  mostrarAviso('Confirma la eliminacion', 'Pulsa de nuevo eliminar para borrar el lote. Los turnos generados se mantendran.', 'error');
+  renderLotes();
+
+  loteEliminarPendienteTimeout = window.setTimeout(() => {
+    if (loteEliminarPendienteId !== lote.id) {
+      return;
+    }
+
+    loteEliminarPendienteId = null;
+    renderLotes();
+  }, 5200);
 }
 
 function getRangoDuplicadoMes(lote: LoteExposicion, mesDestino: string): { inicio: string; fin: string } {
@@ -2019,13 +2103,17 @@ function renderListaTurnosDia(
   });
 
   const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(date);
+  const plazasLibres = turnosDia.reduce((total, turno) => total + turno.plazasDisponibles, 0);
 
   return `
     <section class="agenda-day ${items.length === 0 ? 'is-empty' : ''}">
       ${options.showHeading ? `
         <header class="agenda-day-header">
-          <strong>${escapeHtml(weekday)}</strong>
-          <span>${escapeHtml(formatFecha(key))}</span>
+          <div>
+            <strong>${escapeHtml(weekday)}</strong>
+            <span>${escapeHtml(formatFecha(key))}</span>
+          </div>
+          <small>${turnosDia.length > 0 ? `${formatPlural(plazasLibres, 'plaza libre', 'plazas libres')}` : 'Sin disponibilidad'}</small>
         </header>
       ` : ''}
       ${items.length > 0
@@ -2055,6 +2143,13 @@ function renderUsuario(): void {
     ...bloqueosSemana.map((bloqueo) => `${bloqueo.horaInicio}|${bloqueo.horaFin}`)
   ]))
     .toSorted((a, b) => a.localeCompare(b));
+  const plazasLibresSemana = turnosSemana.reduce((total, turno) => total + turno.plazasDisponibles, 0);
+  const turnosLibresSemana = turnosSemana.filter((turno) => turno.plazasDisponibles > 0).length;
+  const misTurnosSemana = perfil
+    ? turnosSemana.filter((turno) => estaInscrito(turno, perfil.nombreCompleto)).length
+    : 0;
+  const turnosDiaSeleccionado = turnosSemana.filter((turno) => turno.dia === fechaUsuarioSeleccionada);
+  const plazasDiaSeleccionado = turnosDiaSeleccionado.reduce((total, turno) => total + turno.plazasDisponibles, 0);
 
   document.querySelectorAll<HTMLButtonElement>('[data-action="vista-turnos"]').forEach((button) => {
     const isActive = button.dataset.mode === vistaTurnos;
@@ -2062,13 +2157,33 @@ function renderUsuario(): void {
     button.setAttribute('aria-pressed', String(isActive));
   });
 
+  usuarioBookingStats.innerHTML = `
+    <article>
+      <span>Plazas libres</span>
+      <strong>${plazasLibresSemana}</strong>
+      <small>${formatPlural(turnosLibresSemana, 'turno con disponibilidad', 'turnos con disponibilidad')}</small>
+    </article>
+    <article>
+      <span>Dia seleccionado</span>
+      <strong>${plazasDiaSeleccionado}</strong>
+      <small>${formatPlural(turnosDiaSeleccionado.length, 'franja publicada', 'franjas publicadas')}</small>
+    </article>
+    <article>
+      <span>Mis turnos</span>
+      <strong>${misTurnosSemana}</strong>
+      <small>en esta semana visible</small>
+    </article>
+  `;
+
   usuarioDias.innerHTML = fechas.map((date) => {
     const key = fechaToInput(date);
     const hoy = key === fechaToInput(new Date());
     const label = hoy ? 'HOY' : new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '').toUpperCase();
     const estado = getEstadoDiaCalendario(key, turnosSemana, bloqueosSemana);
+    const turnosDia = turnosSemana.filter((turno) => turno.dia === key);
+    const plazasDia = turnosDia.reduce((total, turno) => total + turno.plazasDisponibles, 0);
     const estadoTexto = {
-      disponible: 'Libre',
+      disponible: formatPlural(plazasDia, 'libre', 'libres'),
       completo: 'Completo',
       'sin-exposicion': 'Sin exposicion',
       vacio: 'Sin turnos'
@@ -2175,18 +2290,23 @@ function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | 
   const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
   const estado = propio ? 'Mi turno' : completo ? 'Completo' : 'Libre';
   const plazas = `${turno.plazasDisponibles} ${turno.plazasDisponibles === 1 ? 'plaza' : 'plazas'}`;
+  const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
+  const estadoClase = propio ? 'is-mine' : completo ? 'is-covered' : ocupadas > 0 ? 'is-partial' : 'is-free';
 
   return `
-    <article class="calendar-event ${disponible ? 'is-free' : 'is-covered'} ${propio ? 'is-mine' : ''}">
+    <article class="calendar-event ${estadoClase}">
       <div class="calendar-event-top">
         <strong>${escapeHtml(estado)}</strong>
+        <span>${escapeHtml(plazas)}</span>
       </div>
-      <p class="calendar-event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
-      <p class="calendar-event-capacity">${escapeHtml(plazas)}</p>
+      <div class="calendar-event-main">
+        <p class="calendar-event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
+        <p class="calendar-event-capacity">${ocupadas}/${turno.plazasTotales} plazas cubiertas</p>
+      </div>
       <div class="calendar-progress" aria-hidden="true"><span style="width: ${ocupacion}%"></span></div>
       ${propio || completo
-        ? `<span class="calendar-event-status">${propio ? 'Inscrito' : `${turno.inscritos.length} adorador(es)`}</span>`
-        : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">Reservar</button>`
+        ? `<span class="calendar-event-status">${propio ? 'Inscrito' : formatPlural(turno.inscritos.length, 'adorador', 'adoradores')}</span>`
+        : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">Reservar turno</button>`
       }
     </article>
   `;
@@ -2258,12 +2378,12 @@ function abrirModalInscripcion(idTurno: string): void {
   formInscripcionModal.reset();
   modalFechaInicio.value = turno.dia;
   modalFechaFin.value = fechaToInput(addMonths(parseFecha(turno.dia), 3));
-  modalTurnoTitle.textContent = `${turno.horaInicio} - ${turno.horaFin}`;
-  modalTurnoDetail.textContent = `${formatFecha(turno.dia)} · ${turno.plazasDisponibles}/${turno.plazasTotales} plazas libres`;
   modalPerfilResumen.innerHTML = `
-    <strong>Perfil sincronizado</strong>
-    <span>${escapeHtml(getNombrePrivado(perfil.nombreCompleto))}</span>
-    <small>Frecuencia: ${escapeHtml(formatFrecuencia(perfil.frecuencia))} · Rol: ${escapeHtml(formatRol(perfil.rol))}</small>
+    <div>
+      <strong>Perfil confirmado</strong>
+      <span>${escapeHtml(getNombrePrivado(perfil.nombreCompleto))}</span>
+    </div>
+    <small>${escapeHtml(formatFrecuencia(perfil.frecuencia))} · ${escapeHtml(perfil.email)}</small>
   `;
 
   setModalMessage('', 'info');
@@ -2285,13 +2405,16 @@ function setModalPaso(paso: ModalInscripcionPaso): void {
   modalBtnConfirmar.hidden = paso !== 'confirmacion';
 
   if (paso === 'tipo') {
-    modalTurnoTitle.textContent = 'Tipo de anotacion';
-    modalTurnoDetail.textContent = 'Elige una opcion para continuar por ese camino.';
+    const turno = turnoModalId ? StorageDB.getTurnos().find((item) => item.id === turnoModalId) : undefined;
+    modalTurnoTitle.textContent = 'Reservar turno';
+    modalTurnoDetail.textContent = turno
+      ? `${formatFecha(turno.dia)} · ${turno.horaInicio} - ${turno.horaFin} · ${formatPlural(turno.plazasDisponibles, 'plaza libre', 'plazas libres')}`
+      : 'Elige una opcion para continuar.';
   }
 
   if (paso === 'periodica') {
-    modalTurnoTitle.textContent = 'Repetir';
-    modalTurnoDetail.textContent = 'Elige la frecuencia y el rango de fechas para buscar turnos equivalentes.';
+    modalTurnoTitle.textContent = 'Planificar repeticion';
+    modalTurnoDetail.textContent = 'Define la frecuencia y el rango para buscar turnos equivalentes.';
   }
 
   if (paso === 'confirmacion') {
@@ -2338,16 +2461,16 @@ function actualizarResumenInscripcion(): void {
     ? `${formatFecha(modalFechaInicio.value)} - ${formatFecha(modalFechaFin.value)}`
     : formatFecha(turnoBase.dia);
 
-  modalTurnoTitle.textContent = 'Confirmar anotacion';
+  modalTurnoTitle.textContent = 'Confirmar reserva';
   modalTurnoDetail.textContent = modalTipoAnotacion === 'periodica'
-    ? `Se han encontrado ${turnos.length} turno(s) equivalentes.`
+    ? `Se han encontrado ${formatPlural(turnos.length, 'turno equivalente', 'turnos equivalentes')}.`
     : 'Vas a apuntarte al turno seleccionado.';
   modalResumenInscripcion.innerHTML = `
-    <strong>${modalTipoAnotacion === 'periodica' ? 'Anotacion periodica' : 'Anotacion puntual'}</strong>
+    <strong>${modalTipoAnotacion === 'periodica' ? 'Reserva periodica' : 'Reserva puntual'}</strong>
     <span>Turno: ${escapeHtml(turnoBase.horaInicio)} - ${escapeHtml(turnoBase.horaFin)}</span>
-    <span>Fecha(s): ${escapeHtml(rango)}</span>
+    <span>${modalTipoAnotacion === 'periodica' ? 'Fechas' : 'Fecha'}: ${escapeHtml(rango)}</span>
     ${modalTipoAnotacion === 'periodica' ? `<span>Repetir: ${repeticion === 'mensual' ? '1 vez al mes' : '1 vez a la semana'}</span>` : ''}
-    <span>Compromisos a crear: ${turnos.length}</span>
+    <span>${formatPlural(turnos.length, 'compromiso a crear', 'compromisos a crear')}</span>
   `;
 }
 
@@ -2393,10 +2516,10 @@ function inscribirDesdeModal(): void {
   renderMisTurnos();
   renderUsuario();
   renderAdminPanel();
-  setModalMessage(`Inscripcion completada en ${inscritos} turno(s). ${omitidos > 0 ? `${omitidos} turno(s) omitidos por falta de plazas o duplicado.` : ''}`, 'success');
+  setModalMessage(`Inscripcion completada en ${formatPlural(inscritos, 'turno', 'turnos')}. ${omitidos > 0 ? `${formatPlural(omitidos, 'turno omitido', 'turnos omitidos')} por falta de plazas o duplicado.` : ''}`, 'success');
   notificarYPersistir({
     title: 'Inscripcion confirmada',
-    message: `${inscritos} compromiso(s) guardado(s) correctamente.`,
+    message: `${formatPlural(inscritos, 'compromiso guardado', 'compromisos guardados')} correctamente.`,
     tone: 'success',
     browser: true,
     tag: `inscripcion-${turnoBase.id}`
@@ -2550,7 +2673,11 @@ document.addEventListener('click', (event) => {
   const toggleLoteMenu = target.closest<HTMLButtonElement>('[data-action="toggle-lote-menu"]');
 
   if (toggleLoteMenu?.dataset.id) {
-    loteMenuAbiertoId = loteMenuAbiertoId === toggleLoteMenu.dataset.id ? null : toggleLoteMenu.dataset.id;
+    const nextMenuId = loteMenuAbiertoId === toggleLoteMenu.dataset.id ? null : toggleLoteMenu.dataset.id;
+    if (nextMenuId !== loteMenuAbiertoId) {
+      cancelarConfirmacionEliminarLote();
+    }
+    loteMenuAbiertoId = nextMenuId;
     renderLotes();
     return;
   }
@@ -2568,23 +2695,30 @@ document.addEventListener('click', (event) => {
     }
 
     if (loteAction.dataset.action === 'editar-lote') {
+      cancelarConfirmacionEliminarLote();
       loteMenuAbiertoId = null;
       abrirConfig(lote);
       return;
     }
 
     if (loteAction.dataset.action === 'duplicar-lote-mes') {
+      cancelarConfirmacionEliminarLote();
       loteMenuAbiertoId = null;
       renderLotes();
       abrirDuplicarMes(lote);
       return;
     }
 
-    if (confirm('¿Eliminar este lote? Los turnos ya generados se mantendran.')) {
-      loteMenuAbiertoId = null;
-      StorageDB.eliminarLote(id);
-      renderLotes();
+    if (loteEliminarPendienteId !== id) {
+      pedirConfirmacionEliminarLote(lote);
+      return;
     }
+
+    cancelarConfirmacionEliminarLote();
+    loteMenuAbiertoId = null;
+    StorageDB.eliminarLote(id);
+    renderLotes();
+    mostrarAviso('Lote eliminado', 'El lote se elimino correctamente. Los turnos ya generados se mantienen.', 'success');
 
     return;
   }
@@ -2607,6 +2741,7 @@ document.addEventListener('click', (event) => {
 
   if (!target.closest('.lote-actions') && loteMenuAbiertoId) {
     loteMenuAbiertoId = null;
+    cancelarConfirmacionEliminarLote();
     renderLotes();
   }
 });
@@ -2869,7 +3004,7 @@ getElement<HTMLButtonElement>('#btn-guardar-borrador').addEventListener('click',
   try {
     guardarLote(true);
   } catch (error) {
-    alert(error instanceof Error ? error.message : 'No se pudo guardar el lote.');
+    mostrarAviso('No se pudo guardar el lote', error instanceof Error ? error.message : 'Revisa los datos e intentalo de nuevo.', 'error');
   }
 });
 
@@ -2879,7 +3014,7 @@ formLote.addEventListener('submit', (event) => {
   try {
     guardarLote(false);
   } catch (error) {
-    alert(error instanceof Error ? error.message : 'No se pudo confirmar la exposicion.');
+    mostrarAviso('No se pudo confirmar la exposicion', error instanceof Error ? error.message : 'Revisa los datos e intentalo de nuevo.', 'error');
   }
 });
 
