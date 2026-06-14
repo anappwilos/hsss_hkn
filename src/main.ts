@@ -66,6 +66,7 @@ let adminPanel: AdminPanel = 'lotes';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
 let adminUsuarioEditandoId: string | null = null;
+let registroStep = 0;
 let turnoModalId: string | null = null;
 let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
 let modalTipoAnotacion: TipoAnotacion = 'puntual';
@@ -130,25 +131,41 @@ app.innerHTML = `
         </button>
       </header>
 
-      <form id="form-admin-login" class="admin-login-card">
-        <header class="section-heading">
-          <h1>Acceso administrador</h1>
-          <p>Introduce el correo y la contrase&ntilde;a configurados para gestionar los lotes.</p>
-        </header>
+      <form id="form-admin-login" class="admin-login-card" novalidate>
+        <section class="auth-card-copy">
+          <p class="section-kicker">Acceso</p>
+          <h1>Entra en A solas</h1>
+          <p>Accede como adorador para ver tus turnos o como coordinador para gestionar la capilla.</p>
+          <div class="auth-trust-row" aria-label="Resumen de seguridad">
+            <span>Sesion local</span>
+            <span>Datos sincronizados</span>
+          </div>
+        </section>
 
-        <label class="field">
-          <span>Correo</span>
-          <input id="admin-email" type="email" autocomplete="username" required />
-        </label>
+        <section class="auth-form-panel" aria-label="Credenciales de acceso">
+          <div class="auth-slice-switch" role="group" aria-label="Cambiar modo de acceso">
+            <button class="is-active" type="button" data-view="admin-login" aria-pressed="true">Admin</button>
+            <button type="button" data-view="registro-adorador" aria-pressed="false">Registro</button>
+          </div>
 
-        <label class="field">
-          <span>Contrase&ntilde;a</span>
-          <input id="admin-password" type="password" autocomplete="current-password" required />
-        </label>
+          <label class="auth-field" data-field="admin-email">
+            <span>Correo <em>Obligatorio</em></span>
+            <input id="admin-email" type="email" autocomplete="username" inputmode="email" placeholder="root@root.com" required aria-describedby="admin-email-error" />
+            <small id="admin-email-error" class="field-error"></small>
+          </label>
 
-        <p id="admin-login-mensaje" class="modal-message" role="status"></p>
+          <label class="auth-field auth-password-field" data-field="admin-password">
+            <span>Contrasena <em>Obligatorio</em></span>
+            <input id="admin-password" type="password" autocomplete="current-password" placeholder="Tu contrasena" required aria-describedby="admin-password-error" />
+            <button type="button" data-action="toggle-admin-password" aria-label="Mostrar contrasena">Mostrar</button>
+            <small id="admin-password-error" class="field-error"></small>
+          </label>
 
-        <button class="button button-primary" type="submit">Entrar</button>
+          <p id="admin-login-mensaje" class="modal-message" role="status"></p>
+
+            <button class="button button-primary auth-submit" type="submit">Entrar</button>
+            <p class="auth-form-note">Si ya tienes perfil, entra con tu correo y contrasena. Si aun no tienes contrasena, crea de nuevo tu perfil desde Registro.</p>
+        </section>
       </form>
     </section>
 
@@ -263,47 +280,126 @@ app.innerHTML = `
         <span aria-hidden="true"></span>
       </header>
 
-      <form id="form-registro-adorador" class="registro-form">
-        <div class="registro-content">
-          <div class="registro-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48" role="presentation">
-              <path d="M10 38c2.4-6 7-9 14-9s11.6 3 14 9"></path>
-              <circle cx="24" cy="17" r="7"></circle>
-              <path d="M36 12v10M31 17h10"></path>
-            </svg>
+      <form id="form-registro-adorador" class="registro-form" novalidate>
+        <div class="registro-shell">
+          <section class="registro-intro">
+            <p class="section-kicker">Perfil de adorador</p>
+            <h2>Prepara tus turnos en menos de un minuto</h2>
+            <p>Guardamos tus datos para reservar con rapidez y reconocer tus compromisos en la agenda.</p>
+            <div class="registro-benefits" aria-label="Ventajas del perfil">
+              <span>Reserva mas rapida</span>
+              <span>Turnos personalizados</span>
+              <span>Contacto privado</span>
+            </div>
+          </section>
+
+          <div class="registro-content">
+            <div class="auth-slice-switch" role="group" aria-label="Cambiar modo de acceso">
+              <button type="button" data-view="admin-login" aria-pressed="false">Admin</button>
+              <button class="is-active" type="button" data-view="registro-adorador" aria-pressed="true">Registro</button>
+            </div>
+
+            <div class="registro-progress" aria-label="Progreso del registro">
+              <span></span>
+              <strong id="registro-step-label">1 de 4</strong>
+            </div>
+
+            <div class="registro-slider">
+            <section class="registro-group" data-registro-step="0" aria-label="Identidad">
+              <header>
+                <span>1</span>
+                <div>
+                  <h3>Identidad</h3>
+                  <p>Nombre que vera el equipo de coordinacion.</p>
+                </div>
+              </header>
+              <div class="registro-grid">
+                <label class="registro-field" data-field="registro-nombre">
+                  <span>Nombre <em>Obligatorio</em></span>
+                  <input id="registro-nombre" type="text" autocomplete="given-name" placeholder="Maria" minlength="2" required aria-describedby="registro-nombre-error" />
+                  <small id="registro-nombre-error" class="field-error"></small>
+                </label>
+                <label class="registro-field" data-field="registro-apellidos">
+                  <span>Apellidos <em>Obligatorio</em></span>
+                  <input id="registro-apellidos" type="text" autocomplete="family-name" placeholder="Garcia Lopez" minlength="2" required aria-describedby="registro-apellidos-error" />
+                  <small id="registro-apellidos-error" class="field-error"></small>
+                </label>
+              </div>
+            </section>
+
+            <section class="registro-group" data-registro-step="1" aria-label="Contacto" hidden>
+              <header>
+                <span>2</span>
+                <div>
+                  <h3>Contacto</h3>
+                  <p>Solo para avisos relacionados con tus turnos.</p>
+                </div>
+              </header>
+              <div class="registro-grid">
+                <label class="registro-field" data-field="registro-email">
+                  <span>Correo electronico <em>Obligatorio</em></span>
+                  <input id="registro-email" type="email" autocomplete="email" inputmode="email" placeholder="maria@email.com" required aria-describedby="registro-email-error" />
+                  <small id="registro-email-error" class="field-error"></small>
+                </label>
+                <label class="registro-field" data-field="registro-telefono">
+                  <span>Telefono <em>Obligatorio</em></span>
+                  <input id="registro-telefono" type="tel" autocomplete="tel" inputmode="tel" placeholder="+34 600 000 000" required aria-describedby="registro-telefono-error" />
+                  <small id="registro-telefono-error" class="field-error"></small>
+                </label>
+              </div>
+            </section>
+
+            <section class="registro-group" data-registro-step="2" aria-label="Preferencia" hidden>
+              <header>
+                <span>3</span>
+                <div>
+                  <h3>Preferencia</h3>
+                  <p>Ayuda a organizar la cobertura habitual de la capilla.</p>
+                </div>
+              </header>
+              <label class="registro-field registro-select-field" data-field="registro-frecuencia">
+                <span>Frecuencia <em>Obligatorio</em></span>
+                <select id="registro-frecuencia" required aria-describedby="registro-frecuencia-error">
+                  <option value="fijo">Fijo</option>
+                  <option value="suplente">Suplente</option>
+                  <option value="puntual" selected>Puntual</option>
+                </select>
+                <small id="registro-frecuencia-error" class="field-error"></small>
+              </label>
+            </section>
+
+            <section class="registro-group" data-registro-step="3" aria-label="Acceso" hidden>
+              <header>
+                <span>4</span>
+                <div>
+                  <h3>Acceso</h3>
+                  <p>Usa estas credenciales para entrar despues desde cualquier dispositivo.</p>
+                </div>
+              </header>
+              <div class="registro-grid">
+                <label class="registro-field" data-field="registro-password">
+                  <span>Contrasena <em>Obligatorio</em></span>
+                  <input id="registro-password" type="password" autocomplete="new-password" placeholder="Minimo 6 caracteres" minlength="6" required aria-describedby="registro-password-error" />
+                  <small id="registro-password-error" class="field-error"></small>
+                </label>
+                <label class="registro-field" data-field="registro-password-confirm">
+                  <span>Confirmar contrasena <em>Obligatorio</em></span>
+                  <input id="registro-password-confirm" type="password" autocomplete="new-password" placeholder="Repite la contrasena" minlength="6" required aria-describedby="registro-password-confirm-error" />
+                  <small id="registro-password-confirm-error" class="field-error"></small>
+                </label>
+              </div>
+            </section>
+            </div>
+
+            <p id="registro-mensaje" class="registro-message" role="status"></p>
+            <p class="registro-privacy">Tus datos se usan solo para gestionar reservas y turnos dentro de A solas.</p>
+
+            <div class="registro-slider-actions">
+              <button id="registro-prev" class="registro-nav-button" type="button" data-action="registro-prev" disabled>&lt; Campo</button>
+              <button id="registro-next" class="registro-submit" type="button" data-action="registro-next">Campo &gt;</button>
+              <button id="registro-submit" class="registro-submit" type="submit" disabled hidden>Finalizar <span aria-hidden="true">-&gt;</span></button>
+            </div>
           </div>
-          <p class="registro-copy">Para coordinar los turnos de la capilla, necesitamos conocerte un poco mejor.</p>
-
-          <label class="registro-field">
-            <span>Nombre</span>
-            <input id="registro-nombre" type="text" autocomplete="given-name" placeholder=" " minlength="2" required />
-          </label>
-          <label class="registro-field">
-            <span>Apellidos</span>
-            <input id="registro-apellidos" type="text" autocomplete="family-name" placeholder=" " minlength="2" required />
-          </label>
-          <label class="registro-field">
-            <span>Correo electr&oacute;nico</span>
-            <input id="registro-email" type="email" autocomplete="email" placeholder=" " required />
-          </label>
-          <label class="registro-field">
-            <span>Tel&eacute;fono</span>
-            <input id="registro-telefono" type="tel" autocomplete="tel" inputmode="tel" placeholder=" " required />
-          </label>
-          <label class="registro-field registro-select-field">
-            <span>Frecuencia</span>
-            <select id="registro-frecuencia" required>
-              <option value="fijo">Fijo</option>
-              <option value="suplente">Suplente</option>
-              <option value="puntual" selected>Puntual</option>
-            </select>
-          </label>
-          <p id="registro-mensaje" class="registro-message" role="status"></p>
-          <p class="registro-privacy">Tus datos se guardan solo en este dispositivo para reconocer tus turnos y agilizar nuevas inscripciones.</p>
-        </div>
-
-        <div class="registro-footer">
-          <button id="registro-submit" class="registro-submit" type="submit" disabled>Continuar <span aria-hidden="true">→</span></button>
         </div>
       </form>
     </section>
@@ -618,8 +714,13 @@ const registroApellidos = getElement<HTMLInputElement>('#registro-apellidos');
 const registroEmail = getElement<HTMLInputElement>('#registro-email');
 const registroTelefono = getElement<HTMLInputElement>('#registro-telefono');
 const registroFrecuencia = getElement<HTMLSelectElement>('#registro-frecuencia');
+const registroPassword = getElement<HTMLInputElement>('#registro-password');
+const registroPasswordConfirm = getElement<HTMLInputElement>('#registro-password-confirm');
 const registroMensaje = getElement<HTMLParagraphElement>('#registro-mensaje');
 const registroSubmit = getElement<HTMLButtonElement>('#registro-submit');
+const registroPrev = getElement<HTMLButtonElement>('#registro-prev');
+const registroNext = getElement<HTMLButtonElement>('#registro-next');
+const registroStepLabel = getElement<HTMLElement>('#registro-step-label');
 const formLote = getElement<HTMLFormElement>('#form-lote');
 const loteNombre = getElement<HTMLInputElement>('#lote-nombre');
 const loteMesCompleto = getElement<HTMLInputElement>('#lote-mes-completo');
@@ -756,10 +857,89 @@ function mostrarAdminLoginMensaje(message: string, tone: 'info' | 'error' = 'inf
   adminLoginMensaje.dataset.tone = tone;
 }
 
+function setFieldError(input: HTMLInputElement | HTMLSelectElement, message: string, showError: boolean): void {
+  const field = input.closest('.registro-field, .auth-field');
+  const error = field?.querySelector<HTMLElement>('.field-error');
+  input.setAttribute('aria-invalid', String(showError));
+  field?.classList.toggle('has-error', showError);
+
+  if (error) {
+    error.textContent = showError ? message : '';
+  }
+}
+
+function getRegistroStepInputs(step = registroStep): Array<HTMLInputElement | HTMLSelectElement> {
+  const steps: Array<Array<HTMLInputElement | HTMLSelectElement>> = [
+    [registroNombre, registroApellidos],
+    [registroEmail, registroTelefono],
+    [registroFrecuencia],
+    [registroPassword, registroPasswordConfirm]
+  ];
+
+  return steps[step] ?? [];
+}
+
+function renderRegistroSlider(): void {
+  const steps = Array.from(formRegistroAdorador.querySelectorAll<HTMLElement>('[data-registro-step]'));
+  steps.forEach((step) => {
+    step.hidden = Number(step.dataset.registroStep) !== registroStep;
+  });
+
+  registroPrev.disabled = registroStep === 0;
+  registroNext.hidden = registroStep === steps.length - 1;
+  registroSubmit.hidden = registroStep !== steps.length - 1;
+  registroStepLabel.textContent = `${registroStep + 1} de ${steps.length}`;
+  formRegistroAdorador.style.setProperty('--registro-progress', `${((registroStep + 1) / steps.length) * 100}%`);
+}
+
+function moverRegistroSlider(direction: 1 | -1): void {
+  if (direction === 1 && !validarRegistroAdorador(true, getRegistroStepInputs())) {
+    return;
+  }
+
+  const totalSteps = formRegistroAdorador.querySelectorAll('[data-registro-step]').length;
+  registroStep = Math.min(Math.max(registroStep + direction, 0), totalSteps - 1);
+  registroMensaje.textContent = '';
+  registroMensaje.dataset.tone = '';
+  renderRegistroSlider();
+  window.requestAnimationFrame(() => getRegistroStepInputs()[0]?.focus());
+}
+
+function validarAdminLogin(showErrors: boolean): boolean {
+  const email = adminEmail.value.trim();
+  const password = adminPassword.value;
+  const emailMessage = !email ? 'El correo es obligatorio.' : !esEmailValido(email) ? 'Introduce un correo valido.' : '';
+  const passwordMessage = !password ? 'La contrasena es obligatoria.' : '';
+  const esValido = !emailMessage && !passwordMessage;
+
+  setFieldError(adminEmail, emailMessage, showErrors && Boolean(emailMessage));
+  setFieldError(adminPassword, passwordMessage, showErrors && Boolean(passwordMessage));
+
+  if (!showErrors || esValido) {
+    if (adminLoginMensaje.dataset.tone !== 'error') {
+      mostrarAdminLoginMensaje('', 'info');
+    }
+    return esValido;
+  }
+
+  mostrarAdminLoginMensaje('Revisa los campos marcados para continuar.', 'error');
+  (emailMessage ? adminEmail : adminPassword).focus();
+  return false;
+}
+
 function isAdminLoginValido(email: string, password: string): boolean {
   const adminValido = Boolean(ADMIN_EMAIL && ADMIN_PASSWORD && email === ADMIN_EMAIL && password === ADMIN_PASSWORD);
   const superadminValido = Boolean(SUPERADMIN_EMAIL && SUPERADMIN_PASSWORD && email === SUPERADMIN_EMAIL && password === SUPERADMIN_PASSWORD);
   return adminValido || superadminValido;
+}
+
+function getUsuarioLoginValido(email: string, password: string): PerfilAdorador | undefined {
+  return StorageDB.getUsuarios().find((usuario) =>
+    usuario.rol !== 'administrador' &&
+    usuario.email.toLowerCase() === email &&
+    Boolean(usuario.password) &&
+    usuario.password === password
+  );
 }
 
 function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): void {
@@ -794,6 +974,7 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): 
 
   if (nextView === 'registro-adorador') {
     rellenarRegistroSiExiste();
+    renderRegistroSlider();
   }
 
   if (nextView === 'configuracion') {
@@ -1029,7 +1210,7 @@ function normalizarNombre(value: string): string {
 
 function crearPerfilAdorador(
   nombreCompleto: string,
-  overrides: Partial<Pick<PerfilAdorador, 'nombre' | 'apellidos' | 'email' | 'telefono' | 'frecuencia' | 'rol'>> = {}
+  overrides: Partial<Pick<PerfilAdorador, 'nombre' | 'apellidos' | 'email' | 'telefono' | 'frecuencia' | 'rol' | 'password'>> = {}
 ): PerfilAdorador {
   const partes = nombreCompleto.trim().replace(/\s+/g, ' ').split(' ');
   const nombre = overrides.nombre ?? partes[0] ?? '';
@@ -1044,6 +1225,7 @@ function crearPerfilAdorador(
     telefono: overrides.telefono ?? '',
     frecuencia: overrides.frecuencia ?? 'puntual',
     rol: overrides.rol ?? 'usuario',
+    password: overrides.password,
     creadoEn: Date.now(),
     actualizadoEn: Date.now()
   };
@@ -2883,6 +3065,27 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  if (target.closest('[data-action="toggle-admin-password"]')) {
+    const visible = adminPassword.type === 'text';
+    adminPassword.type = visible ? 'password' : 'text';
+    const button = target.closest<HTMLButtonElement>('[data-action="toggle-admin-password"]');
+    if (button) {
+      button.textContent = visible ? 'Mostrar' : 'Ocultar';
+      button.setAttribute('aria-label', visible ? 'Mostrar contrasena' : 'Ocultar contrasena');
+    }
+    return;
+  }
+
+  if (target.closest('[data-action="registro-prev"]')) {
+    moverRegistroSlider(-1);
+    return;
+  }
+
+  if (target.closest('[data-action="registro-next"]')) {
+    moverRegistroSlider(1);
+    return;
+  }
+
   const adminPanelButton = target.closest<HTMLButtonElement>('[data-admin-panel]');
 
   if (adminPanelButton?.dataset.adminPanel) {
@@ -3146,22 +3349,43 @@ document.addEventListener('submit', (event) => {
 formAdminLogin.addEventListener('submit', (event) => {
   event.preventDefault();
 
+  if (!validarAdminLogin(true)) {
+    return;
+  }
+
   const email = adminEmail.value.trim().toLowerCase();
   const password = adminPassword.value;
 
-  if ((!ADMIN_EMAIL || !ADMIN_PASSWORD) && (!SUPERADMIN_EMAIL || !SUPERADMIN_PASSWORD)) {
-    mostrarAdminLoginMensaje('Faltan credenciales de administrador en el archivo .env.', 'error');
+  if (isAdminLoginValido(email, password)) {
+    setFieldError(adminEmail, '', false);
+    setFieldError(adminPassword, '', false);
+    setAdminAuthenticated(true);
+    mostrarAdminLoginMensaje('', 'info');
+    mostrarVista('admin');
     return;
   }
 
-  if (!isAdminLoginValido(email, password)) {
-    mostrarAdminLoginMensaje('Correo o contrasena incorrectos.', 'error');
+  const usuario = getUsuarioLoginValido(email, password);
+
+  if (usuario) {
+    setFieldError(adminEmail, '', false);
+    setFieldError(adminPassword, '', false);
+    setAdminAuthenticated(false);
+    StorageDB.savePerfilAdorador(usuario);
+    renderProfileButton();
+    mostrarAdminLoginMensaje('', 'info');
+    mostrarVista('usuario');
     return;
   }
 
-  setAdminAuthenticated(true);
-  mostrarAdminLoginMensaje('', 'info');
-  mostrarVista('admin');
+  mostrarAdminLoginMensaje('Correo o contrasena incorrectos.', 'error');
+  setFieldError(adminEmail, '', true);
+  setFieldError(adminPassword, '', true);
+  adminPassword.focus();
+});
+
+[adminEmail, adminPassword].forEach((input) => {
+  input.addEventListener('input', () => validarAdminLogin(false));
 });
 
 formInscripcionModal.addEventListener('submit', (event) => {
@@ -3193,6 +3417,7 @@ formRegistroAdorador.addEventListener('submit', (event) => {
   const email = registroEmail.value.trim().toLowerCase();
   const telefono = limpiarTelefono(registroTelefono.value);
   const frecuencia = registroFrecuencia.value as UsuarioFrecuencia;
+  const password = registroPassword.value;
 
   StorageDB.savePerfilAdorador(crearPerfilAdorador(`${nombre} ${apellidos}`, {
     nombre,
@@ -3200,7 +3425,8 @@ formRegistroAdorador.addEventListener('submit', (event) => {
     email,
     telefono,
     frecuencia,
-    rol: 'usuario'
+    rol: 'usuario',
+    password
   }));
 
   renderProfileButton();
@@ -3224,25 +3450,32 @@ function esTelefonoValido(value: string): boolean {
   return digits.length >= 7 && digits.length <= 15;
 }
 
-function setRegistroFieldState(input: HTMLInputElement, isValid: boolean, showErrors: boolean): void {
-  const shouldShowError = showErrors && !isValid;
-  input.setAttribute('aria-invalid', String(shouldShowError));
-  input.closest('.registro-field')?.classList.toggle('has-error', shouldShowError);
-}
-
-function validarRegistroAdorador(showErrors: boolean): boolean {
+function validarRegistroAdorador(showErrors: boolean, inputsToValidate?: Array<HTMLInputElement | HTMLSelectElement>): boolean {
   const nombreValido = limpiarTextoRegistro(registroNombre.value).length >= 2;
   const apellidosValido = limpiarTextoRegistro(registroApellidos.value).length >= 2;
   const emailValido = esEmailValido(registroEmail.value);
   const telefonoValido = esTelefonoValido(registroTelefono.value);
-  const esValido = nombreValido && apellidosValido && emailValido && telefonoValido;
+  const frecuenciaValida = ['fijo', 'suplente', 'puntual'].includes(registroFrecuencia.value);
+  const passwordValida = registroPassword.value.length >= 6;
+  const passwordConfirmValida = registroPasswordConfirm.value.length >= 6 && registroPasswordConfirm.value === registroPassword.value;
+  const errores: Array<{ input: HTMLInputElement | HTMLSelectElement; valid: boolean; message: string }> = [
+    { input: registroNombre, valid: nombreValido, message: 'El nombre es obligatorio y debe tener al menos 2 caracteres.' },
+    { input: registroApellidos, valid: apellidosValido, message: 'Los apellidos son obligatorios y deben tener al menos 2 caracteres.' },
+    { input: registroEmail, valid: emailValido, message: registroEmail.value.trim() ? 'Introduce un correo valido.' : 'El correo es obligatorio.' },
+    { input: registroTelefono, valid: telefonoValido, message: registroTelefono.value.trim() ? 'El telefono debe tener entre 7 y 15 digitos.' : 'El telefono es obligatorio.' },
+    { input: registroFrecuencia, valid: frecuenciaValida, message: 'Selecciona una frecuencia.' },
+    { input: registroPassword, valid: passwordValida, message: registroPassword.value ? 'La contrasena debe tener al menos 6 caracteres.' : 'La contrasena es obligatoria.' },
+    { input: registroPasswordConfirm, valid: passwordConfirmValida, message: registroPasswordConfirm.value ? 'Las contrasenas no coinciden.' : 'Confirma la contrasena.' }
+  ];
+  const erroresVisibles = inputsToValidate
+    ? errores.filter(({ input }) => inputsToValidate.includes(input))
+    : errores;
+  const esValido = erroresVisibles.every(({ valid }) => valid);
+  const esFormularioCompleto = errores.every(({ valid }) => valid);
 
-  setRegistroFieldState(registroNombre, nombreValido, showErrors);
-  setRegistroFieldState(registroApellidos, apellidosValido, showErrors);
-  setRegistroFieldState(registroEmail, emailValido, showErrors);
-  setRegistroFieldState(registroTelefono, telefonoValido, showErrors);
+  erroresVisibles.forEach(({ input, valid, message }) => setFieldError(input, message, showErrors && !valid));
 
-  registroSubmit.disabled = !esValido;
+  registroSubmit.disabled = !esFormularioCompleto;
 
   if (!showErrors || esValido) {
     registroMensaje.textContent = '';
@@ -3250,17 +3483,10 @@ function validarRegistroAdorador(showErrors: boolean): boolean {
     return esValido;
   }
 
-  if (!nombreValido) {
-    registroMensaje.textContent = 'Indica tu nombre para continuar.';
-  } else if (!apellidosValido) {
-    registroMensaje.textContent = 'Indica tus apellidos para identificar correctamente el compromiso.';
-  } else if (!emailValido) {
-    registroMensaje.textContent = 'Revisa el correo electronico.';
-  } else {
-    registroMensaje.textContent = 'Revisa el telefono. Debe tener entre 7 y 15 digitos.';
-  }
-
+  const primerError = erroresVisibles.find(({ valid }) => !valid);
+  registroMensaje.textContent = 'Revisa los campos marcados para continuar.';
   registroMensaje.dataset.tone = 'error';
+  primerError?.input.focus();
   return false;
 }
 
@@ -3268,6 +3494,8 @@ function rellenarRegistroSiExiste(): void {
   const perfil = StorageDB.getPerfilAdorador();
 
   if (!perfil) {
+    registroPassword.value = '';
+    registroPasswordConfirm.value = '';
     validarRegistroAdorador(false);
     return;
   }
@@ -3277,11 +3505,13 @@ function rellenarRegistroSiExiste(): void {
   registroEmail.value = perfil.email;
   registroTelefono.value = perfil.telefono;
   registroFrecuencia.value = perfil.frecuencia ?? 'puntual';
+  registroPassword.value = perfil.password ?? '';
+  registroPasswordConfirm.value = perfil.password ?? '';
   validarRegistroAdorador(false);
 }
 
-[registroNombre, registroApellidos, registroEmail, registroTelefono].forEach((input) => {
-  input.addEventListener('input', () => validarRegistroAdorador(false));
+[registroNombre, registroApellidos, registroEmail, registroTelefono, registroPassword, registroPasswordConfirm].forEach((input) => {
+  input.addEventListener('input', () => validarRegistroAdorador(false, getRegistroStepInputs()));
   input.addEventListener('blur', () => {
     if (input === registroNombre || input === registroApellidos) {
       input.value = limpiarTextoRegistro(input.value);
@@ -3295,9 +3525,11 @@ function rellenarRegistroSiExiste(): void {
       input.value = limpiarTelefono(input.value);
     }
 
-    validarRegistroAdorador(input.value.trim().length > 0);
+    validarRegistroAdorador(input.value.trim().length > 0, getRegistroStepInputs());
   });
 });
+
+registroFrecuencia.addEventListener('change', () => validarRegistroAdorador(false, getRegistroStepInputs()));
 
 duplicarMesInput.addEventListener('input', actualizarPreviewDuplicarMes);
 

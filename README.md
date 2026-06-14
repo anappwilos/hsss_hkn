@@ -122,7 +122,7 @@ En desarrollo, Vite usa `VITE_API_BASE_URL=http://localhost:3000` para llamar a 
 
 La persistencia PostgreSQL sincroniza el estado compartido en `/api/state` e inicializa tablas relacionales auxiliares para consultar estos dominios principales:
 
-- `usuarios`: nombre, apellidos, nombre completo, correo electronico, telefono, frecuencia (`fijo`, `suplente`, `puntual`) y rol (`administrador`, `usuario`).
+- `usuarios`: nombre, apellidos, nombre completo, correo electronico, telefono, contrasena de acceso, frecuencia (`fijo`, `suplente`, `puntual`) y rol (`administrador`, `usuario`).
 - `lotes`: copia JSON de cada lote de exposicion para facilitar auditoria y consultas por identificador.
 - `notificaciones`: historial de avisos del sistema, inscripciones, lotes y recordatorios con estado (`pendiente`, `enviada`, `leida`).
 

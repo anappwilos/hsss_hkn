@@ -244,6 +244,7 @@ function normalizeUsuarios(value) {
         telefono: String(source.telefono || '').trim(),
         frecuencia: ['fijo', 'suplente', 'puntual'].includes(source.frecuencia) ? source.frecuencia : 'puntual',
         rol: source.rol === 'administrador' ? 'administrador' : 'usuario',
+        password: typeof source.password === 'string' ? source.password : undefined,
         creadoEn,
         actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn
       };
