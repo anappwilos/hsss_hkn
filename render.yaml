@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: a-solas
+    name: a-solas-api
     runtime: node
     plan: free
     buildCommand: npm install && npm run build
@@ -19,9 +19,11 @@ services:
         fromDatabase:
           name: a-solas-db
           property: connectionString
+      - key: DATABASE_SSL
+        value: "true"
 
   - type: static
-    name: a-solas-static
+    name: a-solas-web
     buildCommand: npm install && npm run build
     publishPath: dist
     routes:
@@ -30,7 +32,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://a-solas-web-final-deployment.onrender.com
+        value: https://a-solas-api.onrender.com
       - key: VITE_ENABLE_REMOTE_STORAGE
         value: "true"
 
