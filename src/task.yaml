@@ -20,3 +20,8 @@ Base de datos:
 - No utilizar alerts sino modales
 - Admin y Root NO pueden eliminar 
 - Root puede crear nuevos tipos de frecuencias y roles
+
+
+
+- Utilizar Enter para boton de aceptar
+- En registro solo se puede ser suplente. Si se selcciona Fijo tiene que haber un post aceptacion por parte del admin

@@ -41,6 +41,10 @@ const mimeTypes = new Map([
   ['.json', 'application/json; charset=utf-8'],
   ['.svg', 'image/svg+xml'],
   ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.mp4', 'video/mp4'],
+  ['.webm', 'video/webm'],
   ['.ico', 'image/x-icon'],
   ['.webmanifest', 'application/manifest+json; charset=utf-8']
 ]);

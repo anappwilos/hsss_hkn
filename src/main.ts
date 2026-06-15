@@ -108,6 +108,10 @@ const historialVistas: Vista[] = [];
 app.innerHTML = `
   <main class="app-shell">
     <section id="vista-inicio" class="view welcome-view" style="--landing-bg: url('${adoracionHeroUrl}')">
+      <video id="landing-video" class="welcome-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
+        <source src="/landing-video.mp4" type="video/mp4" />
+      </video>
+      <button class="landing-sound-button" type="button" data-action="toggle-landing-sound" aria-label="Activar sonido del video" aria-pressed="false" hidden>Sonido</button>
       <div class="welcome-screen">
         <header class="welcome-copy">
           <h1>A Solas</h1>
@@ -907,7 +911,7 @@ function canAssignAdminRoles(): boolean {
 }
 
 function getVistaInicial(): Vista {
-  return getVistaDestino('admin-login');
+  return 'inicio';
 }
 
 function mostrarAdminLoginMensaje(message: string, tone: 'info' | 'error' = 'info'): void {
@@ -1054,11 +1058,11 @@ function getVistaDestino(vista: Vista): Vista {
   const hasAdminSession = isAdminAuthenticated();
   const hasUserSession = Boolean(StorageDB.getPerfilAdorador());
 
-  if (hasAdminSession && (vista === 'inicio' || vista === 'admin-login' || vista === 'registro-adorador')) {
+  if (hasAdminSession && (vista === 'admin-login' || vista === 'registro-adorador')) {
     return 'admin';
   }
 
-  if (!hasAdminSession && hasUserSession && (vista === 'inicio' || vista === 'admin-login' || vista === 'registro-adorador')) {
+  if (!hasAdminSession && hasUserSession && (vista === 'admin-login' || vista === 'registro-adorador')) {
     return 'usuario';
   }
 
@@ -4061,6 +4065,26 @@ function inscribirDesdeModal(): void {
 document.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;
   const viewButton = target.closest<HTMLButtonElement>('[data-view]');
+
+  const landingSoundButton = target.closest<HTMLButtonElement>('[data-action="toggle-landing-sound"]');
+
+  if (landingSoundButton) {
+    const landingVideo = document.querySelector<HTMLVideoElement>('#landing-video');
+
+    if (!landingVideo) {
+      return;
+    }
+
+    landingVideo.muted = !landingVideo.muted;
+    landingVideo.volume = landingVideo.muted ? 0 : 1;
+    void landingVideo.play().catch(() => undefined);
+
+    const isSoundEnabled = !landingVideo.muted;
+    landingSoundButton.textContent = isSoundEnabled ? 'Silenciar' : 'Sonido';
+    landingSoundButton.setAttribute('aria-pressed', String(isSoundEnabled));
+    landingSoundButton.setAttribute('aria-label', isSoundEnabled ? 'Silenciar video' : 'Activar sonido del video');
+    return;
+  }
 
   if (target.closest('[data-action="confirmacion-close"]')) {
     cerrarConfirmacion();

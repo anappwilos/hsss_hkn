@@ -557,12 +557,45 @@ button:disabled {
   transform: scale(1.02);
 }
 
+.welcome-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center right;
+  opacity: 1;
+  filter: none;
+  pointer-events: none;
+}
+
+.landing-sound-button {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  z-index: 2;
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  padding: 0 16px;
+  color: #ffffff;
+  background: rgba(8, 47, 56, 0.36);
+  font-weight: 900;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 28px rgba(6, 69, 82, 0.18);
+}
+
+.landing-sound-button:hover {
+  background: rgba(8, 47, 56, 0.5);
+}
+
 .welcome-view::after {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(7, 65, 76, 0.52) 0%, rgba(18, 158, 178, 0.34) 48%, rgba(221, 250, 255, 0.56) 100%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.16), rgba(214, 241, 245, 0.12));
+    linear-gradient(90deg, rgba(7, 65, 76, 0.28) 0%, rgba(18, 158, 178, 0.16) 48%, rgba(221, 250, 255, 0.2) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(214, 241, 245, 0.06));
   content: "";
 }
 
@@ -4630,4 +4663,80 @@ button:disabled {
   .calendar-event {
     padding: 9px;
   }
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+}
+
+/* Select cerrado */
+.auth-field select,
+.registro-field select,
+.field select,
+.profile-edit-field select,
+.admin-user-edit-form select,
+.admin-turn-assign-form select,
+.admin-turn-lote-field select {
+  width: 100%;
+  min-height: 64px;
+  border: 1px solid #21a0b7;
+  border-radius: 999px;
+  padding: 0 56px 0 18px;
+  color: var(--color-ink);
+  background-color: rgba(244, 251, 253, 0.92);
+  background-image:
+    linear-gradient(45deg, transparent 50%, #4d7580 50%),
+    linear-gradient(135deg, #4d7580 50%, transparent 50%);
+  background-position:
+    calc(100% - 26px) 50%,
+    calc(100% - 18px) 50%;
+  background-repeat: no-repeat;
+  background-size: 8px 8px, 8px 8px;
+  box-shadow:
+    0 8px 20px rgba(6, 69, 82, 0.05),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+/* Focus */
+.auth-field select:focus,
+.registro-field select:focus,
+.field select:focus,
+.profile-edit-field select:focus,
+.admin-user-edit-form select:focus,
+.admin-turn-assign-form select:focus,
+.admin-turn-lote-field select:focus {
+  border-color: #21a0b7;
+  outline: 3px solid rgba(33, 160, 183, 0.24);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 4px rgba(33, 160, 183, 0.12),
+    0 12px 26px rgba(6, 69, 82, 0.08);
+}
+
+/* Opciones del desplegable */
+select option {
+  color: #0d3a44;
+  background: #f4fbfd;
+  font-weight: 600;
+}
+
+/* Opción seleccionada */
+select option:checked {
+  color: #ffffff;
+  background: #21a0b7;
+}
+
+/* Hover/focus de opciones: depende del navegador */
+select option:hover,
+select option:focus {
+  color: #ffffff;
+  background: #39aac1;
+}
+
+/* Quitar flecha antigua en Edge/IE */
+select::-ms-expand {
+  display: none;
 }
