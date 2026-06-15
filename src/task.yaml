@@ -1,0 +1,11 @@
+En turnos :
+- Los colores deberán de ser : cubierto en verde y sin cubrir en rojo. 
+En Usuarios:
+- Permitir eliminar usuarios si es root o admin 
+- Mostrar roles de Admin/Root
+- Agregaremos el perfil de Sacerdote
+- Al pulsar un usuario poder listar los turnos asignados a ese usuario y se elimina la columna de Proximo turno
+
+Login:
+
+- Revisar que los usuarios registrados puedan acceder

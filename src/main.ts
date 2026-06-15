@@ -1,5 +1,5 @@
 import './style.css';
-import adoracionHeroUrl from './assets/adoracion-hero.png';
+import adoracionHeroUrl from './assets/a_solas.jpg';
 import { NotificationService, type AppNotification } from './notifications';
 import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type Usuario, type UsuarioFrecuencia, type UsuarioRol } from './storage';
 
@@ -113,7 +113,6 @@ app.innerHTML = `
       <header class="mobile-topbar">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span class="brand-icon" aria-hidden="true">⌂</span>
           <span>A solas</span>
         </button>
       </header>
@@ -166,7 +165,6 @@ app.innerHTML = `
       <header class="mobile-topbar">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span class="brand-icon" aria-hidden="true">⌂</span>
           <span>A solas</span>
         </button>
         <button class="topbar-text-button" type="button" data-action="admin-logout">Salir</button>
@@ -213,26 +211,23 @@ app.innerHTML = `
       <header class="mobile-topbar user-topbar">
         <div class="user-topbar-left">
           <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
-          <button class="icon-only home-button" type="button" data-view="inicio" aria-label="Ir al inicio">⌂</button>
         </div>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span class="user-title-mark" aria-hidden="true">☼</span>
-          <span>A solas</span>
+          <span>A solas</span> 
         </button>
         <button id="btn-perfil-usuario" class="avatar-button profile-avatar-button" type="button" aria-label="Abrir mi perfil">
           <span class="avatar" aria-hidden="true">A</span>
-          <span class="avatar-caret" aria-hidden="true">⌄</span>
         </button>
       </header>
 
       <div class="screen-content user-content">
-        <section class="hero-adoracion" aria-label="Invitacion a la adoracion">
-          <div class="hero-copy">
-            <h1>Velar una hora juntos</h1>
-            <p>&ldquo;&iquest;No hab&eacute;is podido velar una hora conmigo?&rdquo;</p>
-            <span aria-hidden="true"></span>
-          </div>
-        </section>
+     <section class="hero-adoracion" aria-label="Invitacion a la adoracion">
+        <div class="hero-copy">
+          <h1>Velar una hora juntos</h1>
+          <p>&ldquo;&iquest;No hab&eacute;is podido velar una hora conmigo?&rdquo;</p>
+          <span aria-hidden="true"></span>
+        </div>
+      </section>
 
         <nav id="usuario-panel-tabs" class="user-panel-tabs" aria-label="Secciones del adorador">
           <button class="is-active" type="button" data-user-panel="disponibles">Turnos disponibles</button>
@@ -573,7 +568,6 @@ app.innerHTML = `
 
       <form id="form-lote" class="screen-content config-form">
         <section class="intro-card">
-          <span class="intro-icon" aria-hidden="true">⌂</span>
           <div>
             <h2>Planificaci&oacute;n del Sagrario</h2>
             <p>Define los periodos y horarios para la adoraci&oacute;n eucar&iacute;stica comunitaria.</p>
@@ -3529,7 +3523,7 @@ function renderUsuario(): void {
             const bloqueos = bloqueosSemana.filter((bloqueo) => bloqueo.dia === key && bloqueo.horaInicio === horaInicio && bloqueo.horaFin === horaFin);
 
             if (turnos.length === 0 && bloqueos.length === 0) {
-              return '<div class="calendar-cell is-empty"><span class="empty-slot"><span aria-hidden="true">⌂</span><small>Sin turnos</small></span></div>';
+              return '<div class="calendar-cell is-empty"><span class="empty-slot"><span aria-hidden="true"></span><small>Sin turnos</small></span></div>';
             }
 
             return `
@@ -3554,7 +3548,6 @@ function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
     <article class="calendar-event calendar-event--blocked">
       <div class="calendar-event-top">
         <strong>Sin exposici&oacute;n</strong>
-        <span>Bloqueado</span>
       </div>
       <p>${escapeHtml(bloqueo.horaInicio)} - ${escapeHtml(bloqueo.horaFin)}</p>
       <span class="calendar-event-status">${escapeHtml(bloqueo.motivo || 'Interrupcion')}</span>
@@ -3575,7 +3568,6 @@ function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | 
     <article class="calendar-event ${estadoClase}">
       <div class="calendar-event-top">
         <strong>${escapeHtml(estado)}</strong>
-        <span>${escapeHtml(plazas)}</span>
       </div>
       <div class="calendar-event-main">
         <p class="calendar-event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
@@ -3584,7 +3576,7 @@ function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | 
       <div class="calendar-progress" aria-hidden="true"><span style="width: ${ocupacion}%"></span></div>
       ${propio || completo
         ? `<span class="calendar-event-status">${propio ? 'Inscrito' : formatPlural(turno.inscritos.length, 'adorador', 'adoradores')}</span>`
-        : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">Reservar turno</button>`
+        : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">Cubrir</button>`
       }
     </article>
   `;
