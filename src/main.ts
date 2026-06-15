@@ -12,6 +12,7 @@ type AdminPanel = 'lotes' | 'usuarios' | 'turnos';
 type AdminUsuarioFiltro = 'todos' | 'fijo' | 'puntual' | 'suplente' | 'administrador';
 type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
 type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'pendiente';
+type UsuarioPanel = 'disponibles' | 'asignados';
 type NotificationPersistenceOptions = {
   usuarioId?: string;
   tipo?: 'sistema' | 'inscripcion' | 'lote' | 'recordatorio';
@@ -67,6 +68,7 @@ let interrupcionDiasConfig = new Set<number>([1, 2, 3, 4, 5]);
 let fechaUsuarioSeleccionada = fechaToInput(new Date());
 let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let vistaTurnos: VistaTurnos = 'semanal';
+let usuarioPanel: UsuarioPanel = 'disponibles';
 let adminPanel: AdminPanel = 'lotes';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
@@ -232,9 +234,14 @@ app.innerHTML = `
           </div>
         </section>
 
-        <section id="usuario-mis-turnos" class="my-turns-panel" aria-label="Mi perfil y mis turnos guardados"></section>
+        <nav id="usuario-panel-tabs" class="user-panel-tabs" aria-label="Secciones del adorador">
+          <button class="is-active" type="button" data-user-panel="disponibles">Turnos disponibles</button>
+          <button type="button" data-user-panel="asignados">Turnos asignados</button>
+        </nav>
 
-        <section class="booking-controls" aria-label="Controles de reserva">
+        <section id="usuario-mis-turnos" class="my-turns-panel" aria-label="Turnos asignados"></section>
+
+        <section id="usuario-disponibles-controles" class="booking-controls" aria-label="Controles de reserva">
           <div class="booking-heading">
             <div>
               <h1>Turnos disponibles</h1> 
@@ -257,7 +264,7 @@ app.innerHTML = `
           <div id="usuario-dias" class="day-strip" aria-label="Dias disponibles"></div>
         </section>
 
-        <section class="turnos-section" aria-label="Turnos disponibles">
+        <section id="usuario-disponibles-turnos" class="turnos-section" aria-label="Turnos disponibles">
           <div id="usuario-turnos" class="slot-list"></div>
         </section>
       </div>
@@ -553,6 +560,10 @@ app.innerHTML = `
       <div id="modal-perfil-edicion-card" class="modal-card profile-edit-modal-card"></div>
     </dialog>
 
+    <dialog id="modal-perfil-usuario" class="app-modal">
+      <div id="modal-perfil-usuario-card" class="modal-card profile-edit-modal-card"></div>
+    </dialog>
+
     <section id="vista-configuracion" class="view config-view" style="display: none;">
       <header class="mobile-topbar">
         <button class="icon-only" type="button" data-view="admin" aria-label="Volver">‹</button>
@@ -680,6 +691,9 @@ const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
 const usuarioSemanaLabel = getElement<HTMLParagraphElement>('#usuario-semana-label');
 const usuarioBookingStats = getElement<HTMLDivElement>('#usuario-booking-stats');
 const usuarioMisTurnos = getElement<HTMLElement>('#usuario-mis-turnos');
+const usuarioPanelTabs = getElement<HTMLElement>('#usuario-panel-tabs');
+const usuarioDisponiblesControles = getElement<HTMLElement>('#usuario-disponibles-controles');
+const usuarioDisponiblesTurnos = getElement<HTMLElement>('#usuario-disponibles-turnos');
 const btnPerfilUsuario = getElement<HTMLButtonElement>('#btn-perfil-usuario');
 const modalInscripcion = getElement<HTMLDialogElement>('#modal-inscripcion');
 const formInscripcionModal = getElement<HTMLFormElement>('#form-inscripcion-modal');
@@ -708,6 +722,8 @@ const modalAdminTurno = getElement<HTMLDialogElement>('#modal-admin-turno');
 const modalAdminTurnoCard = getElement<HTMLElement>('#modal-admin-turno-card');
 const modalPerfilEdicion = getElement<HTMLDialogElement>('#modal-perfil-edicion');
 const modalPerfilEdicionCard = getElement<HTMLElement>('#modal-perfil-edicion-card');
+const modalPerfilUsuario = getElement<HTMLDialogElement>('#modal-perfil-usuario');
+const modalPerfilUsuarioCard = getElement<HTMLElement>('#modal-perfil-usuario-card');
 const formRegistroAdorador = getElement<HTMLFormElement>('#form-registro-adorador');
 const registroNombre = getElement<HTMLInputElement>('#registro-nombre');
 const registroApellidos = getElement<HTMLInputElement>('#registro-apellidos');
@@ -832,6 +848,19 @@ function refrescarVistaActual(): void {
     renderMisTurnos();
     renderUsuario();
   }
+}
+
+function renderUsuarioPanel(): void {
+  usuarioPanelTabs.querySelectorAll<HTMLButtonElement>('[data-user-panel]').forEach((button) => {
+    const isActive = button.dataset.userPanel === usuarioPanel;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
+  const showDisponibles = usuarioPanel === 'disponibles';
+  usuarioDisponiblesControles.hidden = !showDisponibles;
+  usuarioDisponiblesTurnos.hidden = !showDisponibles;
+  usuarioMisTurnos.hidden = showDisponibles;
 }
 
 
@@ -1015,6 +1044,7 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean; bypassSe
     renderProfileButton();
     renderMisTurnos();
     renderUsuario();
+    renderUsuarioPanel();
   }
 
   if (nextView === 'registro-adorador') {
@@ -1060,6 +1090,11 @@ function volverAtras(): void {
 
   if (modalPerfilEdicion.open) {
     cerrarModalPerfilEdicion();
+    return;
+  }
+
+  if (modalPerfilUsuario.open) {
+    cerrarModalPerfilUsuario();
     return;
   }
 
@@ -2778,34 +2813,16 @@ function renderMisTurnos(): void {
   const dentroDeSieteDias = fechaToInput(addDays(new Date(), 7));
   const estaSemana = misTurnos.filter((turno) => turno.dia <= dentroDeSieteDias).length;
   const siguienteTurno = misTurnos[0];
-  const inicial = perfil.nombreCompleto.trim().charAt(0).toUpperCase() || 'A';
 
   usuarioMisTurnos.innerHTML = `
     <header class="my-turns-header">
-      <div class="profile-header-main">
-        <div class="profile-identity">
-          <span class="profile-initial" aria-hidden="true">${escapeHtml(inicial)}</span>
-          <div>
-            <p class="profile-badge">Mi perfil</p>
-            <h2>${escapeHtml(perfil.nombreCompleto)}</h2>
-            <div class="profile-contact-row" aria-label="Datos de contacto">
-              <span>${escapeHtml(perfil.email)}</span>
-              <span>${escapeHtml(perfil.telefono)}</span>
-            </div>
-          </div>
-        </div>
-        <div class="my-turns-actions">
-          <button class="button button-secondary" type="button" data-action="editar-perfil">Editar perfil</button>
-          <button class="button button-secondary" type="button" data-action="activar-notificaciones">Notificaciones</button>
-          <button class="button button-secondary" type="button" data-action="usuario-logout">Cerrar sesion</button>
-        </div>
+      <div>
+        <p class="section-kicker">Compromisos</p>
+        <h2>Turnos asignados</h2>
+        <p>${siguienteTurno ? `Siguiente turno: ${escapeHtml(formatFecha(siguienteTurno.dia))} · ${escapeHtml(siguienteTurno.horaInicio)} - ${escapeHtml(siguienteTurno.horaFin)}` : 'Todavia no tienes turnos asignados.'}</p>
       </div>
     </header>
-    <section class="profile-stats-grid" aria-label="Resumen del perfil">
-      <div class="profile-stat">
-        <span>Frecuencia</span>
-        <strong>${escapeHtml(formatFrecuencia(perfil.frecuencia))}</strong>
-      </div>
+    <section class="profile-stats-grid" aria-label="Resumen de turnos asignados">
       <div class="profile-stat">
         <span>Proximos turnos</span>
         <strong>${misTurnos.length}</strong>
@@ -2814,21 +2831,79 @@ function renderMisTurnos(): void {
         <span>Esta semana</span>
         <strong>${estaSemana}</strong>
       </div>
+      <div class="profile-stat">
+        <span>Frecuencia</span>
+        <strong>${escapeHtml(formatFrecuencia(perfil.frecuencia))}</strong>
+      </div>
     </section>
-    <section class="my-turns-list" aria-label="Mis turnos guardados">
+    <section class="my-turns-list" aria-label="Turnos asignados">
       <header class="mini-section-header">
         <div>
-          <p class="section-kicker">Compromisos</p>
-          <h3>Mis turnos guardados</h3>
+          <h3>Mis compromisos</h3>
         </div>
-        <span>${siguienteTurno ? `Siguiente: ${escapeHtml(formatFecha(siguienteTurno.dia))}` : 'Sin turnos'}</span>
+        <span>${misTurnos.length > 0 ? formatPlural(misTurnos.length, 'turno', 'turnos') : 'Sin turnos'}</span>
       </header>
       ${misTurnos.length > 0
-        ? misTurnos.slice(0, 6).map(renderMiTurnoCard).join('')
-        : '<p class="empty-inline">Todavia no tienes turnos guardados. Elige un dia con plazas libres para reservar tu primer turno.</p>'
+        ? misTurnos.map(renderMiTurnoCard).join('')
+        : '<p class="empty-inline">Elige un turno disponible o espera a que un administrador te asigne uno.</p>'
       }
     </section>
   `;
+}
+
+function renderPerfilUsuarioModal(perfil: PerfilAdorador): string {
+  const inicial = perfil.nombreCompleto.trim().charAt(0).toUpperCase() || 'A';
+  const hoy = fechaToInput(new Date());
+  const misTurnos = getTurnosOrdenados().filter((turno) => turno.dia >= hoy && estaInscrito(turno, perfil.nombreCompleto));
+
+  return `
+    <header class="modal-header profile-edit-head">
+      <div>
+        <p class="modal-kicker">Mi perfil</p>
+        <h2>${escapeHtml(perfil.nombreCompleto)}</h2>
+        <p>Gestiona tus datos y preferencias de adoracion.</p>
+      </div>
+      <button class="icon-only modal-close" type="button" data-action="cerrar-perfil-usuario" aria-label="Cerrar">×</button>
+    </header>
+
+    <section class="profile-modal-summary">
+      <span class="profile-initial" aria-hidden="true">${escapeHtml(inicial)}</span>
+      <div>
+        <strong>${escapeHtml(perfil.nombreCompleto)}</strong>
+        <span>${escapeHtml(perfil.email)}</span>
+        <span>${escapeHtml(perfil.telefono)}</span>
+      </div>
+    </section>
+
+    <section class="profile-stats-grid" aria-label="Resumen del perfil">
+      <div class="profile-stat"><span>Frecuencia</span><strong>${escapeHtml(formatFrecuencia(perfil.frecuencia))}</strong></div>
+      <div class="profile-stat"><span>Turnos</span><strong>${misTurnos.length}</strong></div>
+      <div class="profile-stat"><span>Rol</span><strong>${escapeHtml(formatRol(perfil.rol))}</strong></div>
+    </section>
+
+    <footer class="profile-modal-actions">
+      <button class="button button-primary" type="button" data-action="editar-perfil">Editar perfil</button>
+      <button class="button button-secondary" type="button" data-action="activar-notificaciones">Notificaciones</button>
+      <button class="button button-secondary" type="button" data-action="usuario-logout">Cerrar sesion</button>
+    </footer>
+  `;
+}
+
+function abrirModalPerfilUsuario(): void {
+  const perfil = StorageDB.getPerfilAdorador();
+
+  if (!perfil) {
+    mostrarVista('registro-adorador');
+    return;
+  }
+
+  modalPerfilUsuarioCard.innerHTML = renderPerfilUsuarioModal(perfil);
+  modalPerfilUsuario.showModal();
+}
+
+function cerrarModalPerfilUsuario(): void {
+  modalPerfilUsuario.close();
+  modalPerfilUsuarioCard.innerHTML = '';
 }
 
 function renderPerfilEdicionModal(perfil: PerfilAdorador): string {
@@ -2914,12 +2989,6 @@ function abrirModalPerfilEdicion(): void {
 function cerrarModalPerfilEdicion(): void {
   modalPerfilEdicion.close();
   modalPerfilEdicionCard.innerHTML = '';
-}
-
-function enfocarMiPerfil(): void {
-  usuarioMisTurnos.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  usuarioMisTurnos.classList.add('is-profile-focus');
-  window.setTimeout(() => usuarioMisTurnos.classList.remove('is-profile-focus'), 1400);
 }
 
 function actualizarNombreEnTurnos(nombreAnterior: string, nombreNuevo: string): void {
@@ -3333,7 +3402,6 @@ function renderListaTurnosDia(
 }
 
 function renderUsuario(): void {
-  renderMisTurnos();
   const hoy = fechaToInput(new Date());
   const perfil = StorageDB.getPerfilAdorador();
   const fechas = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index))
@@ -3417,6 +3485,7 @@ function renderUsuario(): void {
         <p>Vuelve cuando administracion haya confirmado una exposicion.</p>
       </div>
     `;
+    renderUsuarioPanel();
     return;
   }
 
@@ -3427,6 +3496,7 @@ function renderUsuario(): void {
         ${renderListaTurnosDia(selectedDate, turnosSemana, bloqueosSemana, perfil, { showHeading: false })}
       </div>
     `;
+    renderUsuarioPanel();
     return;
   }
 
@@ -3476,6 +3546,7 @@ function renderUsuario(): void {
       ${fechas.map((date) => renderListaTurnosDia(date, turnosSemana, bloqueosSemana, perfil, { showHeading: true })).join('')}
     </div>
   `;
+  renderUsuarioPanel();
 }
 
 function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
@@ -3754,6 +3825,12 @@ document.addEventListener('click', (event) => {
   }
 
   if (target.closest('[data-action="usuario-logout"]')) {
+    if (modalPerfilUsuario.open) {
+      cerrarModalPerfilUsuario();
+    }
+    if (modalPerfilEdicion.open) {
+      cerrarModalPerfilEdicion();
+    }
     StorageDB.clearPerfilAdorador();
     renderProfileButton();
     mostrarVista('admin-login', { bypassSessionRedirect: true });
@@ -3763,10 +3840,19 @@ document.addEventListener('click', (event) => {
 
   if (target.closest('#btn-perfil-usuario')) {
     if (StorageDB.getPerfilAdorador()) {
-      enfocarMiPerfil();
+      abrirModalPerfilUsuario();
     } else {
       mostrarVista('registro-adorador');
     }
+    return;
+  }
+
+  const userPanelButton = target.closest<HTMLButtonElement>('[data-user-panel]');
+
+  if (userPanelButton?.dataset.userPanel) {
+    usuarioPanel = userPanelButton.dataset.userPanel as UsuarioPanel;
+    renderMisTurnos();
+    renderUsuarioPanel();
     return;
   }
 
@@ -3807,7 +3893,15 @@ document.addEventListener('click', (event) => {
   }
 
   if (target.closest('[data-action="editar-perfil"]')) {
+    if (modalPerfilUsuario.open) {
+      cerrarModalPerfilUsuario();
+    }
     abrirModalPerfilEdicion();
+    return;
+  }
+
+  if (target.closest('[data-action="cerrar-perfil-usuario"]')) {
+    cerrarModalPerfilUsuario();
     return;
   }
 
