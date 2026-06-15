@@ -33,6 +33,7 @@ type TurnoCalendario = {
 
 const app = document.querySelector<HTMLDivElement>('#app');
 const ADMIN_SESSION_KEY = 'hsss_admin_session';
+const REMEMBERED_EMAIL_KEY = 'hsss_remembered_email';
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase();
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
 const SUPERADMIN_EMAIL = (import.meta.env.VITE_SUPERADMIN_EMAIL ?? 'root@root.com').trim().toLowerCase();
@@ -91,29 +92,30 @@ app.innerHTML = `
         </div>
 
         <header class="welcome-copy">
-          <h1>Bienvenido a A solas</h1>
-          <p>Selecciona tu perfil para continuar y acceder a tu espacio de adoraci&oacute;n.</p>
+          <span class="welcome-eyebrow">Adoracion perpetua</span>
+          <h1>Organiza cada hora con calma y belleza.</h1>
+          <p>Un espacio unico para entrar, reservar turnos y cuidar la continuidad de la capilla.</p>
         </header>
 
-        <div class="profile-actions">
-          <button id="btn-usuario" class="profile-card" type="button">
-            <span class="profile-icon" aria-hidden="true">♡</span>
-            <span class="profile-text">
-              <strong>Adorador</strong>
-              <span>Inscribirse en turnos de adoraci&oacute;n y gestionar compromisos.</span>
-            </span>
-            <span class="profile-arrow" aria-hidden="true">-&gt;</span>
-          </button>
-
-          <button id="btn-admin" class="profile-card" type="button">
-            <span class="profile-icon" aria-hidden="true">⌕</span>
-            <span class="profile-text">
-              <strong>Administrador</strong>
-              <span>Gestionar horarios, capillas y exposici&oacute;n del Sant&iacute;simo.</span>
-            </span>
-            <span class="profile-arrow" aria-hidden="true">-&gt;</span>
-          </button>
+        <div class="landing-actions">
+          <button class="button button-primary landing-primary" type="button" data-view="admin-login">Iniciar sesion <span aria-hidden="true">&gt;</span></button>
+          <button class="button button-secondary landing-secondary" type="button" data-view="registro-adorador">Crear cuenta</button>
         </div>
+
+        <section class="landing-proof" aria-label="Resumen de beneficios">
+          <article>
+            <strong>Reservas claras</strong>
+            <span>Turnos visibles por dia o semana.</span>
+          </article>
+          <article>
+            <strong>Perfil cuidado</strong>
+            <span>Datos, avisos y compromisos en un solo lugar.</span>
+          </article>
+          <article>
+            <strong>Gestion sencilla</strong>
+            <span>Acceso administrador desde el mismo login.</span>
+          </article>
+        </section>
 
         <footer class="welcome-footer">
           <span>PAZ Y BIEN</span>
@@ -132,39 +134,45 @@ app.innerHTML = `
       </header>
 
       <form id="form-admin-login" class="admin-login-card" novalidate>
-        <section class="auth-card-copy">
-          <p class="section-kicker">Acceso</p>
-          <h1>Entra en A solas</h1>
-          <p>Accede como adorador para ver tus turnos o como coordinador para gestionar la capilla.</p>
-          <div class="auth-trust-row" aria-label="Resumen de seguridad">
-            <span>Sesion local</span>
-            <span>Datos sincronizados</span>
+        <section class="auth-welcome" aria-label="Inicio de sesion">
+          <div class="auth-symbol-wrap" aria-hidden="true">
+            <span class="auth-spark auth-spark-left">✦</span>
+            <span class="auth-symbol">✚</span>
+            <span class="auth-spark auth-spark-right">✦</span>
           </div>
+          <h1>Bienvenido de nuevo</h1>
+          <p>Inicia sesion para continuar en tu espacio de adoracion.</p>
         </section>
 
         <section class="auth-form-panel" aria-label="Credenciales de acceso">
-          <div class="auth-slice-switch" role="group" aria-label="Cambiar modo de acceso">
-            <button class="is-active" type="button" data-view="admin-login" aria-pressed="true">Admin</button>
-            <button type="button" data-view="registro-adorador" aria-pressed="false">Registro</button>
-          </div>
-
-          <label class="auth-field" data-field="admin-email">
-            <span>Correo <em>Obligatorio</em></span>
-            <input id="admin-email" type="email" autocomplete="username" inputmode="email" placeholder="root@root.com" required aria-describedby="admin-email-error" />
+          <label class="auth-field auth-icon-field auth-icon-email" data-field="admin-email">
+            <span>Correo electronico</span>
+            <input id="admin-email" type="email" autocomplete="username" inputmode="email" placeholder="Ingresa tu correo electronico" required aria-describedby="admin-email-error" />
             <small id="admin-email-error" class="field-error"></small>
           </label>
 
-          <label class="auth-field auth-password-field" data-field="admin-password">
-            <span>Contrasena <em>Obligatorio</em></span>
-            <input id="admin-password" type="password" autocomplete="current-password" placeholder="Tu contrasena" required aria-describedby="admin-password-error" />
-            <button type="button" data-action="toggle-admin-password" aria-label="Mostrar contrasena">Mostrar</button>
+          <label class="auth-field auth-icon-field auth-icon-lock auth-password-field" data-field="admin-password">
+            <span>Contrasena</span>
+            <input id="admin-password" type="password" autocomplete="current-password" placeholder="Ingresa tu contrasena" required aria-describedby="admin-password-error" />
+            <button type="button" data-action="toggle-admin-password" aria-label="Mostrar contrasena">◉</button>
             <small id="admin-password-error" class="field-error"></small>
           </label>
 
+          <div class="auth-options">
+            <label class="auth-remember">
+              <input id="admin-remember" type="checkbox" />
+              <span>Recordarme</span>
+            </label>
+            <button class="auth-link-button" type="button" data-action="forgot-password">¿Olvidaste tu contrasena?</button>
+          </div>
+
           <p id="admin-login-mensaje" class="modal-message" role="status"></p>
 
-            <button class="button button-primary auth-submit" type="submit">Entrar</button>
-            <p class="auth-form-note">Si ya tienes perfil, entra con tu correo y contrasena. Si aun no tienes contrasena, crea de nuevo tu perfil desde Registro.</p>
+          <button class="button button-primary auth-submit" type="submit">Iniciar sesion <span aria-hidden="true">&gt;</span></button>
+
+          <div class="auth-divider" aria-hidden="true"><span>✚</span></div>
+
+          <p class="auth-create-account">¿No tienes cuenta? <button type="button" data-view="registro-adorador">Crear cuenta</button></p>
         </section>
       </form>
     </section>
@@ -282,23 +290,17 @@ app.innerHTML = `
 
       <form id="form-registro-adorador" class="registro-form" novalidate>
         <div class="registro-shell">
-          <section class="registro-intro">
-            <p class="section-kicker">Perfil de adorador</p>
-            <h2>Prepara tus turnos en menos de un minuto</h2>
-            <p>Guardamos tus datos para reservar con rapidez y reconocer tus compromisos en la agenda.</p>
-            <div class="registro-benefits" aria-label="Ventajas del perfil">
-              <span>Reserva mas rapida</span>
-              <span>Turnos personalizados</span>
-              <span>Contacto privado</span>
+          <section class="auth-welcome registro-welcome" aria-label="Crear cuenta">
+            <div class="auth-symbol-wrap" aria-hidden="true">
+              <span class="auth-spark auth-spark-left">✦</span>
+              <span class="auth-symbol">✚</span>
+              <span class="auth-spark auth-spark-right">✦</span>
             </div>
+            <h2>Crea tu cuenta</h2>
+            <p>Prepara tu perfil para reservar turnos y continuar en tu espacio de adoracion.</p>
           </section>
 
-          <div class="registro-content">
-            <div class="auth-slice-switch" role="group" aria-label="Cambiar modo de acceso">
-              <button type="button" data-view="admin-login" aria-pressed="false">Admin</button>
-              <button class="is-active" type="button" data-view="registro-adorador" aria-pressed="true">Registro</button>
-            </div>
-
+          <div class="registro-content auth-form-panel">
             <div class="registro-progress" aria-label="Progreso del registro">
               <span></span>
               <strong id="registro-step-label">1 de 4</strong>
@@ -392,13 +394,16 @@ app.innerHTML = `
             </div>
 
             <p id="registro-mensaje" class="registro-message" role="status"></p>
-            <p class="registro-privacy">Tus datos se usan solo para gestionar reservas y turnos dentro de A solas.</p>
 
             <div class="registro-slider-actions">
-              <button id="registro-prev" class="registro-nav-button" type="button" data-action="registro-prev" disabled>&lt; Campo</button>
-              <button id="registro-next" class="registro-submit" type="button" data-action="registro-next">Campo &gt;</button>
-              <button id="registro-submit" class="registro-submit" type="submit" disabled hidden>Finalizar <span aria-hidden="true">-&gt;</span></button>
+              <button id="registro-prev" class="registro-nav-button" type="button" data-action="registro-prev" disabled>Anterior</button>
+              <button id="registro-next" class="registro-submit" type="button" data-action="registro-next">Siguiente</button>
+              <button id="registro-submit" class="registro-submit" type="submit" disabled hidden>Finalizar <span aria-hidden="true">&gt;</span></button>
             </div>
+
+            <div class="auth-divider" aria-hidden="true"><span>✚</span></div>
+
+            <p class="auth-create-account">¿Ya tienes cuenta? <button type="button" data-view="admin-login">Iniciar sesion</button></p>
           </div>
         </div>
       </form>
@@ -558,6 +563,10 @@ app.innerHTML = `
       <div id="modal-admin-usuario-card" class="modal-card admin-user-modal-card"></div>
     </dialog>
 
+    <dialog id="modal-perfil-edicion" class="app-modal">
+      <div id="modal-perfil-edicion-card" class="modal-card profile-edit-modal-card"></div>
+    </dialog>
+
     <section id="vista-configuracion" class="view config-view" style="display: none;">
       <header class="mobile-topbar">
         <button class="icon-only" type="button" data-view="admin" aria-label="Volver">‹</button>
@@ -667,6 +676,7 @@ const vistaConfiguracion = getElement<HTMLElement>('#vista-configuracion');
 const formAdminLogin = getElement<HTMLFormElement>('#form-admin-login');
 const adminEmail = getElement<HTMLInputElement>('#admin-email');
 const adminPassword = getElement<HTMLInputElement>('#admin-password');
+const adminRemember = getElement<HTMLInputElement>('#admin-remember');
 const adminLoginMensaje = getElement<HTMLParagraphElement>('#admin-login-mensaje');
 const buscarLote = getElement<HTMLInputElement>('#buscar-lote');
 const loteFiltros = getElement<HTMLDivElement>('#lote-filtros');
@@ -708,6 +718,8 @@ const duplicarMesMensaje = getElement<HTMLParagraphElement>('#duplicar-mes-mensa
 const modalInterrupciones = getElement<HTMLDialogElement>('#modal-interrupciones');
 const modalAdminUsuario = getElement<HTMLDialogElement>('#modal-admin-usuario');
 const modalAdminUsuarioCard = getElement<HTMLElement>('#modal-admin-usuario-card');
+const modalPerfilEdicion = getElement<HTMLDialogElement>('#modal-perfil-edicion');
+const modalPerfilEdicionCard = getElement<HTMLElement>('#modal-perfil-edicion-card');
 const formRegistroAdorador = getElement<HTMLFormElement>('#form-registro-adorador');
 const registroNombre = getElement<HTMLInputElement>('#registro-nombre');
 const registroApellidos = getElement<HTMLInputElement>('#registro-apellidos');
@@ -849,7 +861,7 @@ function setAdminAuthenticated(value: boolean): void {
 }
 
 function getVistaInicial(): Vista {
-  return 'inicio';
+  return 'admin-login';
 }
 
 function mostrarAdminLoginMensaje(message: string, tone: 'info' | 'error' = 'info'): void {
@@ -857,8 +869,28 @@ function mostrarAdminLoginMensaje(message: string, tone: 'info' | 'error' = 'inf
   adminLoginMensaje.dataset.tone = tone;
 }
 
+function cargarEmailRecordado(): void {
+  const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+
+  if (!rememberedEmail) {
+    return;
+  }
+
+  adminEmail.value = rememberedEmail;
+  adminRemember.checked = true;
+}
+
+function guardarEmailRecordado(email: string): void {
+  if (adminRemember.checked) {
+    localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+    return;
+  }
+
+  localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+}
+
 function setFieldError(input: HTMLInputElement | HTMLSelectElement, message: string, showError: boolean): void {
-  const field = input.closest('.registro-field, .auth-field');
+  const field = input.closest('.registro-field, .auth-field, .profile-edit-field');
   const error = field?.querySelector<HTMLElement>('.field-error');
   input.setAttribute('aria-invalid', String(showError));
   field?.classList.toggle('has-error', showError);
@@ -1005,6 +1037,11 @@ function volverAtras(): void {
 
   if (modalAdminUsuario.open) {
     cerrarModalAdminUsuario();
+    return;
+  }
+
+  if (modalPerfilEdicion.open) {
+    cerrarModalPerfilEdicion();
     return;
   }
 
@@ -1920,7 +1957,7 @@ function renderAdminUsuarios(): void {
             <p>${usuarios.length > 0 ? 'Directorio sincronizado con PostgreSQL.' : 'Sin actividad de usuarios todavia.'}</p>
             <small>Ver historial completo</small>
           </div>
-          <span aria-hidden="true">-&gt;</span>
+          <span aria-hidden="true">&gt;</span>
         </section>
       </section>
 
@@ -2241,20 +2278,23 @@ function renderMisTurnos(): void {
 
   usuarioMisTurnos.innerHTML = `
     <header class="my-turns-header">
-      <div class="profile-identity">
-        <span class="profile-initial" aria-hidden="true">${escapeHtml(inicial)}</span>
-        <div>
-          <p class="section-kicker">Mi perfil</p>
-          <h2>${escapeHtml(perfil.nombreCompleto)}</h2>
-          <div class="profile-contact-row" aria-label="Datos de contacto">
-            <span>${escapeHtml(perfil.email)}</span>
-            <span>${escapeHtml(perfil.telefono)}</span>
+      <div class="profile-header-main">
+        <div class="profile-identity">
+          <span class="profile-initial" aria-hidden="true">${escapeHtml(inicial)}</span>
+          <div>
+            <p class="profile-badge">Mi perfil</p>
+            <h2>${escapeHtml(perfil.nombreCompleto)}</h2>
+            <div class="profile-contact-row" aria-label="Datos de contacto">
+              <span>${escapeHtml(perfil.email)}</span>
+              <span>${escapeHtml(perfil.telefono)}</span>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="my-turns-actions">
-        <button class="button button-secondary" type="button" data-view="registro-adorador">Editar perfil</button>
-        <button class="button button-secondary" type="button" data-action="activar-notificaciones">Notificaciones</button>
+        <div class="my-turns-actions">
+          <button class="button button-secondary" type="button" data-action="editar-perfil">Editar perfil</button>
+          <button class="button button-secondary" type="button" data-action="activar-notificaciones">Notificaciones</button>
+          <button class="button button-secondary" type="button" data-action="usuario-logout">Cerrar sesion</button>
+        </div>
       </div>
     </header>
     <section class="profile-stats-grid" aria-label="Resumen del perfil">
@@ -2285,6 +2325,169 @@ function renderMisTurnos(): void {
       }
     </section>
   `;
+}
+
+function renderPerfilEdicionModal(perfil: PerfilAdorador): string {
+  return `
+    <header class="modal-header profile-edit-head">
+      <div>
+        <p class="modal-kicker">Mi perfil</p>
+        <h2>Editar perfil</h2>
+        <p>Actualiza tus datos de contacto, frecuencia y contrasena de acceso.</p>
+      </div>
+      <button class="icon-only modal-close" type="button" data-action="cerrar-editar-perfil" aria-label="Cerrar">×</button>
+    </header>
+
+    <form class="profile-edit-form" data-profile-edit-form>
+      <div class="profile-edit-grid">
+        <label class="profile-edit-field">
+          <span>Nombre <em>Obligatorio</em></span>
+          <input id="perfil-edit-nombre" type="text" autocomplete="given-name" value="${escapeHtml(perfil.nombre)}" required aria-describedby="perfil-edit-nombre-error" />
+          <small id="perfil-edit-nombre-error" class="field-error"></small>
+        </label>
+        <label class="profile-edit-field">
+          <span>Apellidos <em>Obligatorio</em></span>
+          <input id="perfil-edit-apellidos" type="text" autocomplete="family-name" value="${escapeHtml(perfil.apellidos)}" required aria-describedby="perfil-edit-apellidos-error" />
+          <small id="perfil-edit-apellidos-error" class="field-error"></small>
+        </label>
+      </div>
+
+      <div class="profile-edit-grid">
+        <label class="profile-edit-field">
+          <span>Correo <em>Obligatorio</em></span>
+          <input id="perfil-edit-email" type="email" autocomplete="email" value="${escapeHtml(perfil.email)}" required aria-describedby="perfil-edit-email-error" />
+          <small id="perfil-edit-email-error" class="field-error"></small>
+        </label>
+        <label class="profile-edit-field">
+          <span>Telefono <em>Obligatorio</em></span>
+          <input id="perfil-edit-telefono" type="tel" autocomplete="tel" value="${escapeHtml(perfil.telefono)}" required aria-describedby="perfil-edit-telefono-error" />
+          <small id="perfil-edit-telefono-error" class="field-error"></small>
+        </label>
+      </div>
+
+      <label class="profile-edit-field">
+        <span>Frecuencia <em>Obligatorio</em></span>
+        <select id="perfil-edit-frecuencia" required>
+          ${(['fijo', 'suplente', 'puntual'] as UsuarioFrecuencia[]).map((value) => `<option value="${value}" ${perfil.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
+        </select>
+      </label>
+
+      <div class="profile-edit-grid">
+        <label class="profile-edit-field">
+          <span>Nueva contrasena <em>Opcional</em></span>
+          <input id="perfil-edit-password" type="password" autocomplete="new-password" placeholder="Dejar igual" aria-describedby="perfil-edit-password-error" />
+          <small id="perfil-edit-password-error" class="field-error"></small>
+        </label>
+        <label class="profile-edit-field">
+          <span>Confirmar contrasena <em>Opcional</em></span>
+          <input id="perfil-edit-password-confirm" type="password" autocomplete="new-password" placeholder="Repite si cambias" aria-describedby="perfil-edit-password-confirm-error" />
+          <small id="perfil-edit-password-confirm-error" class="field-error"></small>
+        </label>
+      </div>
+
+      <p class="profile-edit-note">Si cambias el nombre, actualizaremos tambien tus turnos reservados.</p>
+
+      <footer class="modal-actions">
+        <button class="button button-secondary" type="button" data-action="cerrar-editar-perfil">Cancelar</button>
+        <button class="button button-primary" type="submit">Guardar cambios</button>
+      </footer>
+    </form>
+  `;
+}
+
+function abrirModalPerfilEdicion(): void {
+  const perfil = StorageDB.getPerfilAdorador();
+
+  if (!perfil) {
+    mostrarVista('registro-adorador');
+    return;
+  }
+
+  modalPerfilEdicionCard.innerHTML = renderPerfilEdicionModal(perfil);
+  modalPerfilEdicion.showModal();
+}
+
+function cerrarModalPerfilEdicion(): void {
+  modalPerfilEdicion.close();
+  modalPerfilEdicionCard.innerHTML = '';
+}
+
+function enfocarMiPerfil(): void {
+  usuarioMisTurnos.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  usuarioMisTurnos.classList.add('is-profile-focus');
+  window.setTimeout(() => usuarioMisTurnos.classList.remove('is-profile-focus'), 1400);
+}
+
+function actualizarNombreEnTurnos(nombreAnterior: string, nombreNuevo: string): void {
+  if (normalizarNombre(nombreAnterior) === normalizarNombre(nombreNuevo)) {
+    return;
+  }
+
+  const anterior = normalizarNombre(nombreAnterior);
+  const turnos = StorageDB.getTurnos().map((turno) => ({
+    ...turno,
+    inscritos: turno.inscritos.map((inscrito) => normalizarNombre(inscrito) === anterior ? nombreNuevo : inscrito)
+  }));
+
+  StorageDB.saveTurnos(turnos);
+}
+
+function guardarPerfilDesdeModal(form: HTMLFormElement): void {
+  const perfil = StorageDB.getPerfilAdorador();
+
+  if (!perfil) {
+    mostrarAviso('Perfil no encontrado', 'No se pudo localizar tu perfil para guardar cambios.', 'error');
+    return;
+  }
+
+  const nombre = limpiarTextoRegistro(form.querySelector<HTMLInputElement>('#perfil-edit-nombre')?.value ?? '');
+  const apellidos = limpiarTextoRegistro(form.querySelector<HTMLInputElement>('#perfil-edit-apellidos')?.value ?? '');
+  const email = form.querySelector<HTMLInputElement>('#perfil-edit-email')?.value.trim().toLowerCase() ?? '';
+  const telefono = limpiarTelefono(form.querySelector<HTMLInputElement>('#perfil-edit-telefono')?.value ?? '');
+  const frecuencia = form.querySelector<HTMLSelectElement>('#perfil-edit-frecuencia')?.value as UsuarioFrecuencia;
+  const password = form.querySelector<HTMLInputElement>('#perfil-edit-password')?.value ?? '';
+  const passwordConfirm = form.querySelector<HTMLInputElement>('#perfil-edit-password-confirm')?.value ?? '';
+  const fields: Array<{ input: HTMLInputElement | HTMLSelectElement | null; valid: boolean; message: string }> = [
+    { input: form.querySelector<HTMLInputElement>('#perfil-edit-nombre'), valid: nombre.length >= 2, message: 'El nombre debe tener al menos 2 caracteres.' },
+    { input: form.querySelector<HTMLInputElement>('#perfil-edit-apellidos'), valid: apellidos.length >= 2, message: 'Los apellidos deben tener al menos 2 caracteres.' },
+    { input: form.querySelector<HTMLInputElement>('#perfil-edit-email'), valid: esEmailValido(email), message: email ? 'Introduce un correo valido.' : 'El correo es obligatorio.' },
+    { input: form.querySelector<HTMLInputElement>('#perfil-edit-telefono'), valid: esTelefonoValido(telefono), message: telefono ? 'El telefono debe tener entre 7 y 15 digitos.' : 'El telefono es obligatorio.' },
+    { input: form.querySelector<HTMLSelectElement>('#perfil-edit-frecuencia'), valid: ['fijo', 'suplente', 'puntual'].includes(frecuencia), message: 'Selecciona una frecuencia.' },
+    { input: form.querySelector<HTMLInputElement>('#perfil-edit-password'), valid: !password || password.length >= 6, message: 'La contrasena debe tener al menos 6 caracteres.' },
+    { input: form.querySelector<HTMLInputElement>('#perfil-edit-password-confirm'), valid: !password || password === passwordConfirm, message: 'Las contrasenas no coinciden.' }
+  ];
+  const firstInvalid = fields.find((field) => !field.valid);
+
+  fields.forEach(({ input, valid, message }) => {
+    if (input) {
+      setFieldError(input, message, !valid);
+    }
+  });
+
+  if (firstInvalid?.input) {
+    firstInvalid.input.focus();
+    return;
+  }
+
+  const nombreCompleto = `${nombre} ${apellidos}`.trim();
+  actualizarNombreEnTurnos(perfil.nombreCompleto, nombreCompleto);
+  StorageDB.savePerfilAdorador({
+    ...perfil,
+    nombreCompleto,
+    nombre,
+    apellidos,
+    email,
+    telefono,
+    frecuencia,
+    password: password || perfil.password,
+    actualizadoEn: Date.now()
+  });
+
+  cerrarModalPerfilEdicion();
+  renderProfileButton();
+  renderMisTurnos();
+  renderUsuario();
+  mostrarAviso('Perfil actualizado', 'Tus datos se guardaron correctamente.', 'success');
 }
 
 function renderLotes(): void {
@@ -2724,7 +2927,7 @@ function renderUsuario(): void {
   }
 
   usuarioTurnos.innerHTML = `
-    <div class="calendar-week" style="--calendar-days: ${fechas.length}; --calendar-min-width: ${72 + fechas.length * 136}px;">
+    <div class="calendar-week" style="--calendar-days: ${fechas.length}; --calendar-min-width: ${96 + fechas.length * 142}px;">
       <div class="calendar-corner" aria-hidden="true"></div>
       ${fechas.map((date) => {
         const key = fechaToInput(date);
@@ -3045,18 +3248,20 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  if (target.closest('#btn-admin')) {
-    mostrarVista('admin');
-    return;
-  }
-
-  if (target.closest('#btn-usuario')) {
-    mostrarVista(StorageDB.getPerfilAdorador() ? 'usuario' : 'registro-adorador');
+  if (target.closest('[data-action="usuario-logout"]')) {
+    StorageDB.clearPerfilAdorador();
+    renderProfileButton();
+    mostrarVista('admin-login');
+    mostrarAviso('Sesion cerrada', 'Tu perfil se cerro en este dispositivo.', 'success');
     return;
   }
 
   if (target.closest('#btn-perfil-usuario')) {
-    mostrarVista('registro-adorador');
+    if (StorageDB.getPerfilAdorador()) {
+      enfocarMiPerfil();
+    } else {
+      mostrarVista('registro-adorador');
+    }
     return;
   }
 
@@ -3070,9 +3275,39 @@ document.addEventListener('click', (event) => {
     adminPassword.type = visible ? 'password' : 'text';
     const button = target.closest<HTMLButtonElement>('[data-action="toggle-admin-password"]');
     if (button) {
-      button.textContent = visible ? 'Mostrar' : 'Ocultar';
+      button.textContent = visible ? '◉' : '◎';
       button.setAttribute('aria-label', visible ? 'Mostrar contrasena' : 'Ocultar contrasena');
     }
+    return;
+  }
+
+  if (target.closest('[data-action="forgot-password"]')) {
+    const email = adminEmail.value.trim().toLowerCase();
+
+    if (!email || !esEmailValido(email)) {
+      setFieldError(adminEmail, email ? 'Introduce un correo valido para recuperar el acceso.' : 'Introduce tu correo para recuperar el acceso.', true);
+      mostrarAdminLoginMensaje('Escribe primero tu correo electronico.', 'error');
+      adminEmail.focus();
+      return;
+    }
+
+    const usuario = StorageDB.getUsuarios().find((item) => item.email.toLowerCase() === email);
+    mostrarAdminLoginMensaje('', 'info');
+    mostrarAviso(
+      'Recuperar contrasena',
+      usuario ? 'Contacta con un coordinador para restablecer tu acceso.' : 'No hay ningun perfil registrado con ese correo.',
+      usuario ? 'info' : 'error'
+    );
+    return;
+  }
+
+  if (target.closest('[data-action="editar-perfil"]')) {
+    abrirModalPerfilEdicion();
+    return;
+  }
+
+  if (target.closest('[data-action="cerrar-editar-perfil"]')) {
+    cerrarModalPerfilEdicion();
     return;
   }
 
@@ -3346,6 +3581,17 @@ document.addEventListener('submit', (event) => {
   guardarAdminUsuarioDesdeFormulario(form);
 });
 
+document.addEventListener('submit', (event) => {
+  const form = (event.target as HTMLElement).closest<HTMLFormElement>('[data-profile-edit-form]');
+
+  if (!form) {
+    return;
+  }
+
+  event.preventDefault();
+  guardarPerfilDesdeModal(form);
+});
+
 formAdminLogin.addEventListener('submit', (event) => {
   event.preventDefault();
 
@@ -3357,6 +3603,7 @@ formAdminLogin.addEventListener('submit', (event) => {
   const password = adminPassword.value;
 
   if (isAdminLoginValido(email, password)) {
+    guardarEmailRecordado(email);
     setFieldError(adminEmail, '', false);
     setFieldError(adminPassword, '', false);
     setAdminAuthenticated(true);
@@ -3368,6 +3615,7 @@ formAdminLogin.addEventListener('submit', (event) => {
   const usuario = getUsuarioLoginValido(email, password);
 
   if (usuario) {
+    guardarEmailRecordado(email);
     setFieldError(adminEmail, '', false);
     setFieldError(adminPassword, '', false);
     setAdminAuthenticated(false);
@@ -3641,9 +3889,15 @@ NotificationService.init();
 StorageDB.subscribeSync(actualizarEstadoPersistencia);
 
 resetConfig();
+cargarEmailRecordado();
 mostrarVista(getVistaInicial(), { recordHistory: false });
 void StorageDB.loadRemote().then((loaded) => {
   if (loaded) {
+    if (StorageDB.getPerfilAdorador() && vistaActual === 'admin-login') {
+      mostrarVista('usuario', { recordHistory: false });
+      return;
+    }
+
     refrescarVistaActual();
   }
 });

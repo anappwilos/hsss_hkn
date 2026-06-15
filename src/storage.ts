@@ -84,6 +84,7 @@ type SyncListener = (status: SyncStatus, message: string) => void;
 export class StorageDB {
   private static readonly REMOTE_ENABLED = (import.meta.env.VITE_ENABLE_REMOTE_STORAGE ?? 'true') !== 'false';
   private static readonly API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+  private static readonly PERFIL_ADORADOR_SESSION_KEY = 'hsss_perfil_adorador_id';
   private static applyingRemoteSnapshot = false;
   private static syncQueue: Promise<void> = Promise.resolve();
   private static syncListeners = new Set<SyncListener>();
@@ -91,7 +92,7 @@ export class StorageDB {
   private static lotes: LoteExposicion[] = [];
   private static turnos: Turno[] = [];
   private static notificaciones: NotificacionRegistro[] = [];
-  private static perfilAdoradorId: string | null = null;
+  private static perfilAdoradorId: string | null = StorageDB.readPerfilAdoradorSession();
 
   public static subscribeSync(listener: SyncListener): () => void {
     StorageDB.syncListeners.add(listener);
@@ -154,6 +155,27 @@ export class StorageDB {
 
   private static emitSync(status: SyncStatus, message: string): void {
     StorageDB.syncListeners.forEach((listener) => listener(status, message));
+  }
+
+  private static readPerfilAdoradorSession(): string | null {
+    try {
+      return localStorage.getItem(StorageDB.PERFIL_ADORADOR_SESSION_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  private static writePerfilAdoradorSession(id: string | null): void {
+    try {
+      if (id) {
+        localStorage.setItem(StorageDB.PERFIL_ADORADOR_SESSION_KEY, id);
+        return;
+      }
+
+      localStorage.removeItem(StorageDB.PERFIL_ADORADOR_SESSION_KEY);
+    } catch {
+      // La sesion sigue funcionando en memoria si el navegador bloquea localStorage.
+    }
   }
 
   private static async saveRemote(snapshot: RemoteSnapshot): Promise<void> {
@@ -232,7 +254,13 @@ export class StorageDB {
   public static savePerfilAdorador(perfil: PerfilAdorador): void {
     const usuario = StorageDB.normalizeUsuario(perfil);
     StorageDB.perfilAdoradorId = usuario.id;
+    StorageDB.writePerfilAdoradorSession(usuario.id);
     StorageDB.upsertUsuario(usuario);
+  }
+
+  public static clearPerfilAdorador(): void {
+    StorageDB.perfilAdoradorId = null;
+    StorageDB.writePerfilAdoradorSession(null);
   }
 
   public static getUsuarios(): Usuario[] {
@@ -241,9 +269,13 @@ export class StorageDB {
 
   public static saveUsuarios(usuarios: Usuario[]): void {
     StorageDB.usuarios = StorageDB.normalizeUsuarios(usuarios);
+    const persistedPerfilId = StorageDB.perfilAdoradorId ?? StorageDB.readPerfilAdoradorSession();
 
-    if (StorageDB.perfilAdoradorId && !StorageDB.usuarios.some((usuario) => usuario.id === StorageDB.perfilAdoradorId)) {
-      StorageDB.perfilAdoradorId = null;
+    if (persistedPerfilId && StorageDB.usuarios.some((usuario) => usuario.id === persistedPerfilId)) {
+      StorageDB.perfilAdoradorId = persistedPerfilId;
+      StorageDB.writePerfilAdoradorSession(persistedPerfilId);
+    } else if (persistedPerfilId) {
+      StorageDB.clearPerfilAdorador();
     }
 
     StorageDB.queueRemoteSync();
@@ -421,7 +453,7 @@ export class StorageDB {
     StorageDB.lotes = [];
     StorageDB.turnos = [];
     StorageDB.notificaciones = [];
-    StorageDB.perfilAdoradorId = null;
+    StorageDB.clearPerfilAdorador();
     StorageDB.queueRemoteSync();
   }
 }
