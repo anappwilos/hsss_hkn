@@ -10,6 +10,8 @@ type TipoAnotacion = 'puntual' | 'periodica';
 type VistaTurnos = 'diaria' | 'semanal';
 type AdminPanel = 'lotes' | 'usuarios' | 'turnos';
 type AdminUsuarioFiltro = 'todos' | 'fijo' | 'puntual' | 'suplente' | 'administrador';
+type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
+type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'pendiente';
 type NotificationPersistenceOptions = {
   usuarioId?: string;
   tipo?: 'sistema' | 'inscripcion' | 'lote' | 'recordatorio';
@@ -35,6 +37,7 @@ type TurnoCalendario = {
 const app = document.querySelector<HTMLDivElement>('#app');
 const ADMIN_SESSION_KEY = 'hsss_admin_session';
 const REMEMBERED_EMAIL_KEY = 'hsss_remembered_email';
+const ADMIN_TURNO_DETAIL_CLOSED = '__closed__';
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase();
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
 const SUPERADMIN_EMAIL = (import.meta.env.VITE_SUPERADMIN_EMAIL ?? 'root@root.com').trim().toLowerCase();
@@ -68,6 +71,9 @@ let adminPanel: AdminPanel = 'lotes';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
 let adminUsuarioEditandoId: string | null = null;
+let adminTurnosBusqueda = '';
+let adminTurnosFiltro: AdminTurnoFiltro = 'todos';
+let adminTurnoSeleccionadoId: string | null = null;
 let registroStep = 0;
 let turnoModalId: string | null = null;
 let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
@@ -2139,6 +2145,98 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   mostrarAviso('Usuario actualizado', 'Los cambios del perfil se guardaron correctamente.', 'success');
 }
 
+function getAdminTurnoEstado(turno: Turno): AdminTurnoEstado {
+  if (turno.inscritos.length === 0) {
+    return 'sin-asignar';
+  }
+
+  const tieneSuplente = turno.inscritos.some((inscrito) => getUsuarioByNombre(inscrito)?.frecuencia === 'suplente');
+
+  if (tieneSuplente) {
+    return 'suplente';
+  }
+
+  return turno.plazasDisponibles > 0 ? 'pendiente' : 'asignado';
+}
+
+function getAdminTurnoEstadoLabel(estado: AdminTurnoEstado): string {
+  const labels: Record<AdminTurnoEstado, string> = {
+    'sin-asignar': 'Sin asignar',
+    asignado: 'Asignado',
+    suplente: 'Suplente',
+    pendiente: 'Pendiente'
+  };
+
+  return labels[estado];
+}
+
+function getAdminTurnoPrincipal(turno: Turno): { nombre: string; usuario?: Usuario } {
+  const nombre = turno.inscritos[0] ?? 'Sin asignar';
+  return { nombre, usuario: turno.inscritos[0] ? getUsuarioByNombre(turno.inscritos[0]) : undefined };
+}
+
+function getAdminTurnoLote(turno: Turno): LoteExposicion | undefined {
+  return turno.loteId ? StorageDB.getLotes().find((item) => item.id === turno.loteId) : undefined;
+}
+
+function matchesAdminTurnoBusqueda(turno: Turno): boolean {
+  if (!adminTurnosBusqueda) {
+    return true;
+  }
+
+  const lote = getAdminTurnoLote(turno);
+  const query = normalizarNombre(adminTurnosBusqueda);
+  return [
+    formatFecha(turno.dia),
+    turno.horaInicio,
+    turno.horaFin,
+    lote?.nombre ?? '',
+    ...turno.inscritos
+  ].some((value) => normalizarNombre(value).includes(query));
+}
+
+function matchesAdminTurnoFiltro(turno: Turno): boolean {
+  const estado = getAdminTurnoEstado(turno);
+
+  if (adminTurnosFiltro === 'todos') {
+    return true;
+  }
+
+  if (adminTurnosFiltro === 'sin-asignar') {
+    return estado === 'sin-asignar';
+  }
+
+  if (adminTurnosFiltro === 'asignados') {
+    return estado === 'asignado' || estado === 'pendiente';
+  }
+
+  return estado === 'suplente';
+}
+
+function formatAdminTurnoDia(value: string): string {
+  const fecha = parseFecha(value);
+  const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(fecha);
+  const day = new Intl.DateTimeFormat('es-ES', { day: '2-digit' }).format(fecha);
+  const month = new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(fecha).replace('.', '');
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${day} ${month}`;
+}
+
+function formatAdminSemana(inicioSemana: Date): string {
+  const finSemana = addDays(inicioSemana, 6);
+  const inicio = new Intl.DateTimeFormat('es-ES', { day: '2-digit' }).format(inicioSemana);
+  const fin = new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(finSemana).replace('.', '');
+  return `Semana ${inicio}-${fin}`;
+}
+
+function renderAdminTurnoFiltroButton(filter: AdminTurnoFiltro, label: string, count: number): string {
+  return `
+    <button class="${adminTurnosFiltro === filter ? 'is-active' : ''}" type="button" data-admin-turno-filter="${filter}">
+      ${escapeHtml(label)}
+      <span>${count}</span>
+    </button>
+  `;
+}
+
 function renderAdminTurnosCubiertos(): void {
   if (!isAdminAuthenticated()) {
     adminTurnosCubiertos.innerHTML = '';
@@ -2146,67 +2244,186 @@ function renderAdminTurnosCubiertos(): void {
   }
 
   const hoy = fechaToInput(new Date());
-  const turnosCubiertos = getTurnosOrdenados().filter((turno) => turno.inscritos.length > 0);
-  const proximosCubiertos = turnosCubiertos.filter((turno) => turno.dia >= hoy);
-  const totalCompromisos = turnosCubiertos.reduce((total, turno) => total + turno.inscritos.length, 0);
-  const usuariosConTurno = new Set(turnosCubiertos.flatMap((turno) => turno.inscritos.map(normalizarNombre))).size;
+  const inicioSemana = startOfWeekMonday(new Date());
+  const finSemana = addDays(inicioSemana, 6);
+  const inicioSemanaInput = fechaToInput(inicioSemana);
+  const finSemanaInput = fechaToInput(finSemana);
+  const turnosSemana = getTurnosOrdenados().filter((turno) => turno.dia >= inicioSemanaInput && turno.dia <= finSemanaInput);
+  const turnosFiltrados = turnosSemana.filter((turno) => matchesAdminTurnoFiltro(turno) && matchesAdminTurnoBusqueda(turno));
+  const turnosHoy = turnosSemana.filter((turno) => turno.dia === hoy).length;
+  const turnosSinAsignar = turnosSemana.filter((turno) => getAdminTurnoEstado(turno) === 'sin-asignar').length;
+  const turnosSuplente = turnosSemana.filter((turno) => getAdminTurnoEstado(turno) === 'suplente').length;
+  const turnosAsignados = turnosSemana.filter((turno) => {
+    const estado = getAdminTurnoEstado(turno);
+    return estado === 'asignado' || estado === 'pendiente';
+  }).length;
+  const plazasTotales = turnosSemana.reduce((total, turno) => total + turno.plazasTotales, 0);
+  const plazasCubiertas = turnosSemana.reduce((total, turno) => total + Math.max(0, turno.plazasTotales - turno.plazasDisponibles), 0);
+  const cobertura = plazasTotales > 0 ? Math.round((plazasCubiertas / plazasTotales) * 100) : 0;
+
+  if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && (!adminTurnoSeleccionadoId || !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId))) {
+    adminTurnoSeleccionadoId = turnosFiltrados.find((turno) => getAdminTurnoEstado(turno) === 'sin-asignar')?.id ?? turnosFiltrados[0]?.id ?? null;
+  }
+
+  const selectedTurno = adminTurnoSeleccionadoId && adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED
+    ? turnosSemana.find((turno) => turno.id === adminTurnoSeleccionadoId) ?? null
+    : null;
+  const turnosPorDia = turnosFiltrados.reduce<Record<string, Turno[]>>((groups, turno) => {
+    groups[turno.dia] = [...(groups[turno.dia] ?? []), turno];
+    return groups;
+  }, {});
 
   adminTurnosCubiertos.innerHTML = `
-    <header class="admin-covered-header">
-      <div>
-        <p class="section-kicker">Solo administradores</p>
-        <h2>Turnos cubiertos y perfiles</h2>
-        <p>Consulta los turnos reservados por los adoradores y sus datos de contacto. Esta informacion no se muestra a usuarios normales.</p>
+    <div class="admin-turns-dashboard">
+      <header class="admin-turns-hero">
+        <div>
+          <p class="section-kicker">Panel administrador</p>
+          <h2>Turnos asignados</h2>
+          <p>Supervisa cobertura, huecos sin asignar y compromisos de la semana.</p>
+        </div>
+        <div class="admin-week-picker" aria-label="Semana visible">
+          <span aria-hidden="true">□</span>
+          <strong>${escapeHtml(formatAdminSemana(inicioSemana))}</strong>
+        </div>
+      </header>
+
+      <section class="admin-turns-metrics" aria-label="Resumen semanal de turnos">
+        <article><span class="metric-icon metric-orange" aria-hidden="true">□</span><small>Turnos hoy</small><strong>${turnosHoy}</strong></article>
+        <article><span class="metric-icon metric-blue" aria-hidden="true">◌</span><small>Esta semana</small><strong>${turnosSemana.length}</strong></article>
+        <article><span class="metric-icon metric-red" aria-hidden="true">!</span><small>Sin asignar</small><strong>${turnosSinAsignar}</strong></article>
+        <article><span class="metric-icon metric-amber" aria-hidden="true">+</span><small>Suplentes</small><strong>${turnosSuplente}</strong></article>
+        <article class="coverage-metric"><span class="metric-icon metric-green" aria-hidden="true">↗</span><small>Cobertura</small><strong>${cobertura}%</strong><span class="coverage-bar"><i style="width: ${cobertura}%"></i></span></article>
+      </section>
+
+      <div class="admin-turns-layout">
+        <section class="admin-turns-main">
+          <div class="admin-turns-tabs" aria-label="Resumen por seccion">
+            <button type="button" data-admin-panel="lotes">Lotes <span>${StorageDB.getLotes().length}</span></button>
+            <button type="button" data-admin-panel="usuarios">Usuarios <span>${StorageDB.getUsuarios().length}</span></button>
+            <button class="is-active" type="button" data-admin-panel="turnos">Turnos asignados <span>${turnosSemana.length}</span></button>
+          </div>
+
+          <div class="admin-turns-card">
+            <div class="admin-turns-tools">
+              <label class="admin-turn-search">
+                <span aria-hidden="true">⌕</span>
+                <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar fecha, hora o adorador" autocomplete="off" />
+              </label>
+              <button class="admin-turn-filter-button" type="button" data-action="admin-turno-filter-info">Filtros</button>
+            </div>
+
+            <div class="admin-turn-filters" aria-label="Filtros de turnos">
+              ${renderAdminTurnoFiltroButton('todos', 'Todos', turnosSemana.length)}
+              ${renderAdminTurnoFiltroButton('sin-asignar', 'Sin asignar', turnosSinAsignar)}
+              ${renderAdminTurnoFiltroButton('asignados', 'Asignados', turnosAsignados)}
+              ${renderAdminTurnoFiltroButton('suplente', 'Con suplente', turnosSuplente)}
+            </div>
+
+            ${turnosFiltrados.length > 0
+              ? `<div class="admin-turn-day-list">${Object.entries(turnosPorDia).map(([dia, turnos]) => renderAdminTurnoDiaGroup(dia, turnos)).join('')}</div>`
+              : `<div class="empty-card compact"><h3>No hay turnos con este filtro</h3><p>Ajusta la busqueda o selecciona otro estado.</p></div>`
+            }
+          </div>
+        </section>
+
+        <aside class="admin-turn-detail-panel" aria-label="Detalle del turno">
+          ${renderAdminTurnoDetail(selectedTurno)}
+        </aside>
       </div>
-      <div class="admin-covered-stats" aria-label="Resumen de turnos cubiertos">
-        <span><strong>${proximosCubiertos.length}</strong> proximos cubiertos</span>
-        <span><strong>${totalCompromisos}</strong> compromisos</span>
-        <span><strong>${usuariosConTurno}</strong> adoradores</span>
-      </div>
-    </header>
-    ${proximosCubiertos.length > 0
-      ? `<div class="admin-covered-list">${proximosCubiertos.slice(0, 12).map(renderAdminTurnoCubierto).join('')}</div>`
-      : `<div class="empty-card compact"><h3>No hay turnos cubiertos</h3><p>Cuando un adorador reserve un turno, aparecera aqui con sus datos de perfil.</p></div>`
-    }
+    </div>
   `;
 }
 
-function renderAdminTurnoCubierto(turno: Turno): string {
-  const lote = turno.loteId ? StorageDB.getLotes().find((item) => item.id === turno.loteId) : undefined;
+function renderAdminTurnoDiaGroup(dia: string, turnos: Turno[]): string {
+  return `
+    <section class="admin-turn-day-group">
+      <header>
+        <strong>${escapeHtml(formatAdminTurnoDia(dia))}</strong>
+        <span>${formatPlural(turnos.length, 'turno', 'turnos')}</span>
+      </header>
+      <div>
+        ${turnos.map(renderAdminTurnoRow).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderAdminTurnoRow(turno: Turno): string {
+  const estado = getAdminTurnoEstado(turno);
+  const principal = getAdminTurnoPrincipal(turno);
+  const iniciales = principal.usuario ? getInicialesUsuario(principal.usuario) : '';
+  const selected = adminTurnoSeleccionadoId === turno.id;
 
   return `
-    <article class="admin-covered-card">
-      <div class="admin-covered-slot">
-        <strong>${escapeHtml(formatFecha(turno.dia))}</strong>
-        <span>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
-        <small>${escapeHtml(lote?.nombre ?? 'Lote sin identificar')}</small>
-      </div>
-      <div class="admin-profile-list">
-        ${turno.inscritos.map((inscrito) => renderAdminPerfilInscrito(inscrito)).join('')}
-      </div>
+    <article class="admin-turn-row ${selected ? 'is-selected' : ''}" data-turno-id="${turno.id}">
+      <button class="admin-turn-row-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver detalle de ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
+        <span class="turn-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
+        <span class="turn-owner">
+          ${principal.usuario ? `<i>${escapeHtml(iniciales)}</i>` : '<i class="is-empty">□</i>'}
+          <b>${escapeHtml(principal.nombre)}</b>
+        </span>
+        <span class="turn-status turn-status-${estado}">${escapeHtml(getAdminTurnoEstadoLabel(estado))}</span>
+      </button>
+      <button class="admin-turn-action" type="button" data-action="admin-turno-select" data-id="${turno.id}">
+        ${estado === 'sin-asignar' ? 'Asignar' : estado === 'suplente' ? 'Cambiar' : 'Ver'}
+      </button>
     </article>
   `;
 }
 
-function renderAdminPerfilInscrito(nombreCompleto: string): string {
-  const usuario = getUsuarioByNombre(nombreCompleto);
-
-  if (!usuario) {
+function renderAdminTurnoDetail(turno: Turno | null): string {
+  if (!turno) {
     return `
-      <section class="admin-profile-card is-missing">
-        <strong>${escapeHtml(nombreCompleto)}</strong>
-        <span>Perfil no sincronizado</span>
-        <small>El turno esta guardado, pero faltan correo y telefono del adorador.</small>
-      </section>
+      <div class="admin-turn-detail-empty">
+        <h3>Detalle del turno</h3>
+        <p>Selecciona un turno de la lista para revisar su cobertura.</p>
+      </div>
     `;
   }
 
+  const estado = getAdminTurnoEstado(turno);
+  const principal = getAdminTurnoPrincipal(turno);
+  const usuario = principal.usuario;
+  const lote = getAdminTurnoLote(turno);
+
   return `
-    <section class="admin-profile-card">
-      <strong>${escapeHtml(usuario.nombreCompleto)}</strong>
-      <span>${escapeHtml(usuario.email)}</span>
-      <span>${escapeHtml(usuario.telefono)}</span>
-      <small>Frecuencia: ${escapeHtml(formatFrecuencia(usuario.frecuencia))} · Rol: ${escapeHtml(formatRol(usuario.rol))}</small>
+    <header class="admin-turn-detail-head">
+      <div>
+        <h3>Detalle del turno</h3>
+        <span class="turn-status turn-status-${estado}">${escapeHtml(getAdminTurnoEstadoLabel(estado))}</span>
+      </div>
+      <button type="button" data-action="admin-turno-clear-detail" aria-label="Cerrar detalle">×</button>
+    </header>
+
+    <dl class="admin-turn-detail-list">
+      <div><dt>Fecha</dt><dd>${escapeHtml(formatFecha(turno.dia))}</dd></div>
+      <div><dt>Hora</dt><dd>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</dd></div>
+      <div><dt>Lote</dt><dd>${escapeHtml(lote?.nombre ?? 'Lote sin identificar')}</dd></div>
+      <div><dt>Adorador</dt><dd>${escapeHtml(principal.nombre)}</dd></div>
+    </dl>
+
+    <section class="admin-turn-detail-stats">
+      <div><span>Plazas cubiertas</span><strong>${turno.plazasTotales - turno.plazasDisponibles}/${turno.plazasTotales}</strong></div>
+      <div><span>Frecuencia sugerida</span><strong>${escapeHtml(usuario ? formatFrecuencia(usuario.frecuencia) : 'Puntual')}</strong></div>
+      <div><span>Prioridad</span><strong>${estado === 'sin-asignar' ? 'Alta' : 'Normal'}</strong></div>
+    </section>
+
+    <div class="admin-turn-detail-actions">
+      <button class="button button-primary" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${estado === 'sin-asignar' ? 'Asignar adorador' : 'Reasignar turno'}</button>
+      <button class="button button-secondary" type="button" data-action="admin-turno-suplente" data-id="${turno.id}">Buscar suplente</button>
+    </div>
+
+    <section class="admin-turn-quick-actions">
+      <h4>Acciones rapidas</h4>
+      <button type="button" data-action="admin-turno-assign" data-id="${turno.id}">Reasignar turno <span>›</span></button>
+      <button type="button" data-action="admin-turno-incident" data-id="${turno.id}">Marcar incidencia <span>›</span></button>
+      <button type="button" data-action="admin-turno-block" data-id="${turno.id}">Bloquear franja <span>›</span></button>
+    </section>
+
+    <section class="admin-turn-last-action">
+      <strong>Ultima accion administrativa</strong>
+      <span>${turno.inscritos.length > 0 ? 'Turno sincronizado con adorador registrado.' : 'Turno pendiente de asignacion.'}</span>
+      <button type="button" data-action="admin-audit-info">Ver historial completo <span>›</span></button>
     </section>
   `;
 }
@@ -3316,6 +3533,43 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  const adminTurnoFilterButton = target.closest<HTMLButtonElement>('[data-admin-turno-filter]');
+
+  if (adminTurnoFilterButton?.dataset.adminTurnoFilter) {
+    adminTurnosFiltro = adminTurnoFilterButton.dataset.adminTurnoFilter as AdminTurnoFiltro;
+    adminTurnoSeleccionadoId = null;
+    renderAdminTurnosCubiertos();
+    return;
+  }
+
+  const adminTurnoAction = target.closest<HTMLButtonElement>(
+    '[data-action="admin-turno-select"], [data-action="admin-turno-clear-detail"], [data-action="admin-turno-assign"], [data-action="admin-turno-suplente"], [data-action="admin-turno-incident"], [data-action="admin-turno-block"], [data-action="admin-turno-filter-info"]'
+  );
+
+  if (adminTurnoAction) {
+    const action = adminTurnoAction.dataset.action;
+
+    if (action === 'admin-turno-select') {
+      adminTurnoSeleccionadoId = adminTurnoAction.dataset.id ?? null;
+      renderAdminTurnosCubiertos();
+      return;
+    }
+
+    if (action === 'admin-turno-clear-detail') {
+      adminTurnoSeleccionadoId = ADMIN_TURNO_DETAIL_CLOSED;
+      renderAdminTurnosCubiertos();
+      return;
+    }
+
+    if (action === 'admin-turno-filter-info') {
+      mostrarAviso('Filtros activos', 'Usa los chips de estado para acotar los turnos de la semana.', 'info');
+      return;
+    }
+
+    mostrarAviso('Accion pendiente', 'Este flujo administrativo se conectara con la asignacion avanzada de adoradores.', 'info');
+    return;
+  }
+
   const adminUserAction = target.closest<HTMLButtonElement>(
     '[data-action="admin-user-edit"], [data-action="admin-user-focus"], [data-action="admin-user-close"], [data-action="admin-audit-info"]'
   );
@@ -3528,6 +3782,20 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('input', (event) => {
   const input = event.target as HTMLInputElement;
+
+  if (input.id === 'admin-turnos-buscar') {
+    const caret = input.selectionStart ?? input.value.length;
+    adminTurnosBusqueda = input.value;
+    adminTurnoSeleccionadoId = null;
+    renderAdminTurnosCubiertos();
+
+    window.requestAnimationFrame(() => {
+      const nextInput = document.querySelector<HTMLInputElement>('#admin-turnos-buscar');
+      nextInput?.focus();
+      nextInput?.setSelectionRange(caret, caret);
+    });
+    return;
+  }
 
   if (input.id !== 'admin-usuarios-buscar') {
     return;
