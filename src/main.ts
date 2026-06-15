@@ -1,4 +1,5 @@
 import './style.css';
+import adoracionHeroUrl from './assets/adoracion-hero.png';
 import { NotificationService, type AppNotification } from './notifications';
 import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type Usuario, type UsuarioFrecuencia, type UsuarioRol } from './storage';
 
@@ -81,7 +82,7 @@ const historialVistas: Vista[] = [];
 
 app.innerHTML = `
   <main class="app-shell">
-    <section id="vista-inicio" class="view welcome-view">
+    <section id="vista-inicio" class="view welcome-view" style="--landing-bg: url('${adoracionHeroUrl}')">
       <div class="welcome-screen">
         <header class="welcome-copy">
           <h1>A Solas</h1>
@@ -142,7 +143,7 @@ app.innerHTML = `
 
           <p id="admin-login-mensaje" class="modal-message" role="status"></p>
 
-          <button class="button button-primary auth-submit" type="submit">Iniciar sesion <span aria-hidden="true">&gt;</span></button>
+          <button class="button button-primary auth-submit" type="submit">Iniciar sesion <span aria-hidden="true"></span></button>
 
           <div class="auth-divider" aria-hidden="true"><span>✚</span></div>
 
@@ -286,7 +287,6 @@ app.innerHTML = `
                 <span>1</span>
                 <div>
                   <h3>Identidad</h3>
-                  <p>Nombre que vera el equipo de coordinacion.</p>
                 </div>
               </header>
               <div class="registro-grid">

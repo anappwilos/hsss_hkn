@@ -86,20 +86,41 @@ select:focus-visible {
 }
 
 .welcome-view {
+  position: relative;
+  overflow: hidden;
   display: grid;
   place-items: center;
   padding: 42px 22px;
+  background: #2f2119;
+}
+
+.welcome-view::before {
+  position: absolute;
+  inset: 0;
   background:
-    radial-gradient(circle at 50% 18%, rgba(196, 99, 37, 0.14), transparent 19rem),
-    var(--color-welcome);
+    var(--landing-bg) center right / cover no-repeat;
+  content: "";
+  transform: scale(1.02);
+}
+
+.welcome-view::after {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 248, 240, 0.28), transparent 26rem),
+    linear-gradient(90deg, rgba(255, 248, 240, 0.86) 0%, rgba(255, 248, 240, 0.58) 38%, rgba(255, 248, 240, 0.18) 68%, rgba(35, 21, 14, 0.28) 100%),
+    linear-gradient(180deg, rgba(44, 28, 18, 0.2), rgba(44, 28, 18, 0.46));
+  content: "";
 }
 
 .welcome-screen {
+  position: relative;
+  z-index: 1;
   display: grid;
-  width: min(100%, 760px);
+  width: min(100%, 720px);
   min-height: calc(100vh - 84px);
   align-content: center;
-  gap: 30px;
+  gap: 26px;
 }
 
 .welcome-mark {
@@ -156,12 +177,13 @@ select:focus-visible {
 .welcome-copy h1 {
   max-width: 720px;
   margin: 0;
-  color: #2f2622;
+  color: #24170f;
   font-family: var(--font-serif);
-  font-size: clamp(2.7rem, 8vw, 4.35rem);
-  font-weight: 600;
+  font-size: clamp(3.2rem, 10vw, 6.4rem);
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.02;
+  text-shadow: 0 14px 44px rgba(255, 255, 255, 0.46);
 }
 
 .welcome-copy p {
@@ -196,7 +218,8 @@ select:focus-visible {
 }
 
 .landing-secondary {
-  background: rgba(255, 255, 255, 0.74);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(10px);
 }
 
 .landing-proof {
@@ -3533,6 +3556,10 @@ select:focus-visible {
   .welcome-screen {
     min-height: calc(100vh - 64px);
     gap: 28px;
+  }
+
+  .welcome-view::before {
+    background-position: 66% center;
   }
 
   .welcome-mark {

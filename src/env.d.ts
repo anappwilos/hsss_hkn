@@ -13,3 +13,4 @@ interface ImportMeta {
 }
 
 declare module '*.css';
+declare module '*.png';
