@@ -37,7 +37,7 @@ export interface LoteExposicion {
 }
 
 export type UsuarioFrecuencia = 'fijo' | 'suplente' | 'puntual';
-export type UsuarioRol = 'administrador' | 'usuario';
+export type UsuarioRol = 'root' | 'admin' | 'sacerdote' | 'usuario';
 
 export interface Usuario {
   id: string;
@@ -379,7 +379,7 @@ export class StorageDB {
 
     return value
       .map((usuario) => StorageDB.normalizeUsuario(usuario))
-      .filter((usuario) => usuario.nombreCompleto && usuario.email);
+      .filter((usuario) => (usuario.nombre || usuario.nombreCompleto) && usuario.email);
   }
 
   private static normalizeUsuario(value: unknown): Usuario {
@@ -388,6 +388,7 @@ export class StorageDB {
     const apellidos = String(source.apellidos ?? '').trim();
     const nombreCompleto = String(source.nombreCompleto ?? `${nombre} ${apellidos}`).trim().replace(/\s+/g, ' ');
     const creadoEn = typeof source.creadoEn === 'number' ? source.creadoEn : Date.now();
+    const rol = StorageDB.normalizeRol(source.rol);
 
     return {
       id: source.id || (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`),
@@ -397,11 +398,19 @@ export class StorageDB {
       email: String(source.email ?? '').trim().toLowerCase(),
       telefono: String(source.telefono ?? '').trim(),
       frecuencia: source.frecuencia === 'fijo' || source.frecuencia === 'suplente' || source.frecuencia === 'puntual' ? source.frecuencia : 'puntual',
-      rol: source.rol === 'administrador' ? 'administrador' : 'usuario',
+      rol,
       password: typeof source.password === 'string' ? source.password : undefined,
       creadoEn,
       actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn
     };
+  }
+
+  private static normalizeRol(rol: unknown): UsuarioRol {
+    if (rol === 'root' || rol === 'admin' || rol === 'sacerdote' || rol === 'usuario') {
+      return rol;
+    }
+
+    return rol === 'administrador' ? 'admin' : 'usuario';
   }
 
   private static normalizeNotificaciones(value: unknown): NotificacionRegistro[] {
@@ -446,6 +455,31 @@ export class StorageDB {
   public static eliminarLote(idLote: string): void {
     const lotes = StorageDB.getLotes();
     StorageDB.saveLotes(lotes.filter((lote) => lote.id !== idLote));
+  }
+
+  public static eliminarUsuario(idUsuario: string): void {
+    const usuario = StorageDB.usuarios.find((item) => item.id === idUsuario);
+
+    if (!usuario) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    const nombreNormalizado = usuario.nombreCompleto.trim().replace(/\s+/g, ' ').toLowerCase();
+    StorageDB.saveUsuarios(StorageDB.getUsuarios().filter((item) => item.id !== idUsuario));
+    StorageDB.saveTurnos(StorageDB.getTurnos().map((turno) => {
+      const inscritos = turno.inscritos.filter((inscrito) => inscrito.trim().replace(/\s+/g, ' ').toLowerCase() !== nombreNormalizado);
+
+      return {
+        ...turno,
+        inscritos,
+        plazasDisponibles: Math.max(0, turno.plazasTotales - inscritos.length)
+      };
+    }));
+    StorageDB.saveNotificaciones(StorageDB.getNotificaciones().filter((notificacion) => notificacion.usuarioId !== idUsuario));
+
+    if (StorageDB.perfilAdoradorId === idUsuario) {
+      StorageDB.clearPerfilAdorador();
+    }
   }
 
   public static agregarTurno(turno: Turno): void {

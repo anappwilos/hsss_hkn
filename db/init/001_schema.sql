@@ -12,11 +12,10 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id text PRIMARY KEY,
   nombre text NOT NULL,
   apellidos text NOT NULL,
-  nombre_completo text NOT NULL,
   email text NOT NULL UNIQUE,
   telefono text NOT NULL,
   frecuencia text NOT NULL CHECK (frecuencia IN ('fijo', 'suplente', 'puntual')),
-  rol text NOT NULL CHECK (rol IN ('administrador', 'usuario')),
+  rol text NOT NULL CHECK (rol IN ('root', 'admin', 'sacerdote', 'usuario')),
   creado_en timestamptz NOT NULL DEFAULT now(),
   actualizado_en timestamptz NOT NULL DEFAULT now()
 );

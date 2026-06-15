@@ -137,14 +137,34 @@ async function initializeStore() {
       id text PRIMARY KEY,
       nombre text NOT NULL,
       apellidos text NOT NULL,
-      nombre_completo text NOT NULL,
       email text NOT NULL UNIQUE,
       telefono text NOT NULL,
       frecuencia text NOT NULL CHECK (frecuencia IN ('fijo', 'suplente', 'puntual')),
-      rol text NOT NULL CHECK (rol IN ('administrador', 'usuario')),
+      rol text NOT NULL CHECK (rol IN ('root', 'admin', 'sacerdote', 'usuario')),
       creado_en timestamptz NOT NULL DEFAULT now(),
       actualizado_en timestamptz NOT NULL DEFAULT now()
     )
+  `);
+
+  await pool.query('ALTER TABLE usuarios DROP COLUMN IF EXISTS nombre_completo');
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'usuarios_rol_check'
+          AND conrelid = 'usuarios'::regclass
+      ) THEN
+        ALTER TABLE usuarios DROP CONSTRAINT usuarios_rol_check;
+      END IF;
+
+      UPDATE usuarios SET rol = 'admin' WHERE rol = 'administrador';
+
+      ALTER TABLE usuarios
+        ADD CONSTRAINT usuarios_rol_check
+        CHECK (rol IN ('root', 'admin', 'sacerdote', 'usuario'));
+    END $$;
   `);
 
   await pool.query(`
@@ -243,13 +263,21 @@ function normalizeUsuarios(value) {
         email: String(source.email || '').trim().toLowerCase(),
         telefono: String(source.telefono || '').trim(),
         frecuencia: ['fijo', 'suplente', 'puntual'].includes(source.frecuencia) ? source.frecuencia : 'puntual',
-        rol: source.rol === 'administrador' ? 'administrador' : 'usuario',
+        rol: normalizeRol(source.rol),
         password: typeof source.password === 'string' ? source.password : undefined,
         creadoEn,
         actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn
       };
     })
-    .filter((usuario) => usuario.id && usuario.nombreCompleto && usuario.email);
+    .filter((usuario) => usuario.id && (usuario.nombre || usuario.nombreCompleto) && usuario.email);
+}
+
+function normalizeRol(rol) {
+  if (['root', 'admin', 'sacerdote', 'usuario'].includes(rol)) {
+    return rol;
+  }
+
+  return rol === 'administrador' ? 'admin' : 'usuario';
 }
 
 function normalizeNotificaciones(value) {
@@ -283,9 +311,9 @@ async function writeRelationalState(state) {
 
     for (const usuario of state.usuarios) {
       await client.query(
-        `INSERT INTO usuarios (id, nombre, apellidos, nombre_completo, email, telefono, frecuencia, rol, creado_en, actualizado_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))`,
-        [usuario.id, usuario.nombre, usuario.apellidos, usuario.nombreCompleto, usuario.email, usuario.telefono, usuario.frecuencia, usuario.rol, usuario.creadoEn, usuario.actualizadoEn]
+        `INSERT INTO usuarios (id, nombre, apellidos, email, telefono, frecuencia, rol, creado_en, actualizado_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8 / 1000.0), to_timestamp($9 / 1000.0))`,
+        [usuario.id, usuario.nombre, usuario.apellidos, usuario.email, usuario.telefono, usuario.frecuencia, usuario.rol, usuario.creadoEn, usuario.actualizadoEn]
       );
     }
 

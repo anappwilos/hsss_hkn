@@ -37,6 +37,7 @@ type TurnoCalendario = {
 
 const app = document.querySelector<HTMLDivElement>('#app');
 const ADMIN_SESSION_KEY = 'hsss_admin_session';
+const ADMIN_SESSION_ROLE_KEY = 'hsss_admin_role';
 const REMEMBERED_EMAIL_KEY = 'hsss_remembered_email';
 const ADMIN_TURNO_DETAIL_CLOSED = '__closed__';
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase();
@@ -861,13 +862,28 @@ function isAdminAuthenticated(): boolean {
   return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
 }
 
-function setAdminAuthenticated(value: boolean): void {
+function setAdminAuthenticated(value: boolean, role: Extract<UsuarioRol, 'root' | 'admin'> = 'admin'): void {
   if (value) {
     sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    sessionStorage.setItem(ADMIN_SESSION_ROLE_KEY, role);
     return;
   }
 
   sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  sessionStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
+}
+
+function getAdminSessionRole(): Extract<UsuarioRol, 'root' | 'admin'> | null {
+  const role = sessionStorage.getItem(ADMIN_SESSION_ROLE_KEY);
+  return role === 'root' || role === 'admin' ? role : null;
+}
+
+function canManageUsers(): boolean {
+  return isAdminAuthenticated() && (getAdminSessionRole() === 'root' || getAdminSessionRole() === 'admin');
+}
+
+function canAssignAdminRoles(): boolean {
+  return getAdminSessionRole() === 'root';
 }
 
 function getVistaInicial(): Vista {
@@ -969,19 +985,35 @@ function validarAdminLogin(showErrors: boolean): boolean {
   return false;
 }
 
-function isAdminLoginValido(email: string, password: string): boolean {
+function getAdminLoginRol(email: string, password: string): Extract<UsuarioRol, 'root' | 'admin'> | null {
   const adminValido = Boolean(ADMIN_EMAIL && ADMIN_PASSWORD && email === ADMIN_EMAIL && password === ADMIN_PASSWORD);
   const superadminValido = Boolean(SUPERADMIN_EMAIL && SUPERADMIN_PASSWORD && email === SUPERADMIN_EMAIL && password === SUPERADMIN_PASSWORD);
-  return adminValido || superadminValido;
+
+  if (superadminValido) {
+    return 'root';
+  }
+
+  return adminValido ? 'admin' : null;
 }
 
 function getUsuarioLoginValido(email: string, password: string): PerfilAdorador | undefined {
   return StorageDB.getUsuarios().find((usuario) =>
-    usuario.rol !== 'administrador' &&
     usuario.email.toLowerCase() === email &&
     Boolean(usuario.password) &&
     usuario.password === password
   );
+}
+
+function isAdminRol(rol: UsuarioRol): rol is Extract<UsuarioRol, 'root' | 'admin'> {
+  return rol === 'root' || rol === 'admin';
+}
+
+function getRolesEditables(usuario: Usuario): UsuarioRol[] {
+  if (canAssignAdminRoles()) {
+    return ['usuario', 'sacerdote', 'admin', 'root'];
+  }
+
+  return isAdminRol(usuario.rol) ? [usuario.rol] : ['usuario', 'sacerdote'];
 }
 
 function getVistaDestino(vista: Vista): Vista {
@@ -1314,6 +1346,38 @@ function crearPerfilAdorador(
   };
 }
 
+function asegurarPerfilesBase(): void {
+  const baseUsers: Array<{ email: string; password: string; rol: Extract<UsuarioRol, 'root' | 'admin'>; nombre: string }> = [
+    { email: SUPERADMIN_EMAIL, password: SUPERADMIN_PASSWORD, rol: 'root', nombre: 'Root' },
+    { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, rol: 'admin', nombre: 'Admin' }
+  ].filter((usuario): usuario is { email: string; password: string; rol: Extract<UsuarioRol, 'root' | 'admin'>; nombre: string } => Boolean(usuario.email && usuario.password));
+
+  for (const base of baseUsers) {
+    const existente = StorageDB.getUsuarios().find((usuario) => usuario.email.toLowerCase() === base.email);
+
+    StorageDB.upsertUsuario({
+      ...(existente ?? crearPerfilAdorador(base.nombre, {
+        nombre: base.nombre,
+        apellidos: '',
+        email: base.email,
+        telefono: '000000000',
+        frecuencia: 'puntual',
+        rol: base.rol,
+        password: base.password
+      })),
+      nombreCompleto: existente?.nombreCompleto || base.nombre,
+      nombre: existente?.nombre || base.nombre,
+      apellidos: existente?.apellidos || '',
+      email: base.email,
+      telefono: existente?.telefono || '000000000',
+      frecuencia: existente?.frecuencia || 'puntual',
+      rol: base.rol,
+      password: base.password,
+      actualizadoEn: Date.now()
+    });
+  }
+}
+
 function getNombrePrivado(nombreCompleto: string): string {
   const partes = nombreCompleto.trim().split(/\s+/);
   const inicial = partes[0]?.charAt(0).toUpperCase() ?? 'A';
@@ -1331,7 +1395,14 @@ function formatFrecuencia(frecuencia: UsuarioFrecuencia = 'puntual'): string {
 }
 
 function formatRol(rol: UsuarioRol = 'usuario'): string {
-  return rol === 'administrador' ? 'Administrador' : 'Usuario';
+  const labels: Record<UsuarioRol, string> = {
+    root: 'Root',
+    admin: 'Admin',
+    sacerdote: 'Sacerdote',
+    usuario: 'Usuario'
+  };
+
+  return labels[rol];
 }
 
 function estaInscrito(turno: Turno, nombreCompleto: string): boolean {
@@ -1907,9 +1978,8 @@ function getFrecuenciaDetalle(frecuencia: UsuarioFrecuencia): string {
   return labels[frecuencia];
 }
 
-function getSiguienteTurnoUsuario(usuario: Usuario): Turno | undefined {
-  const hoy = fechaToInput(new Date());
-  return getTurnosOrdenados().find((turno) => turno.dia >= hoy && estaInscrito(turno, usuario.nombreCompleto));
+function getTurnosUsuario(usuario: Usuario): Turno[] {
+  return getTurnosOrdenados().filter((turno) => estaInscrito(turno, usuario.nombreCompleto));
 }
 
 function matchesAdminUsuarioFiltro(usuario: Usuario): boolean {
@@ -1918,7 +1988,7 @@ function matchesAdminUsuarioFiltro(usuario: Usuario): boolean {
   }
 
   if (adminUsuariosFiltro === 'administrador') {
-    return usuario.rol === 'administrador';
+    return isAdminRol(usuario.rol);
   }
 
   return usuario.frecuencia === adminUsuariosFiltro;
@@ -1986,7 +2056,7 @@ function renderAdminUsuarios(): void {
             ${renderAdminUsuarioFiltroButton('fijo', 'Fijos', totalFijos)}
             ${renderAdminUsuarioFiltroButton('puntual', 'Puntuales', totalPuntuales)}
             ${renderAdminUsuarioFiltroButton('suplente', 'Suplentes', totalSuplentes)}
-            ${renderAdminUsuarioFiltroButton('administrador', 'Administradores', usuarios.filter((usuario) => usuario.rol === 'administrador').length)}
+            ${renderAdminUsuarioFiltroButton('administrador', 'Admin/Root', usuarios.filter((usuario) => isAdminRol(usuario.rol)).length)}
           </div>
 
           ${usuarios.length === 0
@@ -2027,7 +2097,6 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
             <th>Nombre</th>
             <th>Frecuencia</th>
             <th>Rol</th>
-            <th>Proximo turno</th>
             <th>Contacto</th>
             <th>Acciones</th>
           </tr>
@@ -2049,15 +2118,15 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
 }
 
 function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): string {
-  const siguienteTurno = getSiguienteTurnoUsuario(usuario);
-
   return `
     <tr class="${selectedId === usuario.id ? 'is-selected' : ''}">
       <td>
         <div class="admin-user-cell">
           <span class="admin-user-avatar">${escapeHtml(getInicialesUsuario(usuario))}</span>
           <div>
-            <strong>${escapeHtml(usuario.nombreCompleto)}</strong>
+            <button class="admin-user-name-button" type="button" data-action="admin-user-focus" data-id="${usuario.id}">
+              ${escapeHtml(usuario.nombreCompleto)}
+            </button>
             <small>ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}</small>
           </div>
         </div>
@@ -2068,10 +2137,6 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
       </td>
       <td><span class="admin-role-chip">${escapeHtml(formatRol(usuario.rol))}</span></td>
       <td>
-        <strong class="admin-table-main">${siguienteTurno ? escapeHtml(formatFecha(siguienteTurno.dia)) : '-'}</strong>
-        <small>${siguienteTurno ? `${escapeHtml(siguienteTurno.horaInicio)} - ${escapeHtml(siguienteTurno.horaFin)}` : 'Sin asignacion'}</small>
-      </td>
-      <td>
         <small>${escapeHtml(maskEmail(usuario.email))}</small>
         <small>${escapeHtml(maskPhone(usuario.telefono))}</small>
       </td>
@@ -2079,6 +2144,7 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
         <div class="admin-row-actions">
           <button type="button" data-action="admin-user-edit" data-id="${usuario.id}" aria-label="Editar usuario ${escapeHtml(usuario.nombreCompleto)}">✎</button>
           <button type="button" data-action="admin-user-focus" data-id="${usuario.id}" aria-label="Ver usuario ${escapeHtml(usuario.nombreCompleto)}">◉</button>
+          ${canManageUsers() ? `<button type="button" data-action="admin-user-delete" data-id="${usuario.id}" aria-label="Eliminar usuario ${escapeHtml(usuario.nombreCompleto)}">×</button>` : ''}
         </div>
       </td>
     </tr>
@@ -2086,6 +2152,9 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
 }
 
 function renderAdminUsuarioModal(usuario: Usuario): string {
+  const turnosAsignados = getTurnosUsuario(usuario);
+  const rolesEditables = getRolesEditables(usuario);
+
   return `
       <header class="modal-header admin-user-modal-head">
         <div>
@@ -2124,12 +2193,28 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
         </label>
         <label>
           <span>Rol</span>
-          <select id="admin-user-edit-role">
-            ${(['usuario', 'administrador'] as UsuarioRol[]).map((value) => `<option value="${value}" ${usuario.rol === value ? 'selected' : ''}>${escapeHtml(formatRol(value))}</option>`).join('')}
+          <select id="admin-user-edit-role" ${!canAssignAdminRoles() && isAdminRol(usuario.rol) ? 'disabled' : ''}>
+            ${rolesEditables.map((value) => `<option value="${value}" ${usuario.rol === value ? 'selected' : ''}>${escapeHtml(formatRol(value))}</option>`).join('')}
           </select>
         </label>
+        <section class="admin-user-turns">
+          <header>
+            <span>Turnos asignados</span>
+            <strong>${turnosAsignados.length}</strong>
+          </header>
+          ${turnosAsignados.length > 0
+            ? `<div>${turnosAsignados.map((turno) => `
+                <article>
+                  <strong>${escapeHtml(formatFecha(turno.dia))}</strong>
+                  <span>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
+                </article>
+              `).join('')}</div>`
+            : '<p>No tiene turnos asignados.</p>'
+          }
+        </section>
         <div class="admin-user-edit-actions">
           <button class="button button-primary" type="submit" data-action="admin-user-save">Guardar cambios</button>
+          ${canManageUsers() ? `<button class="button button-danger" type="button" data-action="admin-user-delete" data-id="${usuario.id}">Eliminar usuario</button>` : ''}
           <button class="button button-secondary" type="button" data-action="admin-user-close">Cancelar</button>
         </div>
       </form>
@@ -2170,7 +2255,8 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   const email = form.querySelector<HTMLInputElement>('#admin-user-edit-email')?.value.trim().toLowerCase() ?? '';
   const telefono = limpiarTelefono(form.querySelector<HTMLInputElement>('#admin-user-edit-phone')?.value ?? '');
   const frecuencia = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency')?.value as UsuarioFrecuencia;
-  const rol = form.querySelector<HTMLSelectElement>('#admin-user-edit-role')?.value as UsuarioRol;
+  const requestedRol = form.querySelector<HTMLSelectElement>('#admin-user-edit-role')?.value as UsuarioRol;
+  const rol = getRolPermitidoParaGuardar(usuario, requestedRol);
 
   if (!nombreCompleto || !esEmailValido(email) || !esTelefonoValido(telefono)) {
     mostrarAviso('Revisa el usuario', 'Nombre, email y telefono deben ser validos.', 'error');
@@ -2198,6 +2284,52 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
     renderAdminUsuarios();
   }
   mostrarAviso('Usuario actualizado', 'Los cambios del perfil se guardaron correctamente.', 'success');
+}
+
+function getRolPermitidoParaGuardar(usuario: Usuario, requestedRol: UsuarioRol): UsuarioRol {
+  if (canAssignAdminRoles()) {
+    return requestedRol;
+  }
+
+  if (isAdminRol(usuario.rol)) {
+    return usuario.rol;
+  }
+
+  return requestedRol === 'sacerdote' ? 'sacerdote' : 'usuario';
+}
+
+function eliminarAdminUsuario(id: string | null): void {
+  if (!canManageUsers()) {
+    mostrarAviso('Sin permisos', 'Solo Root o Admin pueden eliminar usuarios.', 'error');
+    return;
+  }
+
+  const usuario = id ? StorageDB.getUsuarios().find((item) => item.id === id) : undefined;
+
+  if (!usuario) {
+    mostrarAviso('Usuario no encontrado', 'No se pudo localizar el perfil para eliminarlo.', 'error');
+    return;
+  }
+
+  if (usuario.rol === 'root' && getAdminSessionRole() !== 'root') {
+    mostrarAviso('Sin permisos', 'Solo Root puede eliminar otro perfil Root.', 'error');
+    return;
+  }
+
+  if (!window.confirm(`Eliminar a ${usuario.nombreCompleto}? Se quitaran tambien sus asignaciones de turnos.`)) {
+    return;
+  }
+
+  StorageDB.eliminarUsuario(usuario.id);
+
+  if (modalAdminUsuario.open) {
+    cerrarModalAdminUsuario();
+  } else {
+    renderAdminUsuarios();
+  }
+
+  renderAdminTurnosCubiertos();
+  mostrarAviso('Usuario eliminado', 'El usuario y sus asignaciones fueron eliminados.', 'success');
 }
 
 function getAdminTurnoEstado(turno: Turno): AdminTurnoEstado {
@@ -2495,7 +2627,7 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
 
 function getUsuariosAsignables(modo: 'reemplazar' | 'agregar'): Usuario[] {
   const usuarios = StorageDB.getUsuarios()
-    .filter((usuario) => usuario.rol !== 'administrador')
+    .filter((usuario) => !isAdminRol(usuario.rol))
     .toSorted((a, b) => {
       if (modo === 'agregar' && a.frecuencia !== b.frecuencia) {
         return a.frecuencia === 'suplente' ? -1 : b.frecuencia === 'suplente' ? 1 : 0;
@@ -3546,7 +3678,6 @@ function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | 
   const completo = turno.plazasDisponibles === 0;
   const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
   const estado = propio ? 'Mi turno' : completo ? 'Completo' : 'Libre';
-  const plazas = `${turno.plazasDisponibles} ${turno.plazasDisponibles === 1 ? 'plaza' : 'plazas'}`;
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
   const estadoClase = propio ? 'is-mine' : completo ? 'is-covered' : ocupadas > 0 ? 'is-partial' : 'is-free';
 
@@ -3989,7 +4120,7 @@ document.addEventListener('click', (event) => {
   }
 
   const adminUserAction = target.closest<HTMLButtonElement>(
-    '[data-action="admin-user-edit"], [data-action="admin-user-focus"], [data-action="admin-user-close"], [data-action="admin-audit-info"]'
+    '[data-action="admin-user-edit"], [data-action="admin-user-focus"], [data-action="admin-user-close"], [data-action="admin-user-delete"], [data-action="admin-audit-info"]'
   );
 
   if (adminUserAction) {
@@ -4002,6 +4133,11 @@ document.addEventListener('click', (event) => {
 
     if (action === 'admin-user-close') {
       cerrarModalAdminUsuario();
+      return;
+    }
+
+    if (action === 'admin-user-delete') {
+      eliminarAdminUsuario(adminUserAction.dataset.id ?? null);
       return;
     }
 
@@ -4272,13 +4408,14 @@ formAdminLogin.addEventListener('submit', (event) => {
 
   const email = adminEmail.value.trim().toLowerCase();
   const password = adminPassword.value;
+  const adminRole = getAdminLoginRol(email, password);
 
-  if (isAdminLoginValido(email, password)) {
+  if (adminRole) {
     guardarEmailRecordado(email);
     setFieldError(adminEmail, '', false);
     setFieldError(adminPassword, '', false);
     StorageDB.clearPerfilAdorador();
-    setAdminAuthenticated(true);
+    setAdminAuthenticated(true, adminRole);
     mostrarAdminLoginMensaje('', 'info');
     mostrarVista('admin');
     return;
@@ -4290,6 +4427,14 @@ formAdminLogin.addEventListener('submit', (event) => {
     guardarEmailRecordado(email);
     setFieldError(adminEmail, '', false);
     setFieldError(adminPassword, '', false);
+    if (isAdminRol(usuario.rol)) {
+      StorageDB.clearPerfilAdorador();
+      setAdminAuthenticated(true, usuario.rol);
+      mostrarAdminLoginMensaje('', 'info');
+      mostrarVista('admin');
+      return;
+    }
+
     setAdminAuthenticated(false);
     StorageDB.savePerfilAdorador(usuario);
     renderProfileButton();
@@ -4564,6 +4709,8 @@ resetConfig();
 cargarEmailRecordado();
 mostrarVista(getVistaInicial(), { recordHistory: false });
 void StorageDB.loadRemote().then((loaded) => {
+  asegurarPerfilesBase();
+
   if (StorageDB.getPerfilAdorador() && vistaActual === 'admin-login') {
     mostrarVista('usuario', { recordHistory: false });
     return;
