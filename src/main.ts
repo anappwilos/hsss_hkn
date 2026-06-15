@@ -104,7 +104,7 @@ app.innerHTML = `
         </div>
 
         <footer class="welcome-footer">
-          <strong class="app-version">A solas v${APP_VERSION}</strong>
+          <strong class="app-version">v${APP_VERSION}</strong>
         </footer>
       </div>
     </section>
@@ -113,7 +113,6 @@ app.innerHTML = `
       <header class="mobile-topbar">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span>A solas</span>
         </button>
       </header>
 
@@ -1995,16 +1994,6 @@ function renderAdminUsuarios(): void {
             : renderAdminUsuariosTable(filtrados, selectedId)
           }
         </section>
-
-        <section class="admin-audit-row" data-action="admin-audit-info" role="button" tabindex="0">
-          <span class="admin-audit-icon" aria-hidden="true">+</span>
-          <div>
-            <h4>Ultima accion administrativa</h4>
-            <p>${usuarios.length > 0 ? 'Directorio sincronizado con PostgreSQL.' : 'Sin actividad de usuarios todavia.'}</p>
-            <small>Ver historial completo</small>
-          </div>
-          <span aria-hidden="true">&gt;</span>
-        </section>
       </section>
 
     </div>
@@ -2494,8 +2483,6 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
     <section class="admin-turn-quick-actions">
       <h4>Acciones rapidas</h4>
       <button type="button" data-action="admin-turno-assign" data-id="${turno.id}">Reasignar turno <span>›</span></button>
-      <button type="button" data-action="admin-turno-incident" data-id="${turno.id}">Marcar incidencia <span>›</span></button>
-      <button type="button" data-action="admin-turno-block" data-id="${turno.id}">Bloquear franja <span>›</span></button>
     </section>
 
     <section class="admin-turn-last-action">

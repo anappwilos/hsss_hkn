@@ -9,3 +9,8 @@ En Usuarios:
 Login:
 
 - Revisar que los usuarios registrados puedan acceder
+- Los perfiles de root y admin debera de existir
+  - Estos pueden asignar nuevos roles
+Base de datos:
+
+- Eliminar campo de nombre_completo
