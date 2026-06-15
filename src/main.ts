@@ -74,6 +74,8 @@ let adminUsuarioEditandoId: string | null = null;
 let adminTurnosBusqueda = '';
 let adminTurnosFiltro: AdminTurnoFiltro = 'todos';
 let adminTurnoSeleccionadoId: string | null = null;
+let adminTurnoAsignacionId: string | null = null;
+const adminTurnosDiasColapsados = new Set<string>();
 let registroStep = 0;
 let turnoModalId: string | null = null;
 let modalInscripcionPaso: ModalInscripcionPaso = 'tipo';
@@ -543,6 +545,10 @@ app.innerHTML = `
       <div id="modal-admin-usuario-card" class="modal-card admin-user-modal-card"></div>
     </dialog>
 
+    <dialog id="modal-admin-turno" class="app-modal">
+      <div id="modal-admin-turno-card" class="modal-card admin-turn-modal-card"></div>
+    </dialog>
+
     <dialog id="modal-perfil-edicion" class="app-modal">
       <div id="modal-perfil-edicion-card" class="modal-card profile-edit-modal-card"></div>
     </dialog>
@@ -698,6 +704,8 @@ const duplicarMesMensaje = getElement<HTMLParagraphElement>('#duplicar-mes-mensa
 const modalInterrupciones = getElement<HTMLDialogElement>('#modal-interrupciones');
 const modalAdminUsuario = getElement<HTMLDialogElement>('#modal-admin-usuario');
 const modalAdminUsuarioCard = getElement<HTMLElement>('#modal-admin-usuario-card');
+const modalAdminTurno = getElement<HTMLDialogElement>('#modal-admin-turno');
+const modalAdminTurnoCard = getElement<HTMLElement>('#modal-admin-turno-card');
 const modalPerfilEdicion = getElement<HTMLDialogElement>('#modal-perfil-edicion');
 const modalPerfilEdicionCard = getElement<HTMLElement>('#modal-perfil-edicion-card');
 const formRegistroAdorador = getElement<HTMLFormElement>('#form-registro-adorador');
@@ -841,11 +849,7 @@ function setAdminAuthenticated(value: boolean): void {
 }
 
 function getVistaInicial(): Vista {
-  if (isAdminAuthenticated()) {
-    return 'admin';
-  }
-
-  return StorageDB.getPerfilAdorador() ? 'usuario' : 'admin-login';
+  return getVistaDestino('admin-login');
 }
 
 function mostrarAdminLoginMensaje(message: string, tone: 'info' | 'error' = 'info'): void {
@@ -958,10 +962,35 @@ function getUsuarioLoginValido(email: string, password: string): PerfilAdorador 
   );
 }
 
-function mostrarVista(vista: Vista, options: { recordHistory?: boolean } = {}): void {
-  const nextView = (vista === 'admin' || vista === 'configuracion') && !isAdminAuthenticated()
-    ? 'admin-login'
-    : vista;
+function getVistaDestino(vista: Vista): Vista {
+  const hasAdminSession = isAdminAuthenticated();
+  const hasUserSession = Boolean(StorageDB.getPerfilAdorador());
+
+  if (hasAdminSession && (vista === 'inicio' || vista === 'admin-login' || vista === 'registro-adorador')) {
+    return 'admin';
+  }
+
+  if (!hasAdminSession && hasUserSession && (vista === 'inicio' || vista === 'admin-login' || vista === 'registro-adorador')) {
+    return 'usuario';
+  }
+
+  if (vista === 'usuario' && !hasUserSession) {
+    return 'admin-login';
+  }
+
+  if ((vista === 'admin' || vista === 'configuracion') && !hasAdminSession) {
+    return 'admin-login';
+  }
+
+  return vista;
+}
+
+function mostrarVista(vista: Vista, options: { recordHistory?: boolean; bypassSessionRedirect?: boolean } = {}): void {
+  const nextView = options.bypassSessionRedirect
+    ? (vista === 'admin' || vista === 'configuracion') && !isAdminAuthenticated()
+      ? 'admin-login'
+      : vista
+    : getVistaDestino(vista);
   const shouldRecordHistory = options.recordHistory ?? true;
 
   if (vistaActual && vistaActual !== nextView && shouldRecordHistory) {
@@ -1021,6 +1050,11 @@ function volverAtras(): void {
 
   if (modalAdminUsuario.open) {
     cerrarModalAdminUsuario();
+    return;
+  }
+
+  if (modalAdminTurno.open) {
+    cerrarModalAdminTurno();
     return;
   }
 
@@ -2339,13 +2373,25 @@ function renderAdminTurnosCubiertos(): void {
 }
 
 function renderAdminTurnoDiaGroup(dia: string, turnos: Turno[]): string {
+  const isCollapsed = adminTurnosDiasColapsados.has(dia);
+  const plazasTotales = turnos.reduce((total, turno) => total + turno.plazasTotales, 0);
+  const plazasCubiertas = turnos.reduce((total, turno) => total + Math.max(0, turno.plazasTotales - turno.plazasDisponibles), 0);
+  const sinAsignar = turnos.filter((turno) => getAdminTurnoEstado(turno) === 'sin-asignar').length;
+
   return `
-    <section class="admin-turn-day-group">
+    <section class="admin-turn-day-group ${isCollapsed ? 'is-collapsed' : ''}">
       <header>
-        <strong>${escapeHtml(formatAdminTurnoDia(dia))}</strong>
-        <span>${formatPlural(turnos.length, 'turno', 'turnos')}</span>
+        <button type="button" data-action="admin-turno-dia-toggle" data-dia="${dia}" aria-expanded="${String(!isCollapsed)}">
+          <span class="admin-turn-day-caret" aria-hidden="true">${isCollapsed ? '›' : '⌄'}</span>
+          <strong>${escapeHtml(formatAdminTurnoDia(dia))}</strong>
+        </button>
+        <div class="admin-turn-day-totals" aria-label="Resumen del dia">
+          <span>Total: ${turnos.length}</span>
+          <span>Cubiertas: ${plazasCubiertas}/${plazasTotales}</span>
+          <span>Sin asignar: ${sinAsignar}</span>
+        </div>
       </header>
-      <div>
+      <div class="admin-turn-day-rows" ${isCollapsed ? 'hidden' : ''}>
         ${turnos.map(renderAdminTurnoRow).join('')}
       </div>
     </section>
@@ -2368,7 +2414,7 @@ function renderAdminTurnoRow(turno: Turno): string {
         </span>
         <span class="turn-status turn-status-${estado}">${escapeHtml(getAdminTurnoEstadoLabel(estado))}</span>
       </button>
-      <button class="admin-turn-action" type="button" data-action="admin-turno-select" data-id="${turno.id}">
+      <button class="admin-turn-action" type="button" data-action="${estado === 'sin-asignar' || estado === 'suplente' ? 'admin-turno-assign' : 'admin-turno-select'}" data-id="${turno.id}">
         ${estado === 'sin-asignar' ? 'Asignar' : estado === 'suplente' ? 'Cambiar' : 'Ver'}
       </button>
     </article>
@@ -2430,6 +2476,269 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
       <button type="button" data-action="admin-audit-info">Ver historial completo <span>›</span></button>
     </section>
   `;
+}
+
+function getUsuariosAsignables(modo: 'reemplazar' | 'agregar'): Usuario[] {
+  const usuarios = StorageDB.getUsuarios()
+    .filter((usuario) => usuario.rol !== 'administrador')
+    .toSorted((a, b) => {
+      if (modo === 'agregar' && a.frecuencia !== b.frecuencia) {
+        return a.frecuencia === 'suplente' ? -1 : b.frecuencia === 'suplente' ? 1 : 0;
+      }
+
+      return a.nombreCompleto.localeCompare(b.nombreCompleto);
+    });
+
+  return usuarios;
+}
+
+function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agregar'): string {
+  const usuarios = getUsuariosAsignables(modo);
+  const lote = getAdminTurnoLote(turno);
+  const fechaTurno = parseFecha(turno.dia);
+  const diaTurno = getWeekdayIso(fechaTurno);
+  const lotesMes = getLotesMesTurno(turno);
+  const titulo = modo === 'agregar' ? 'Buscar suplente' : turno.inscritos.length > 0 ? 'Reasignar turno' : 'Asignar adorador';
+
+  return `
+    <header class="modal-header admin-turn-modal-head">
+      <div>
+        <p class="modal-kicker">Turnos asignados</p>
+        <h2>${escapeHtml(titulo)}</h2>
+        <p>${escapeHtml(formatFecha(turno.dia))} · ${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)} · ${escapeHtml(lote?.nombre ?? 'Lote sin identificar')}</p>
+      </div>
+      <button class="icon-only modal-close" type="button" data-action="admin-turno-modal-close" aria-label="Cerrar">×</button>
+    </header>
+
+    <section class="admin-turn-modal-summary">
+      <div><span>Actual</span><strong>${escapeHtml(turno.inscritos[0] ?? 'Sin asignar')}</strong></div>
+      <div><span>Plazas</span><strong>${turno.plazasTotales - turno.plazasDisponibles}/${turno.plazasTotales}</strong></div>
+      <div><span>Modo</span><strong>${modo === 'agregar' ? 'Agregar suplente' : 'Reemplazar titular'}</strong></div>
+    </section>
+
+    <form class="admin-turn-assign-form" data-admin-turno-form="${turno.id}">
+      <label>
+        <span>Adorador</span>
+        <select id="admin-turno-usuario" required ${usuarios.length === 0 ? 'disabled' : ''}>
+          ${usuarios.length === 0
+            ? '<option value="">No hay adoradores registrados</option>'
+            : usuarios.map((usuario) => `<option value="${usuario.id}">${escapeHtml(usuario.nombreCompleto)} · ${escapeHtml(formatFrecuencia(usuario.frecuencia))}</option>`).join('')
+          }
+        </select>
+      </label>
+
+      <fieldset class="admin-turn-mode-field">
+        <legend>Tipo de asignacion</legend>
+        <label>
+          <input type="radio" name="admin-turno-modo" value="reemplazar" ${modo === 'reemplazar' ? 'checked' : ''} />
+          <span>Reemplazar titular</span>
+        </label>
+        <label>
+          <input type="radio" name="admin-turno-modo" value="agregar" ${modo === 'agregar' ? 'checked' : ''} />
+          <span>Agregar como suplente si hay plaza</span>
+        </label>
+      </fieldset>
+
+      <fieldset class="admin-turn-period-field">
+        <legend>Alcance</legend>
+        <label>
+          <input type="radio" name="admin-turno-alcance" value="unico" checked />
+          <span>Solo este turno</span>
+        </label>
+        <label>
+          <input type="radio" name="admin-turno-alcance" value="rango" />
+          <span>Usar fechas periodicamente</span>
+        </label>
+        <label>
+          <input type="radio" name="admin-turno-alcance" value="lote" ${lotesMes.length === 0 ? 'disabled' : ''} />
+          <span>Lote del mes del turno</span>
+        </label>
+      </fieldset>
+
+      <div class="admin-turn-period-grid">
+        <label>
+          <span>Desde</span>
+          <input id="admin-turno-fecha-inicio" type="date" value="${turno.dia}" />
+        </label>
+        <label>
+          <span>Hasta</span>
+          <input id="admin-turno-fecha-fin" type="date" value="${turno.dia}" />
+        </label>
+      </div>
+
+      <label class="admin-turn-lote-field">
+        <span>Lote del mes</span>
+        <select id="admin-turno-lote" ${lotesMes.length === 0 ? 'disabled' : ''}>
+          ${lotesMes.length === 0
+            ? '<option value="">No hay lote para este mes</option>'
+            : lotesMes.map((item) => `<option value="${item.id}" ${item.id === turno.loteId ? 'selected' : ''}>${escapeHtml(item.nombre)} · ${escapeHtml(formatFecha(item.fechaInicio))} - ${escapeHtml(formatFecha(item.fechaFin))}</option>`).join('')
+          }
+        </select>
+      </label>
+
+      <fieldset class="admin-turn-weekdays-field">
+        <legend>Dias de repeticion</legend>
+        <div>
+          ${diasSemana.map((dia) => `
+            <label>
+              <input type="checkbox" name="admin-turno-dia" value="${dia.value}" ${dia.value === diaTurno ? 'checked' : ''} />
+              <span>${escapeHtml(dia.label)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </fieldset>
+
+      <p class="admin-turn-modal-note">Se aplicara a turnos de ${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)} que coincidan con el alcance y los dias marcados.</p>
+
+      <footer class="modal-actions">
+        <button class="button button-secondary" type="button" data-action="admin-turno-modal-close">Cancelar</button>
+        <button class="button button-primary" type="submit" ${usuarios.length === 0 ? 'disabled' : ''}>Guardar asignacion</button>
+      </footer>
+    </form>
+  `;
+}
+
+function getLotesMesTurno(turno: Turno): LoteExposicion[] {
+  const monthValue = fechaToMonthInput(parseFecha(turno.dia));
+  const bounds = getMonthBounds(monthValue);
+
+  return StorageDB.getLotes()
+    .filter((lote) => lote.fechaInicio <= bounds.fin && lote.fechaFin >= bounds.inicio)
+    .toSorted((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+}
+
+function getDiasAsignacionTurno(form: HTMLFormElement, fallbackDia: string): number[] {
+  const selectedDays = Array.from(form.querySelectorAll<HTMLInputElement>('input[name="admin-turno-dia"]:checked'))
+    .map((input) => Number(input.value))
+    .filter((value) => Number.isInteger(value) && value >= 1 && value <= 7);
+
+  return selectedDays.length > 0 ? selectedDays : [getWeekdayIso(parseFecha(fallbackDia))];
+}
+
+function getTurnosObjetivoAsignacion(turnoBase: Turno, form: HTMLFormElement): Turno[] {
+  const alcance = form.querySelector<HTMLInputElement>('input[name="admin-turno-alcance"]:checked')?.value ?? 'unico';
+
+  if (alcance === 'unico') {
+    return [turnoBase];
+  }
+
+  const diasSeleccionados = new Set(getDiasAsignacionTurno(form, turnoBase.dia));
+  let fechaInicio = form.querySelector<HTMLInputElement>('#admin-turno-fecha-inicio')?.value || turnoBase.dia;
+  let fechaFin = form.querySelector<HTMLInputElement>('#admin-turno-fecha-fin')?.value || turnoBase.dia;
+  let loteId: string | undefined;
+
+  if (alcance === 'lote') {
+    const lote = StorageDB.getLotes().find((item) => item.id === form.querySelector<HTMLSelectElement>('#admin-turno-lote')?.value);
+
+    if (!lote) {
+      throw new Error('Selecciona un lote valido para aplicar la asignacion.');
+    }
+
+    loteId = lote.id;
+    fechaInicio = lote.fechaInicio;
+    fechaFin = lote.fechaFin;
+  }
+
+  if (parseFecha(fechaInicio) > parseFecha(fechaFin)) {
+    throw new Error('La fecha final debe ser posterior a la inicial.');
+  }
+
+  return getTurnosOrdenados().filter((turno) =>
+    turno.dia >= fechaInicio &&
+    turno.dia <= fechaFin &&
+    turno.horaInicio === turnoBase.horaInicio &&
+    turno.horaFin === turnoBase.horaFin &&
+    diasSeleccionados.has(getWeekdayIso(parseFecha(turno.dia))) &&
+    (!loteId || turno.loteId === loteId)
+  );
+}
+
+function abrirModalAdminTurnoAsignacion(id: string | null, modo: 'reemplazar' | 'agregar' = 'reemplazar'): void {
+  const turno = id ? StorageDB.getTurnos().find((item) => item.id === id) : undefined;
+
+  if (!turno) {
+    mostrarAviso('Turno no encontrado', 'No se pudo localizar el turno para asignarlo.', 'error');
+    return;
+  }
+
+  adminTurnoAsignacionId = turno.id;
+  adminTurnoSeleccionadoId = turno.id;
+  modalAdminTurnoCard.innerHTML = renderAdminTurnoAsignacionModal(turno, modo);
+  modalAdminTurno.showModal();
+  renderAdminTurnosCubiertos();
+}
+
+function cerrarModalAdminTurno(): void {
+  modalAdminTurno.close();
+  modalAdminTurnoCard.innerHTML = '';
+  adminTurnoAsignacionId = null;
+}
+
+function guardarAsignacionTurnoDesdeFormulario(form: HTMLFormElement): void {
+  const turno = adminTurnoAsignacionId ? StorageDB.getTurnos().find((item) => item.id === adminTurnoAsignacionId) : undefined;
+  const usuarioId = form.querySelector<HTMLSelectElement>('#admin-turno-usuario')?.value ?? '';
+  const usuario = StorageDB.getUsuarios().find((item) => item.id === usuarioId);
+  const modo = form.querySelector<HTMLInputElement>('input[name="admin-turno-modo"]:checked')?.value as 'reemplazar' | 'agregar' | undefined;
+
+  if (!turno || !usuario || !modo) {
+    mostrarAviso('No se pudo asignar', 'Selecciona un adorador valido para continuar.', 'error');
+    return;
+  }
+
+  let objetivos: Turno[] = [];
+
+  try {
+    objetivos = getTurnosObjetivoAsignacion(turno, form);
+  } catch (error) {
+    mostrarAviso('Revisa la asignacion', error instanceof Error ? error.message : 'No se pudo calcular la recurrencia.', 'error');
+    return;
+  }
+
+  if (objetivos.length === 0) {
+    mostrarAviso('Sin turnos coincidentes', 'No hay turnos con esa hora, rango y dias seleccionados.', 'error');
+    return;
+  }
+
+  let actualizados = 0;
+  let omitidos = 0;
+
+  objetivos.forEach((objetivo) => {
+    const yaInscrito = objetivo.inscritos.some((inscrito) => normalizarNombre(inscrito) === normalizarNombre(usuario.nombreCompleto));
+    let inscritos = [...objetivo.inscritos];
+
+    if (modo === 'reemplazar') {
+      inscritos = [usuario.nombreCompleto];
+    } else {
+      if (yaInscrito || inscritos.length >= objetivo.plazasTotales) {
+        omitidos += 1;
+        return;
+      }
+
+      inscritos = [...inscritos, usuario.nombreCompleto];
+    }
+
+    StorageDB.actualizarTurno({
+      ...objetivo,
+      inscritos,
+      plazasDisponibles: Math.max(0, objetivo.plazasTotales - inscritos.length)
+    });
+    actualizados += 1;
+  });
+
+  if (actualizados === 0) {
+    mostrarAviso('No se aplicaron cambios', 'Todos los turnos estaban completos o ya tenian ese adorador asignado.', 'error');
+    return;
+  }
+
+  adminTurnoSeleccionadoId = turno.id;
+  cerrarModalAdminTurno();
+  renderAdminTurnosCubiertos();
+  renderUsuario();
+  mostrarAviso(
+    'Turnos actualizados',
+    `${usuario.nombreCompleto} quedo asignado en ${formatPlural(actualizados, 'turno', 'turnos')}.${omitidos > 0 ? ` ${formatPlural(omitidos, 'turno omitido', 'turnos omitidos')}.` : ''}`,
+    'success'
+  );
 }
 
 function renderMiTurnoCard(turno: Turno): string {
@@ -3439,14 +3748,15 @@ document.addEventListener('click', (event) => {
 
   if (target.closest('[data-action="admin-logout"]')) {
     setAdminAuthenticated(false);
-    mostrarVista('admin-login');
+    StorageDB.clearPerfilAdorador();
+    mostrarVista('admin-login', { bypassSessionRedirect: true });
     return;
   }
 
   if (target.closest('[data-action="usuario-logout"]')) {
     StorageDB.clearPerfilAdorador();
     renderProfileButton();
-    mostrarVista('admin-login');
+    mostrarVista('admin-login', { bypassSessionRedirect: true });
     mostrarAviso('Sesion cerrada', 'Tu perfil se cerro en este dispositivo.', 'success');
     return;
   }
@@ -3524,6 +3834,9 @@ document.addEventListener('click', (event) => {
     if (modalAdminUsuario.open) {
       cerrarModalAdminUsuario();
     }
+    if (modalAdminTurno.open) {
+      cerrarModalAdminTurno();
+    }
     renderAdminPanel();
     return;
   }
@@ -3547,7 +3860,7 @@ document.addEventListener('click', (event) => {
   }
 
   const adminTurnoAction = target.closest<HTMLButtonElement>(
-    '[data-action="admin-turno-select"], [data-action="admin-turno-clear-detail"], [data-action="admin-turno-assign"], [data-action="admin-turno-suplente"], [data-action="admin-turno-incident"], [data-action="admin-turno-block"], [data-action="admin-turno-filter-info"]'
+    '[data-action="admin-turno-select"], [data-action="admin-turno-clear-detail"], [data-action="admin-turno-assign"], [data-action="admin-turno-suplente"], [data-action="admin-turno-incident"], [data-action="admin-turno-block"], [data-action="admin-turno-filter-info"], [data-action="admin-turno-dia-toggle"], [data-action="admin-turno-modal-close"]'
   );
 
   if (adminTurnoAction) {
@@ -3559,14 +3872,43 @@ document.addEventListener('click', (event) => {
       return;
     }
 
+    if (action === 'admin-turno-dia-toggle') {
+      const dia = adminTurnoAction.dataset.dia;
+
+      if (dia) {
+        if (adminTurnosDiasColapsados.has(dia)) {
+          adminTurnosDiasColapsados.delete(dia);
+        } else {
+          adminTurnosDiasColapsados.add(dia);
+        }
+        renderAdminTurnosCubiertos();
+      }
+      return;
+    }
+
     if (action === 'admin-turno-clear-detail') {
       adminTurnoSeleccionadoId = ADMIN_TURNO_DETAIL_CLOSED;
       renderAdminTurnosCubiertos();
       return;
     }
 
+    if (action === 'admin-turno-modal-close') {
+      cerrarModalAdminTurno();
+      return;
+    }
+
     if (action === 'admin-turno-filter-info') {
       mostrarAviso('Filtros activos', 'Usa los chips de estado para acotar los turnos de la semana.', 'info');
+      return;
+    }
+
+    if (action === 'admin-turno-assign') {
+      abrirModalAdminTurnoAsignacion(adminTurnoAction.dataset.id ?? null, 'reemplazar');
+      return;
+    }
+
+    if (action === 'admin-turno-suplente') {
+      abrirModalAdminTurnoAsignacion(adminTurnoAction.dataset.id ?? null, 'agregar');
       return;
     }
 
@@ -3828,6 +4170,17 @@ document.addEventListener('submit', (event) => {
 });
 
 document.addEventListener('submit', (event) => {
+  const form = (event.target as HTMLElement).closest<HTMLFormElement>('.admin-turn-assign-form');
+
+  if (!form) {
+    return;
+  }
+
+  event.preventDefault();
+  guardarAsignacionTurnoDesdeFormulario(form);
+});
+
+document.addEventListener('submit', (event) => {
   const form = (event.target as HTMLElement).closest<HTMLFormElement>('[data-profile-edit-form]');
 
   if (!form) {
@@ -3852,6 +4205,7 @@ formAdminLogin.addEventListener('submit', (event) => {
     guardarEmailRecordado(email);
     setFieldError(adminEmail, '', false);
     setFieldError(adminPassword, '', false);
+    StorageDB.clearPerfilAdorador();
     setAdminAuthenticated(true);
     mostrarAdminLoginMensaje('', 'info');
     mostrarVista('admin');
