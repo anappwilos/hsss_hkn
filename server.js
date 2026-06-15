@@ -19,7 +19,7 @@ if (!databaseUrl) {
 
 const pool = new Pool({
   connectionString: databaseUrl,
-  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined
+  ssl: shouldUseDatabaseSsl(databaseUrl) ? { rejectUnauthorized: false } : undefined
 });
 
 const emptyState = {
@@ -124,6 +124,19 @@ async function loadEnvFile() {
     }
   } catch {
     // .env is optional in production because Render injects environment variables.
+  }
+}
+
+function shouldUseDatabaseSsl(connectionString) {
+  if (process.env.DATABASE_SSL === 'true') {
+    return true;
+  }
+
+  try {
+    const url = new URL(connectionString);
+    return url.searchParams.get('sslmode') === 'require';
+  } catch {
+    return false;
   }
 }
 

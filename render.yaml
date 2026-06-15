@@ -15,6 +15,10 @@ services:
         sync: false
       - key: VITE_ADMIN_PASSWORD
         sync: false
+      - key: VITE_SUPERADMIN_EMAIL
+        sync: false
+      - key: VITE_SUPERADMIN_PASSWORD
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: a-solas-db
@@ -23,5 +27,6 @@ services:
 databases:
   - name: a-solas-db
     plan: free
+    postgresMajorVersion: "16"
     databaseName: a_solas
     user: a_solas

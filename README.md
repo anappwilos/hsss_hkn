@@ -108,7 +108,7 @@ La app puede desplegarse en Render como un Blueprint desde `render.yaml`. Render
 2. En Render, crea un **New Blueprint Instance** y selecciona el repositorio.
 3. Render leera `render.yaml` y creara:
    - Servicio web `a-solas` con `buildCommand: npm install && npm run build`, `startCommand: npm start` y healthcheck `/api/health`.
-   - Base PostgreSQL `a-solas-db`. El Blueprint usa `plan: free` para arrancar sin coste; para produccion estable conviene cambiarlo a `basic-256mb` o superior antes de crear el servicio.
+   - Base PostgreSQL 16 `a-solas-db`. El Blueprint usa `plan: free` para arrancar sin coste; para produccion estable conviene cambiarlo a `basic-256mb` o superior antes de crear el servicio.
 4. Cuando Render pida variables marcadas con `sync: false`, define:
    - `VITE_ADMIN_EMAIL`: correo del administrador.
    - `VITE_ADMIN_PASSWORD`: contrasena del administrador.
@@ -116,7 +116,7 @@ La app puede desplegarse en Render como un Blueprint desde `render.yaml`. Render
    - `VITE_SUPERADMIN_PASSWORD`: contrasena del superadministrador.
 5. Al terminar el despliegue, abre `https://<tu-servicio>.onrender.com/api/health`; deberia devolver `{"ok":true}`.
 
-El Blueprint inyecta `DATABASE_URL` desde la base `a-solas-db` y activa `VITE_ENABLE_REMOTE_STORAGE=true`. En produccion el cliente sincroniza contra `/api/state` del mismo dominio, por lo que `VITE_API_BASE_URL` debe quedarse vacio/no definido. Si usas una base externa que exige SSL para `DATABASE_URL`, define tambien `DATABASE_SSL=true`.
+El Blueprint inyecta `DATABASE_URL` desde la base `a-solas-db` y activa `VITE_ENABLE_REMOTE_STORAGE=true`. En produccion el cliente sincroniza contra `/api/state` del mismo dominio, por lo que `VITE_API_BASE_URL` debe quedarse vacio/no definido. Si usas una base externa que exige SSL para `DATABASE_URL`, define tambien `DATABASE_SSL=true` o usa una URL con `sslmode=require`.
 
 En desarrollo, Vite usa `VITE_API_BASE_URL=http://localhost:3000` para llamar a la API local.
 
