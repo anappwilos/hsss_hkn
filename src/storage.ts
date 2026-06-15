@@ -85,10 +85,11 @@ export class StorageDB {
   private static readonly REMOTE_ENABLED = (import.meta.env.VITE_ENABLE_REMOTE_STORAGE ?? 'true') !== 'false';
   private static readonly API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
   private static readonly PERFIL_ADORADOR_SESSION_KEY = 'hsss_perfil_adorador_id';
+  private static readonly PERFIL_ADORADOR_CACHE_KEY = 'hsss_perfil_adorador_cache';
   private static applyingRemoteSnapshot = false;
   private static syncQueue: Promise<void> = Promise.resolve();
   private static syncListeners = new Set<SyncListener>();
-  private static usuarios: Usuario[] = [];
+  private static usuarios: Usuario[] = StorageDB.readPerfilAdoradorCacheArray();
   private static lotes: LoteExposicion[] = [];
   private static turnos: Turno[] = [];
   private static notificaciones: NotificacionRegistro[] = [];
@@ -178,6 +179,38 @@ export class StorageDB {
     }
   }
 
+  private static readPerfilAdoradorCache(): Usuario | null {
+    try {
+      const raw = localStorage.getItem(StorageDB.PERFIL_ADORADOR_CACHE_KEY);
+
+      if (!raw) {
+        return null;
+      }
+
+      return StorageDB.normalizeUsuario(JSON.parse(raw));
+    } catch {
+      return null;
+    }
+  }
+
+  private static readPerfilAdoradorCacheArray(): Usuario[] {
+    const cached = StorageDB.readPerfilAdoradorCache();
+    return cached ? [cached] : [];
+  }
+
+  private static writePerfilAdoradorCache(usuario: Usuario | null): void {
+    try {
+      if (usuario) {
+        localStorage.setItem(StorageDB.PERFIL_ADORADOR_CACHE_KEY, JSON.stringify(StorageDB.normalizeUsuario(usuario)));
+        return;
+      }
+
+      localStorage.removeItem(StorageDB.PERFIL_ADORADOR_CACHE_KEY);
+    } catch {
+      // La sesion sigue funcionando en memoria si el navegador bloquea localStorage.
+    }
+  }
+
   private static async saveRemote(snapshot: RemoteSnapshot): Promise<void> {
     try {
       const response = await fetch(StorageDB.apiUrl('/api/state'), {
@@ -248,19 +281,34 @@ export class StorageDB {
       return null;
     }
 
-    return StorageDB.usuarios.find((usuario) => usuario.id === StorageDB.perfilAdoradorId) ?? null;
+    const perfil = StorageDB.usuarios.find((usuario) => usuario.id === StorageDB.perfilAdoradorId);
+
+    if (perfil) {
+      return perfil;
+    }
+
+    const cached = StorageDB.readPerfilAdoradorCache();
+
+    if (!cached || cached.id !== StorageDB.perfilAdoradorId) {
+      return null;
+    }
+
+    StorageDB.usuarios = [cached, ...StorageDB.usuarios.filter((usuario) => usuario.id !== cached.id)];
+    return cached;
   }
 
   public static savePerfilAdorador(perfil: PerfilAdorador): void {
     const usuario = StorageDB.normalizeUsuario(perfil);
     StorageDB.perfilAdoradorId = usuario.id;
     StorageDB.writePerfilAdoradorSession(usuario.id);
+    StorageDB.writePerfilAdoradorCache(usuario);
     StorageDB.upsertUsuario(usuario);
   }
 
   public static clearPerfilAdorador(): void {
     StorageDB.perfilAdoradorId = null;
     StorageDB.writePerfilAdoradorSession(null);
+    StorageDB.writePerfilAdoradorCache(null);
   }
 
   public static getUsuarios(): Usuario[] {
@@ -270,10 +318,20 @@ export class StorageDB {
   public static saveUsuarios(usuarios: Usuario[]): void {
     StorageDB.usuarios = StorageDB.normalizeUsuarios(usuarios);
     const persistedPerfilId = StorageDB.perfilAdoradorId ?? StorageDB.readPerfilAdoradorSession();
+    const remotePerfil = persistedPerfilId
+      ? StorageDB.usuarios.find((usuario) => usuario.id === persistedPerfilId)
+      : undefined;
+    const cachedPerfil = StorageDB.readPerfilAdoradorCache();
 
-    if (persistedPerfilId && StorageDB.usuarios.some((usuario) => usuario.id === persistedPerfilId)) {
+    if (remotePerfil) {
       StorageDB.perfilAdoradorId = persistedPerfilId;
       StorageDB.writePerfilAdoradorSession(persistedPerfilId);
+      StorageDB.writePerfilAdoradorCache(remotePerfil);
+    } else if (persistedPerfilId && cachedPerfil?.id === persistedPerfilId) {
+      StorageDB.perfilAdoradorId = persistedPerfilId;
+      StorageDB.usuarios = [cachedPerfil, ...StorageDB.usuarios.filter((usuario) => usuario.id !== persistedPerfilId)];
+      StorageDB.writePerfilAdoradorSession(persistedPerfilId);
+      StorageDB.writePerfilAdoradorCache(cachedPerfil);
     } else if (persistedPerfilId) {
       StorageDB.clearPerfilAdorador();
     }

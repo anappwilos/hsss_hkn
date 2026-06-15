@@ -841,7 +841,11 @@ function setAdminAuthenticated(value: boolean): void {
 }
 
 function getVistaInicial(): Vista {
-  return 'admin-login';
+  if (isAdminAuthenticated()) {
+    return 'admin';
+  }
+
+  return StorageDB.getPerfilAdorador() ? 'usuario' : 'admin-login';
 }
 
 function mostrarAdminLoginMensaje(message: string, tone: 'info' | 'error' = 'info'): void {
@@ -4134,12 +4138,12 @@ resetConfig();
 cargarEmailRecordado();
 mostrarVista(getVistaInicial(), { recordHistory: false });
 void StorageDB.loadRemote().then((loaded) => {
-  if (loaded) {
-    if (StorageDB.getPerfilAdorador() && vistaActual === 'admin-login') {
-      mostrarVista('usuario', { recordHistory: false });
-      return;
-    }
+  if (StorageDB.getPerfilAdorador() && vistaActual === 'admin-login') {
+    mostrarVista('usuario', { recordHistory: false });
+    return;
+  }
 
+  if (loaded) {
     refrescarVistaActual();
   }
 });
