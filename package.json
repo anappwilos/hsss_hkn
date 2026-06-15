@@ -14,9 +14,7 @@
     "render-build": "npm install && npm run build"
   },
   "dependencies": {
-    "pg": "^8.21.0"
-  },
-  "devDependencies": {
+    "pg": "^8.21.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.12"
   }
