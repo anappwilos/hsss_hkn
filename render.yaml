@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: a-solas
+    name: a-solas-api
     runtime: node
     plan: free
     buildCommand: npm install && npm run build
@@ -23,6 +23,18 @@ services:
         fromDatabase:
           name: a-solas-db
           property: connectionString
+
+  - type: static
+    name: a-solas-web
+    buildCommand: npm install && npm run build
+    publishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
 
 databases:
   - name: a-solas-db
