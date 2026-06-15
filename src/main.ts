@@ -83,42 +83,16 @@ app.innerHTML = `
   <main class="app-shell">
     <section id="vista-inicio" class="view welcome-view">
       <div class="welcome-screen">
-        <div class="welcome-mark" aria-hidden="true">
-          <svg viewBox="0 0 96 96" role="presentation">
-            <circle cx="48" cy="48" r="24"></circle>
-            <circle cx="48" cy="48" r="11"></circle>
-            <path d="M48 15v14M48 67v14M15 48h14M67 48h14M25 25l10 10M61 61l10 10M71 25 61 35M35 61 25 71"></path>
-          </svg>
-        </div>
-
         <header class="welcome-copy">
-          <span class="welcome-eyebrow">Adoracion perpetua</span>
-          <h1>Organiza cada hora con calma y belleza.</h1>
-          <p>Un espacio unico para entrar, reservar turnos y cuidar la continuidad de la capilla.</p>
+          <h1>A Solas</h1>
         </header>
 
         <div class="landing-actions">
-          <button class="button button-primary landing-primary" type="button" data-view="admin-login">Iniciar sesion <span aria-hidden="true">&gt;</span></button>
+          <button class="button button-primary landing-primary" type="button" data-view="admin-login">Iniciar sesion <span aria-hidden="true"></span></button>
           <button class="button button-secondary landing-secondary" type="button" data-view="registro-adorador">Crear cuenta</button>
         </div>
 
-        <section class="landing-proof" aria-label="Resumen de beneficios">
-          <article>
-            <strong>Reservas claras</strong>
-            <span>Turnos visibles por dia o semana.</span>
-          </article>
-          <article>
-            <strong>Perfil cuidado</strong>
-            <span>Datos, avisos y compromisos en un solo lugar.</span>
-          </article>
-          <article>
-            <strong>Gestion sencilla</strong>
-            <span>Acceso administrador desde el mismo login.</span>
-          </article>
-        </section>
-
         <footer class="welcome-footer">
-          <span>PAZ Y BIEN</span>
           <strong class="app-version">A solas v${APP_VERSION}</strong>
         </footer>
       </div>
