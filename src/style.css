@@ -2997,7 +2997,9 @@ select:focus-visible {
   background: #fffdfb;
 }
 
-.admin-turn-mode-field {
+.admin-turn-mode-field,
+.admin-turn-period-field,
+.admin-turn-weekdays-field {
   display: grid;
   gap: 10px;
   border: 0;
@@ -3005,7 +3007,8 @@ select:focus-visible {
   padding: 0;
 }
 
-.admin-turn-mode-field label {
+.admin-turn-mode-field label,
+.admin-turn-period-field label {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -3016,15 +3019,85 @@ select:focus-visible {
   cursor: pointer;
 }
 
-.admin-turn-mode-field input {
+.admin-turn-mode-field input,
+.admin-turn-period-field input {
   width: 18px;
   height: 18px;
   accent-color: #d54816;
 }
 
-.admin-turn-mode-field label span {
+.admin-turn-mode-field label span,
+.admin-turn-period-field label span {
   color: #3d3430;
   font-weight: 800;
+}
+
+.admin-turn-period-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-turn-period-grid label,
+.admin-turn-lote-field {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-turn-period-grid span,
+.admin-turn-lote-field span,
+.admin-turn-weekdays-field legend {
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-turn-period-grid input,
+.admin-turn-lote-field select {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(61, 52, 48, 0.13);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--color-text);
+  background: #fffdfb;
+}
+
+.admin-turn-weekdays-field > div {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-turn-weekdays-field label {
+  display: grid;
+  min-height: 42px;
+  place-items: center;
+  border: 1px solid rgba(201, 93, 36, 0.14);
+  border-radius: 8px;
+  background: #fffdfb;
+  cursor: pointer;
+}
+
+.admin-turn-weekdays-field input {
+  position: absolute;
+  opacity: 0;
+}
+
+.admin-turn-weekdays-field span {
+  color: #6a4435;
+  font-weight: 900;
+}
+
+.admin-turn-weekdays-field label:has(input:checked) {
+  border-color: #d54816;
+  background: #fff0e7;
+}
+
+.admin-turn-weekdays-field label:has(input:checked) span {
+  color: #d54816;
 }
 
 .admin-turn-modal-note {
@@ -4222,6 +4295,11 @@ select:focus-visible {
   }
 
   .admin-turn-modal-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-turn-period-grid,
+  .admin-turn-weekdays-field > div {
     grid-template-columns: 1fr;
   }
 
