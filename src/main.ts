@@ -689,31 +689,31 @@ app.innerHTML = `
 const landingVideo = document.querySelector<HTMLVideoElement>('#landing-video');
 const landingSoundButton = document.querySelector<HTMLButtonElement>('[data-action="toggle-landing-sound"]');
 
-function disableLandingVideo(): void {
-  if (landingVideo) {
-    landingVideo.hidden = true;
-  }
+function disableOptionalBackgroundVideo(video: HTMLVideoElement): void {
+  video.hidden = true;
 
-  if (landingSoundButton) {
+  if (video === landingVideo && landingSoundButton) {
     landingSoundButton.hidden = true;
   }
 }
 
-function enableLandingVideoControls(): void {
-  if (landingVideo?.hidden) {
+function enableOptionalBackgroundVideo(video: HTMLVideoElement): void {
+  if (video.hidden) {
     return;
   }
 
-  if (landingSoundButton) {
+  if (video === landingVideo && landingSoundButton) {
     landingSoundButton.hidden = false;
   }
 }
 
-landingVideo?.addEventListener('loadeddata', enableLandingVideoControls);
-landingVideo?.addEventListener('canplay', enableLandingVideoControls);
-landingVideo?.addEventListener('error', disableLandingVideo);
-landingVideo?.querySelectorAll('source').forEach((source) => {
-  source.addEventListener('error', disableLandingVideo);
+document.querySelectorAll<HTMLVideoElement>('.optional-bg-video').forEach((video) => {
+  video.addEventListener('loadeddata', () => enableOptionalBackgroundVideo(video));
+  video.addEventListener('canplay', () => enableOptionalBackgroundVideo(video));
+  video.addEventListener('error', () => disableOptionalBackgroundVideo(video));
+  video.querySelectorAll('source').forEach((source) => {
+    source.addEventListener('error', () => disableOptionalBackgroundVideo(video));
+  });
 });
 
 const vistaInicio = getElement<HTMLElement>('#vista-inicio');
