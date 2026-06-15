@@ -1900,9 +1900,9 @@ function maskPhone(value: string): string {
 
 function getFrecuenciaDetalle(frecuencia: UsuarioFrecuencia): string {
   const labels: Record<UsuarioFrecuencia, string> = {
-    fijo: 'Compromiso estable',
-    suplente: 'Segun necesidad',
-    puntual: 'Reserva ocasional'
+    fijo: '',
+    suplente: '',
+    puntual: ''
   };
 
   return labels[frecuencia];
@@ -1965,16 +1965,15 @@ function renderAdminUsuarios(): void {
 
         <section class="admin-user-metrics" aria-label="Resumen de usuarios">
           <article><span>Total usuarios</span><strong>${usuarios.length}</strong><small>perfiles registrados</small></article>
-          <article><span>Fijos</span><strong>${totalFijos}</strong><small>cobertura estable</small></article>
-          <article><span>Puntuales</span><strong>${totalPuntuales}</strong><small>inscripcion ocasional</small></article>
-          <article><span>Suplentes</span><strong>${totalSuplentes}</strong><small>apoyo flexible</small></article>
+          <article><span>Fijos</span><strong>${totalFijos}</strong></article>
+          <article><span>Puntuales</span><strong>${totalPuntuales}</strong></article>
+          <article><span>Suplentes</span><strong>${totalSuplentes}</strong></article>
         </section>
 
         <section class="admin-users-card">
           <div class="admin-users-card-head">
             <div>
               <p class="section-kicker">Directorio</p>
-              <h3>Perfiles registrados</h3>
               <p>Datos visibles solo para administradores.</p>
             </div>
             <label class="admin-user-search">
