@@ -552,7 +552,7 @@ button:disabled {
   inset: 0;
   background: var(--landing-bg) center right / cover no-repeat;
   content: "";
-  opacity: 0.42;
+  opacity: 1;
   filter: saturate(0.78) contrast(1.08);
   transform: scale(1.02);
 }

@@ -108,7 +108,7 @@ const historialVistas: Vista[] = [];
 app.innerHTML = `
   <main class="app-shell">
     <section id="vista-inicio" class="view welcome-view" style="--landing-bg: url('${adoracionHeroUrl}')">
-      <video id="landing-video" class="welcome-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
+      <video id="landing-video" class="welcome-video optional-bg-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
         <source src="/landing-video.mp4" type="video/mp4" />
       </video>
       <button class="landing-sound-button" type="button" data-action="toggle-landing-sound" aria-label="Activar sonido del video" aria-pressed="false" hidden>Sonido</button>
@@ -128,7 +128,10 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section id="vista-admin-login" class="view admin-login-view" style="display: none;">
+    <section id="vista-admin-login" class="view admin-login-view" style="--landing-bg: url('${adoracionHeroUrl}'); display: none;">
+      <video class="auth-bg-video optional-bg-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
+        <source src="/landing-video.mp4" type="video/mp4" />
+      </video>
       <header class="mobile-topbar">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
@@ -284,7 +287,10 @@ app.innerHTML = `
 
     </section>
 
-    <section id="vista-registro-adorador" class="view registro-view" style="display: none;">
+    <section id="vista-registro-adorador" class="view registro-view" style="--landing-bg: url('${adoracionHeroUrl}'); display: none;">
+      <video class="auth-bg-video optional-bg-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
+        <source src="/landing-video.mp4" type="video/mp4" />
+      </video>
       <header class="mobile-topbar registro-topbar">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <h1>Registro A solas</h1>
@@ -679,6 +685,36 @@ app.innerHTML = `
     <div id="toast-region" class="toast-region" aria-live="polite" aria-relevant="additions"></div>
   </main>
 `;
+
+const landingVideo = document.querySelector<HTMLVideoElement>('#landing-video');
+const landingSoundButton = document.querySelector<HTMLButtonElement>('[data-action="toggle-landing-sound"]');
+
+function disableLandingVideo(): void {
+  if (landingVideo) {
+    landingVideo.hidden = true;
+  }
+
+  if (landingSoundButton) {
+    landingSoundButton.hidden = true;
+  }
+}
+
+function enableLandingVideoControls(): void {
+  if (landingVideo?.hidden) {
+    return;
+  }
+
+  if (landingSoundButton) {
+    landingSoundButton.hidden = false;
+  }
+}
+
+landingVideo?.addEventListener('loadeddata', enableLandingVideoControls);
+landingVideo?.addEventListener('canplay', enableLandingVideoControls);
+landingVideo?.addEventListener('error', disableLandingVideo);
+landingVideo?.querySelectorAll('source').forEach((source) => {
+  source.addEventListener('error', disableLandingVideo);
+});
 
 const vistaInicio = getElement<HTMLElement>('#vista-inicio');
 const vistaAdminLogin = getElement<HTMLElement>('#vista-admin-login');
@@ -4069,8 +4105,6 @@ document.addEventListener('click', (event) => {
   const landingSoundButton = target.closest<HTMLButtonElement>('[data-action="toggle-landing-sound"]');
 
   if (landingSoundButton) {
-    const landingVideo = document.querySelector<HTMLVideoElement>('#landing-video');
-
     if (!landingVideo) {
       return;
     }
