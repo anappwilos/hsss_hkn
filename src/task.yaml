@@ -14,3 +14,9 @@ Login:
 Base de datos:
 
 - Eliminar campo de nombre_completo
+
+
+---v2
+- No utilizar alerts sino modales
+- Admin y Root NO pueden eliminar 
+- Root puede crear nuevos tipos de frecuencias y roles

@@ -27,6 +27,10 @@ const emptyState = {
   lotes: [],
   turnos: [],
   notificaciones: [],
+  catalogoUsuarios: {
+    frecuencias: ['fijo', 'suplente', 'puntual'],
+    roles: ['usuario', 'sacerdote', 'admin', 'root']
+  },
   updatedAt: 0
 };
 
@@ -139,8 +143,8 @@ async function initializeStore() {
       apellidos text NOT NULL,
       email text NOT NULL UNIQUE,
       telefono text NOT NULL,
-      frecuencia text NOT NULL CHECK (frecuencia IN ('fijo', 'suplente', 'puntual')),
-      rol text NOT NULL CHECK (rol IN ('root', 'admin', 'sacerdote', 'usuario')),
+      frecuencia text NOT NULL,
+      rol text NOT NULL,
       creado_en timestamptz NOT NULL DEFAULT now(),
       actualizado_en timestamptz NOT NULL DEFAULT now()
     )
@@ -160,12 +164,9 @@ async function initializeStore() {
       END IF;
 
       UPDATE usuarios SET rol = 'admin' WHERE rol = 'administrador';
-
-      ALTER TABLE usuarios
-        ADD CONSTRAINT usuarios_rol_check
-        CHECK (rol IN ('root', 'admin', 'sacerdote', 'usuario'));
     END $$;
   `);
+  await pool.query('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_frecuencia_check');
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS lotes (
@@ -238,6 +239,7 @@ function normalizeState(value) {
     lotes: Array.isArray(source.lotes) ? source.lotes : [],
     turnos: Array.isArray(source.turnos) ? source.turnos : [],
     notificaciones: normalizeNotificaciones(source.notificaciones),
+    catalogoUsuarios: normalizeCatalogoUsuarios(source.catalogoUsuarios),
     updatedAt: typeof source.updatedAt === 'number' ? source.updatedAt : Date.now()
   };
 }
@@ -262,7 +264,7 @@ function normalizeUsuarios(value) {
         apellidos: apellidos || nombreCompleto.split(' ').slice(1).join(' '),
         email: String(source.email || '').trim().toLowerCase(),
         telefono: String(source.telefono || '').trim(),
-        frecuencia: ['fijo', 'suplente', 'puntual'].includes(source.frecuencia) ? source.frecuencia : 'puntual',
+        frecuencia: normalizeCatalogOption(source.frecuencia, 'puntual'),
         rol: normalizeRol(source.rol),
         password: typeof source.password === 'string' ? source.password : undefined,
         creadoEn,
@@ -273,11 +275,33 @@ function normalizeUsuarios(value) {
 }
 
 function normalizeRol(rol) {
-  if (['root', 'admin', 'sacerdote', 'usuario'].includes(rol)) {
-    return rol;
-  }
+  const normalized = normalizeCatalogOption(rol, 'usuario');
+  return normalized === 'administrador' ? 'admin' : normalized;
+}
 
-  return rol === 'administrador' ? 'admin' : 'usuario';
+function normalizeCatalogOption(value, fallback) {
+  return String(value || '').trim().toLowerCase() || fallback;
+}
+
+function normalizeCatalogoUsuarios(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const defaults = {
+    frecuencias: ['fijo', 'suplente', 'puntual'],
+    roles: ['usuario', 'sacerdote', 'admin', 'root']
+  };
+
+  return {
+    frecuencias: mergeCatalogOptions(defaults.frecuencias, source.frecuencias),
+    roles: mergeCatalogOptions(defaults.roles, source.roles)
+  };
+}
+
+function mergeCatalogOptions(defaults, value) {
+  const opciones = Array.isArray(value) ? value : [];
+  return Array.from(new Set([
+    ...defaults,
+    ...opciones.map((item) => normalizeCatalogOption(item, '')).filter(Boolean)
+  ]));
 }
 
 function normalizeNotificaciones(value) {

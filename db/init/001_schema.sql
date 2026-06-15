@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
   apellidos text NOT NULL,
   email text NOT NULL UNIQUE,
   telefono text NOT NULL,
-  frecuencia text NOT NULL CHECK (frecuencia IN ('fijo', 'suplente', 'puntual')),
-  rol text NOT NULL CHECK (rol IN ('root', 'admin', 'sacerdote', 'usuario')),
+  frecuencia text NOT NULL,
+  rol text NOT NULL,
   creado_en timestamptz NOT NULL DEFAULT now(),
   actualizado_en timestamptz NOT NULL DEFAULT now()
 );
@@ -39,5 +39,5 @@ CREATE TABLE IF NOT EXISTS notificaciones (
 );
 
 INSERT INTO app_state (id, state)
-VALUES ('default', '{"usuarios":[],"lotes":[],"turnos":[],"notificaciones":[],"updatedAt":0}'::jsonb)
+VALUES ('default', '{"usuarios":[],"lotes":[],"turnos":[],"notificaciones":[],"catalogoUsuarios":{"frecuencias":["fijo","suplente","puntual"],"roles":["usuario","sacerdote","admin","root"]},"updatedAt":0}'::jsonb)
 ON CONFLICT (id) DO NOTHING;

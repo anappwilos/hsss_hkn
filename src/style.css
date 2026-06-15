@@ -3666,6 +3666,62 @@ select:focus-visible {
   font-size: 0.68rem;
 }
 
+.admin-user-catalog {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+  border: 1px solid rgba(61, 52, 48, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  background: #fffdfb;
+}
+
+.admin-user-catalog h3,
+.admin-user-catalog p {
+  margin: 0;
+}
+
+.admin-user-catalog > div p,
+.admin-user-catalog > p {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.admin-user-catalog form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.admin-user-catalog label {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-user-catalog label span {
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.admin-user-catalog input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(61, 52, 48, 0.13);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--color-text);
+  background: #ffffff;
+}
+
+.confirmation-modal-card {
+  width: min(100%, 520px);
+}
+
 .admin-users-table-wrap {
   overflow-x: auto;
 }
@@ -5021,5 +5077,396 @@ select:focus-visible {
     height: 12px;
     margin-left: 0;
     margin-right: auto;
+  }
+}
+
+/* =========================================================
+   VISUAL SYSTEM REFRESH - A SOLAS AQUA
+========================================================= */
+
+:root {
+  --color-bg: #d6f1f5;
+  --color-welcome: #a8dbe4;
+  --color-surface: rgba(255, 255, 255, 0.9);
+  --color-text: #12353c;
+  --color-muted: #587982;
+  --color-primary: #16a7bb;
+  --color-primary-2: #20c9df;
+  --color-primary-soft: #dff7fa;
+  --color-success: #16a7bb;
+  --color-success-soft: #dff7fa;
+  --color-danger: #d83c52;
+  --color-danger-soft: #ffe8ed;
+  --color-ink: #0a2f38;
+  --color-panel: rgba(255, 255, 255, 0.92);
+  --color-accent: #4f7cff;
+  --color-accent-soft: #e8f3ff;
+  --color-border: rgba(10, 47, 56, 0.14);
+  --shadow-sm: 0 8px 18px rgba(6, 69, 82, 0.08);
+  --shadow-md: 0 24px 60px rgba(6, 69, 82, 0.14);
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --font-serif: "Montserrat", "Poppins", "Avenir Next", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Montserrat", "Poppins", "Avenir Next", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Montserrat", "Poppins", "Avenir Next", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  background:
+    linear-gradient(115deg, #83b8c1 0%, #a8dbe4 48%, #d9f6fa 100%);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(32, 201, 223, 0.36);
+}
+
+.welcome-view {
+  background: #7db1bb;
+}
+
+.welcome-view::before {
+  opacity: 0.44;
+  filter: saturate(0.78) contrast(1.08);
+}
+
+.welcome-view::after {
+  background:
+    linear-gradient(90deg, rgba(7, 65, 76, 0.52) 0%, rgba(18, 158, 178, 0.34) 48%, rgba(221, 250, 255, 0.56) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.16), rgba(214, 241, 245, 0.12));
+}
+
+.welcome-screen {
+  width: min(100%, 860px);
+  gap: 30px;
+}
+
+.welcome-copy h1 {
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 5.2rem;
+  font-weight: 900;
+  line-height: 0.96;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  text-shadow: 0 18px 42px rgba(5, 45, 56, 0.18);
+}
+
+.welcome-copy p,
+.welcome-footer {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.app-version {
+  border-color: rgba(255, 255, 255, 0.42);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.admin-lotes-view,
+.admin-login-view,
+.config-view,
+.registro-view,
+.user-view {
+  background:
+    linear-gradient(115deg, #8ebfc7 0%, #b7e6ed 52%, #e3fbff 100%);
+}
+
+.admin-login-view::before,
+.admin-login-view::after,
+.registro-view::before,
+.registro-view::after {
+  display: none;
+}
+
+.mobile-topbar,
+.user-topbar {
+  border-bottom-color: rgba(255, 255, 255, 0.44);
+  background: rgba(222, 249, 253, 0.78);
+}
+
+.brand-button,
+.mobile-topbar h1,
+.section-kicker,
+.modal-kicker,
+.auth-link-button,
+.auth-create-account button {
+  color: var(--color-primary);
+}
+
+.section-heading h1,
+.auth-welcome h1,
+.auth-welcome h2,
+.booking-heading h1,
+.my-turns-header h2,
+.admin-covered-header h2,
+.admin-users-hero h2,
+.admin-turns-hero h2,
+.hero-copy h1 {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.auth-welcome h1,
+.auth-welcome h2,
+.section-heading h1 {
+  text-transform: uppercase;
+}
+
+.auth-welcome p,
+.section-heading p,
+.week-range,
+.booking-stats small,
+.day-card small,
+.calendar-event p {
+  color: var(--color-muted);
+  letter-spacing: 0;
+}
+
+.auth-form-panel,
+.registro-content,
+.booking-controls,
+.my-turns-panel,
+.admin-users-card,
+.admin-users-hero,
+.admin-turns-card,
+.admin-turn-detail-panel,
+.admin-user-catalog,
+.modal-card,
+.profile-summary,
+.confirmation-card,
+.choice-card,
+.radio-card {
+  border-color: rgba(255, 255, 255, 0.62);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-md);
+}
+
+.button,
+.auth-submit,
+.registro-submit,
+.topbar-text-button,
+.chip,
+.admin-user-filters button,
+.admin-turn-filter-button,
+.admin-turn-action,
+.calendar-event-action,
+.calendar-event-status,
+.view-toggle button,
+.user-panel-tabs button,
+.profile-modal-actions .button,
+.my-turns-actions .button {
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.button-primary,
+.auth-submit,
+.registro-submit,
+.landing-primary,
+.calendar-event-action,
+.admin-turn-action {
+  border-color: transparent;
+  color: #ffffff;
+  background: linear-gradient(135deg, #11c4dc, #0e95aa);
+  box-shadow: 0 14px 28px rgba(14, 149, 170, 0.22);
+}
+
+.button-secondary,
+.landing-secondary,
+.topbar-text-button,
+.chip,
+.admin-user-filters button,
+.view-toggle button,
+.user-panel-tabs button {
+  border-color: rgba(255, 255, 255, 0.72);
+  color: #087f92;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.button-danger {
+  color: #ffffff;
+  background: linear-gradient(135deg, #ff6275, #d83c52);
+}
+
+.chip.is-active,
+.admin-user-filters button.is-active,
+.view-toggle button.is-active,
+.user-panel-tabs button.is-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #17bdd4, #0c91a7);
+}
+
+.auth-symbol-wrap {
+  border-color: rgba(255, 255, 255, 0.66);
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.94) 0 34%, transparent 35%),
+    repeating-conic-gradient(from 0deg, rgba(22, 167, 187, 0.92) 0 6deg, transparent 6deg 16deg);
+}
+
+.auth-symbol,
+.auth-symbol-wrap::after {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: #ffffff;
+}
+
+.auth-symbol-wrap::after {
+  background: var(--color-primary);
+  box-shadow: 0 9px 0 -3px var(--color-primary);
+}
+
+.auth-spark {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.auth-field input,
+.registro-field input,
+.registro-field select,
+.admin-user-edit-form input,
+.admin-user-edit-form select,
+.profile-edit-field input,
+.profile-edit-field select,
+.admin-user-catalog input {
+  border-color: rgba(8, 127, 146, 0.16);
+  border-radius: 999px;
+  color: var(--color-ink);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.auth-field input:focus,
+.registro-field input:focus,
+.registro-field select:focus,
+.profile-edit-field input:focus,
+.profile-edit-field select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(32, 201, 223, 0.16);
+}
+
+.avatar {
+  border-color: rgba(255, 255, 255, 0.88);
+  background: linear-gradient(135deg, #11c4dc, #0e95aa);
+  color: #ffffff;
+  font-family: var(--font-display);
+}
+
+.hero-adoracion {
+  border-color: rgba(255, 255, 255, 0.48);
+  color: #ffffff;
+  background:
+    linear-gradient(90deg, rgba(2, 62, 73, 0.78), rgba(7, 132, 151, 0.44), rgba(195, 240, 247, 0.26)),
+    url("./assets/a_solas.jpg") center / cover no-repeat;
+}
+
+.hero-adoracion::before {
+  background: linear-gradient(180deg, rgba(4, 47, 56, 0.12), rgba(4, 47, 56, 0.28));
+}
+
+.hero-copy {
+  justify-items: start;
+  margin-left: 0;
+  margin-right: auto;
+  text-align: left;
+}
+
+.hero-copy h1 {
+  color: #22d7ee;
+  font-size: 4.2rem;
+  line-height: 0.96;
+  text-transform: uppercase;
+  text-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+}
+
+.hero-copy p {
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.hero-copy span {
+  margin-left: 0;
+  background: linear-gradient(90deg, #20c9df, #ffffff);
+}
+
+.calendar-event {
+  border-radius: 24px;
+  border-color: rgba(255, 255, 255, 0.64);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.calendar-event.is-covered,
+.turn-status-asignado {
+  border-color: transparent;
+  color: #ffffff;
+  background: #16a7bb;
+}
+
+.calendar-event.is-covered .calendar-event-top strong,
+.calendar-event.is-covered .calendar-event-status,
+.calendar-event.is-covered p {
+  color: #ffffff;
+}
+
+.calendar-event.is-free {
+  border-color: rgba(255, 255, 255, 0.8);
+  background: #f4fbff;
+}
+
+.calendar-event.is-free .calendar-event-top strong,
+.calendar-event.is-free .calendar-event-action {
+  color: #07879a;
+}
+
+.calendar-event.is-free .calendar-event-action {
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.calendar-event.is-covered .calendar-progress span,
+.calendar-event.is-free .calendar-progress span,
+.coverage-bar i {
+  background: #16a7bb;
+}
+
+.turn-status-sin-asignar {
+  color: #07879a;
+  background: #ffffff;
+}
+
+.turn-status-suplente {
+  color: #315adf;
+  background: #e8eeff;
+}
+
+.turn-status-pendiente {
+  color: #0b6675;
+  background: #dff7fa;
+}
+
+.admin-users-table tbody tr:hover,
+.admin-users-table tbody tr.is-selected {
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.modal-card {
+  background: rgba(244, 251, 255, 0.98);
+}
+
+@media (max-width: 700px) {
+  .welcome-copy h1 {
+    font-size: 3.6rem;
+  }
+
+  .hero-copy h1 {
+    font-size: 2.8rem;
   }
 }

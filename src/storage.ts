@@ -36,8 +36,13 @@ export interface LoteExposicion {
   creadoEn: number;
 }
 
-export type UsuarioFrecuencia = 'fijo' | 'suplente' | 'puntual';
-export type UsuarioRol = 'root' | 'admin' | 'sacerdote' | 'usuario';
+export type UsuarioFrecuencia = 'fijo' | 'suplente' | 'puntual' | (string & {});
+export type UsuarioRol = 'root' | 'admin' | 'sacerdote' | 'usuario' | (string & {});
+
+export interface CatalogoUsuarios {
+  frecuencias: string[];
+  roles: string[];
+}
 
 export interface Usuario {
   id: string;
@@ -76,6 +81,7 @@ export interface RemoteSnapshot {
   lotes: LoteExposicion[];
   turnos: Turno[];
   notificaciones: NotificacionRegistro[];
+  catalogoUsuarios: CatalogoUsuarios;
   updatedAt: number;
 }
 
@@ -93,6 +99,7 @@ export class StorageDB {
   private static lotes: LoteExposicion[] = [];
   private static turnos: Turno[] = [];
   private static notificaciones: NotificacionRegistro[] = [];
+  private static catalogoUsuarios: CatalogoUsuarios = StorageDB.getDefaultCatalogoUsuarios();
   private static perfilAdoradorId: string | null = StorageDB.readPerfilAdoradorSession();
 
   public static subscribeSync(listener: SyncListener): () => void {
@@ -146,6 +153,7 @@ export class StorageDB {
       lotes: StorageDB.getLotes(),
       turnos: StorageDB.getTurnos(),
       notificaciones: StorageDB.getNotificaciones(),
+      catalogoUsuarios: StorageDB.getCatalogoUsuarios(),
       updatedAt: Date.now()
     };
   }
@@ -239,12 +247,13 @@ export class StorageDB {
     StorageDB.saveLotes(snapshot.lotes);
     StorageDB.saveTurnos(snapshot.turnos);
     StorageDB.saveNotificaciones(snapshot.notificaciones);
+    StorageDB.saveCatalogoUsuarios(snapshot.catalogoUsuarios);
     StorageDB.applyingRemoteSnapshot = false;
   }
 
   private static normalizeSnapshot(value: unknown): RemoteSnapshot {
     if (!value || typeof value !== 'object') {
-      return { usuarios: [], lotes: [], turnos: [], notificaciones: [], updatedAt: Date.now() };
+      return { usuarios: [], lotes: [], turnos: [], notificaciones: [], catalogoUsuarios: StorageDB.getDefaultCatalogoUsuarios(), updatedAt: Date.now() };
     }
 
     const snapshot = value as Partial<RemoteSnapshot>;
@@ -254,6 +263,7 @@ export class StorageDB {
       lotes: Array.isArray(snapshot.lotes) ? snapshot.lotes : [],
       turnos: Array.isArray(snapshot.turnos) ? snapshot.turnos : [],
       notificaciones: StorageDB.normalizeNotificaciones(snapshot.notificaciones),
+      catalogoUsuarios: StorageDB.normalizeCatalogoUsuarios(snapshot.catalogoUsuarios),
       updatedAt: typeof snapshot.updatedAt === 'number' ? snapshot.updatedAt : Date.now()
     };
   }
@@ -397,7 +407,7 @@ export class StorageDB {
       apellidos: apellidos || nombreCompleto.split(' ').slice(1).join(' '),
       email: String(source.email ?? '').trim().toLowerCase(),
       telefono: String(source.telefono ?? '').trim(),
-      frecuencia: source.frecuencia === 'fijo' || source.frecuencia === 'suplente' || source.frecuencia === 'puntual' ? source.frecuencia : 'puntual',
+      frecuencia: StorageDB.normalizeFrecuencia(source.frecuencia),
       rol,
       password: typeof source.password === 'string' ? source.password : undefined,
       creadoEn,
@@ -406,11 +416,65 @@ export class StorageDB {
   }
 
   private static normalizeRol(rol: unknown): UsuarioRol {
-    if (rol === 'root' || rol === 'admin' || rol === 'sacerdote' || rol === 'usuario') {
-      return rol;
-    }
+    const normalized = String(rol ?? '').trim().toLowerCase();
+    return normalized === 'administrador' ? 'admin' : normalized || 'usuario';
+  }
 
-    return rol === 'administrador' ? 'admin' : 'usuario';
+  private static normalizeFrecuencia(frecuencia: unknown): UsuarioFrecuencia {
+    return String(frecuencia ?? '').trim().toLowerCase() || 'puntual';
+  }
+
+  private static getDefaultCatalogoUsuarios(): CatalogoUsuarios {
+    return {
+      frecuencias: ['fijo', 'suplente', 'puntual'],
+      roles: ['usuario', 'sacerdote', 'admin', 'root']
+    };
+  }
+
+  private static normalizeCatalogoUsuarios(value: unknown): CatalogoUsuarios {
+    const source = value && typeof value === 'object' ? value as Partial<CatalogoUsuarios> : {};
+    const defaults = StorageDB.getDefaultCatalogoUsuarios();
+
+    return {
+      frecuencias: StorageDB.mergeOpcionesCatalogo(defaults.frecuencias, source.frecuencias),
+      roles: StorageDB.mergeOpcionesCatalogo(defaults.roles, source.roles)
+    };
+  }
+
+  private static mergeOpcionesCatalogo(defaults: string[], value: unknown): string[] {
+    const opciones = Array.isArray(value) ? value : [];
+    return Array.from(new Set([
+      ...defaults,
+      ...opciones.map((item) => String(item ?? '').trim().toLowerCase()).filter(Boolean)
+    ]));
+  }
+
+  public static getCatalogoUsuarios(): CatalogoUsuarios {
+    return {
+      frecuencias: [...StorageDB.catalogoUsuarios.frecuencias],
+      roles: [...StorageDB.catalogoUsuarios.roles]
+    };
+  }
+
+  public static saveCatalogoUsuarios(catalogo: CatalogoUsuarios): void {
+    StorageDB.catalogoUsuarios = StorageDB.normalizeCatalogoUsuarios(catalogo);
+    StorageDB.queueRemoteSync();
+  }
+
+  public static agregarFrecuenciaUsuario(frecuencia: string): void {
+    const catalogo = StorageDB.getCatalogoUsuarios();
+    StorageDB.saveCatalogoUsuarios({
+      ...catalogo,
+      frecuencias: [...catalogo.frecuencias, frecuencia]
+    });
+  }
+
+  public static agregarRolUsuario(rol: string): void {
+    const catalogo = StorageDB.getCatalogoUsuarios();
+    StorageDB.saveCatalogoUsuarios({
+      ...catalogo,
+      roles: [...catalogo.roles, rol]
+    });
   }
 
   private static normalizeNotificaciones(value: unknown): NotificacionRegistro[] {

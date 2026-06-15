@@ -9,7 +9,7 @@ type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
 type VistaTurnos = 'diaria' | 'semanal';
 type AdminPanel = 'lotes' | 'usuarios' | 'turnos';
-type AdminUsuarioFiltro = 'todos' | 'fijo' | 'puntual' | 'suplente' | 'administrador';
+type AdminUsuarioFiltro = 'todos' | 'administrador' | (string & {});
 type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
 type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'pendiente';
 type UsuarioPanel = 'disponibles' | 'asignados';
@@ -40,6 +40,19 @@ const ADMIN_SESSION_KEY = 'hsss_admin_session';
 const ADMIN_SESSION_ROLE_KEY = 'hsss_admin_role';
 const REMEMBERED_EMAIL_KEY = 'hsss_remembered_email';
 const ADMIN_TURNO_DETAIL_CLOSED = '__closed__';
+const ROLES_PROTEGIDOS = new Set<UsuarioRol>(['root', 'admin']);
+const ROLES_ADMINISTRATIVOS = new Set<UsuarioRol>(['root', 'admin']);
+const FRECUENCIA_LABELS: Record<string, string> = {
+  fijo: 'Fijo',
+  suplente: 'Suplente',
+  puntual: 'Puntual'
+};
+const ROL_LABELS: Record<string, string> = {
+  root: 'Root',
+  admin: 'Admin',
+  sacerdote: 'Sacerdote',
+  usuario: 'Usuario'
+};
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase();
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
 const SUPERADMIN_EMAIL = (import.meta.env.VITE_SUPERADMIN_EMAIL ?? 'root@root.com').trim().toLowerCase();
@@ -89,6 +102,7 @@ let loteEliminarPendienteTimeout = 0;
 let loteDuplicarMesId: string | null = null;
 let vistaActual: Vista | null = null;
 let ultimoNombreMesAutogenerado = '';
+let pendingConfirmation: (() => void) | null = null;
 const historialVistas: Vista[] = [];
 
 app.innerHTML = `
@@ -547,6 +561,10 @@ app.innerHTML = `
       <div id="modal-admin-usuario-card" class="modal-card admin-user-modal-card"></div>
     </dialog>
 
+    <dialog id="modal-confirmacion" class="app-modal">
+      <div id="modal-confirmacion-card" class="modal-card confirmation-modal-card"></div>
+    </dialog>
+
     <dialog id="modal-admin-turno" class="app-modal">
       <div id="modal-admin-turno-card" class="modal-card admin-turn-modal-card"></div>
     </dialog>
@@ -712,6 +730,8 @@ const duplicarMesMensaje = getElement<HTMLParagraphElement>('#duplicar-mes-mensa
 const modalInterrupciones = getElement<HTMLDialogElement>('#modal-interrupciones');
 const modalAdminUsuario = getElement<HTMLDialogElement>('#modal-admin-usuario');
 const modalAdminUsuarioCard = getElement<HTMLElement>('#modal-admin-usuario-card');
+const modalConfirmacion = getElement<HTMLDialogElement>('#modal-confirmacion');
+const modalConfirmacionCard = getElement<HTMLElement>('#modal-confirmacion-card');
 const modalAdminTurno = getElement<HTMLDialogElement>('#modal-admin-turno');
 const modalAdminTurnoCard = getElement<HTMLElement>('#modal-admin-turno-card');
 const modalPerfilEdicion = getElement<HTMLDialogElement>('#modal-perfil-edicion');
@@ -1005,15 +1025,29 @@ function getUsuarioLoginValido(email: string, password: string): PerfilAdorador 
 }
 
 function isAdminRol(rol: UsuarioRol): rol is Extract<UsuarioRol, 'root' | 'admin'> {
-  return rol === 'root' || rol === 'admin';
+  return ROLES_ADMINISTRATIVOS.has(rol);
+}
+
+function isRolProtegido(rol: UsuarioRol): boolean {
+  return ROLES_PROTEGIDOS.has(rol);
 }
 
 function getRolesEditables(usuario: Usuario): UsuarioRol[] {
+  const roles = StorageDB.getCatalogoUsuarios().roles as UsuarioRol[];
+
   if (canAssignAdminRoles()) {
-    return ['usuario', 'sacerdote', 'admin', 'root'];
+    return roles;
   }
 
   return isAdminRol(usuario.rol) ? [usuario.rol] : ['usuario', 'sacerdote'];
+}
+
+function getFrecuenciasEditables(): UsuarioFrecuencia[] {
+  return StorageDB.getCatalogoUsuarios().frecuencias as UsuarioFrecuencia[];
+}
+
+function normalizeCatalogInput(value: string): string {
+  return limpiarTextoRegistro(value).toLowerCase();
 }
 
 function getVistaDestino(vista: Vista): Vista {
@@ -1385,24 +1419,19 @@ function getNombrePrivado(nombreCompleto: string): string {
 }
 
 function formatFrecuencia(frecuencia: UsuarioFrecuencia = 'puntual'): string {
-  const labels: Record<UsuarioFrecuencia, string> = {
-    fijo: 'Fijo',
-    suplente: 'Suplente',
-    puntual: 'Puntual'
-  };
-
-  return labels[frecuencia];
+  return FRECUENCIA_LABELS[frecuencia] ?? toTitleLabel(frecuencia);
 }
 
 function formatRol(rol: UsuarioRol = 'usuario'): string {
-  const labels: Record<UsuarioRol, string> = {
-    root: 'Root',
-    admin: 'Admin',
-    sacerdote: 'Sacerdote',
-    usuario: 'Usuario'
-  };
+  return ROL_LABELS[rol] ?? toTitleLabel(rol);
+}
 
-  return labels[rol];
+function toTitleLabel(value: string): string {
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(' ') || 'Personalizado';
 }
 
 function estaInscrito(turno: Turno, nombreCompleto: string): boolean {
@@ -1969,13 +1998,25 @@ function maskPhone(value: string): string {
 }
 
 function getFrecuenciaDetalle(frecuencia: UsuarioFrecuencia): string {
-  const labels: Record<UsuarioFrecuencia, string> = {
+  const details: Record<string, string> = {
     fijo: '',
     suplente: '',
     puntual: ''
   };
 
-  return labels[frecuencia];
+  return details[frecuencia] ?? '';
+}
+
+function syncRegistroFrecuencias(): void {
+  const current = registroFrecuencia.value || 'puntual';
+  const frecuencias = getFrecuenciasEditables();
+  registroFrecuencia.innerHTML = frecuencias
+    .map((value) => `<option value="${value}" ${current === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`)
+    .join('');
+
+  if (!frecuencias.includes(registroFrecuencia.value as UsuarioFrecuencia)) {
+    registroFrecuencia.value = frecuencias.includes('puntual') ? 'puntual' : frecuencias[0] ?? '';
+  }
 }
 
 function getTurnosUsuario(usuario: Usuario): Turno[] {
@@ -2053,11 +2094,11 @@ function renderAdminUsuarios(): void {
 
           <div class="admin-user-filters" aria-label="Filtros de usuarios">
             ${renderAdminUsuarioFiltroButton('todos', 'Todos', usuarios.length)}
-            ${renderAdminUsuarioFiltroButton('fijo', 'Fijos', totalFijos)}
-            ${renderAdminUsuarioFiltroButton('puntual', 'Puntuales', totalPuntuales)}
-            ${renderAdminUsuarioFiltroButton('suplente', 'Suplentes', totalSuplentes)}
+            ${getFrecuenciasEditables().map((frecuencia) => renderAdminUsuarioFiltroButton(frecuencia, formatFrecuencia(frecuencia), usuarios.filter((usuario) => usuario.frecuencia === frecuencia).length)).join('')}
             ${renderAdminUsuarioFiltroButton('administrador', 'Admin/Root', usuarios.filter((usuario) => isAdminRol(usuario.rol)).length)}
           </div>
+
+          ${canAssignAdminRoles() ? renderAdminCatalogoUsuarios() : ''}
 
           ${usuarios.length === 0
             ? `<div class="empty-card compact"><h3>No hay usuarios registrados</h3><p>Cuando un adorador complete su perfil, aparecera aqui para administracion.</p></div>`
@@ -2144,7 +2185,7 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
         <div class="admin-row-actions">
           <button type="button" data-action="admin-user-edit" data-id="${usuario.id}" aria-label="Editar usuario ${escapeHtml(usuario.nombreCompleto)}">✎</button>
           <button type="button" data-action="admin-user-focus" data-id="${usuario.id}" aria-label="Ver usuario ${escapeHtml(usuario.nombreCompleto)}">◉</button>
-          ${canManageUsers() ? `<button type="button" data-action="admin-user-delete" data-id="${usuario.id}" aria-label="Eliminar usuario ${escapeHtml(usuario.nombreCompleto)}">×</button>` : ''}
+          ${canManageUsers() && !isRolProtegido(usuario.rol) ? `<button type="button" data-action="admin-user-delete" data-id="${usuario.id}" aria-label="Eliminar usuario ${escapeHtml(usuario.nombreCompleto)}">×</button>` : ''}
         </div>
       </td>
     </tr>
@@ -2188,7 +2229,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
         <label>
           <span>Frecuencia</span>
           <select id="admin-user-edit-frequency">
-            ${(['fijo', 'suplente', 'puntual'] as UsuarioFrecuencia[]).map((value) => `<option value="${value}" ${usuario.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
+            ${getFrecuenciasEditables().map((value) => `<option value="${value}" ${usuario.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
           </select>
         </label>
         <label>
@@ -2214,7 +2255,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
         </section>
         <div class="admin-user-edit-actions">
           <button class="button button-primary" type="submit" data-action="admin-user-save">Guardar cambios</button>
-          ${canManageUsers() ? `<button class="button button-danger" type="button" data-action="admin-user-delete" data-id="${usuario.id}">Eliminar usuario</button>` : ''}
+          ${canManageUsers() && !isRolProtegido(usuario.rol) ? `<button class="button button-danger" type="button" data-action="admin-user-delete" data-id="${usuario.id}">Eliminar usuario</button>` : ''}
           <button class="button button-secondary" type="button" data-action="admin-user-close">Cancelar</button>
         </div>
       </form>
@@ -2286,6 +2327,76 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   mostrarAviso('Usuario actualizado', 'Los cambios del perfil se guardaron correctamente.', 'success');
 }
 
+function renderAdminCatalogoUsuarios(): string {
+  const catalogo = StorageDB.getCatalogoUsuarios();
+
+  return `
+    <section class="admin-user-catalog" aria-label="Catalogo de usuarios">
+      <div>
+        <h3>Catalogos</h3>
+        <p>Root puede crear nuevas frecuencias y roles para asignarlos a usuarios.</p>
+      </div>
+      <form data-admin-catalog-form="frecuencia">
+        <label>
+          <span>Nueva frecuencia</span>
+          <input name="catalog-value" type="text" placeholder="Ej. mensual" autocomplete="off" />
+        </label>
+        <button class="button button-secondary" type="submit">Agregar</button>
+      </form>
+      <form data-admin-catalog-form="rol">
+        <label>
+          <span>Nuevo rol</span>
+          <input name="catalog-value" type="text" placeholder="Ej. coordinador" autocomplete="off" />
+        </label>
+        <button class="button button-secondary" type="submit">Agregar</button>
+      </form>
+      <p><strong>Frecuencias:</strong> ${catalogo.frecuencias.map((item) => escapeHtml(formatFrecuencia(item))).join(', ')}</p>
+      <p><strong>Roles:</strong> ${catalogo.roles.map((item) => escapeHtml(formatRol(item))).join(', ')}</p>
+    </section>
+  `;
+}
+
+function guardarAdminCatalogo(form: HTMLFormElement): void {
+  if (!canAssignAdminRoles()) {
+    mostrarAviso('Sin permisos', 'Solo Root puede crear frecuencias y roles.', 'error');
+    return;
+  }
+
+  const tipo = form.dataset.adminCatalogForm;
+  const value = normalizeCatalogInput(form.querySelector<HTMLInputElement>('input[name="catalog-value"]')?.value ?? '');
+
+  if (!value) {
+    mostrarAviso('Dato incompleto', 'Escribe un nombre para crear la opcion.', 'error');
+    return;
+  }
+
+  const catalogo = StorageDB.getCatalogoUsuarios();
+
+  if (tipo === 'frecuencia') {
+    if (catalogo.frecuencias.includes(value)) {
+      mostrarAviso('Frecuencia existente', 'Esa frecuencia ya esta disponible.', 'info');
+      return;
+    }
+
+    StorageDB.agregarFrecuenciaUsuario(value);
+    syncRegistroFrecuencias();
+    renderAdminUsuarios();
+    mostrarAviso('Frecuencia creada', `${formatFrecuencia(value)} ya se puede asignar.`, 'success');
+    return;
+  }
+
+  if (tipo === 'rol') {
+    if (catalogo.roles.includes(value)) {
+      mostrarAviso('Rol existente', 'Ese rol ya esta disponible.', 'info');
+      return;
+    }
+
+    StorageDB.agregarRolUsuario(value);
+    renderAdminUsuarios();
+    mostrarAviso('Rol creado', `${formatRol(value)} ya se puede asignar.`, 'success');
+  }
+}
+
 function getRolPermitidoParaGuardar(usuario: Usuario, requestedRol: UsuarioRol): UsuarioRol {
   if (canAssignAdminRoles()) {
     return requestedRol;
@@ -2311,25 +2422,55 @@ function eliminarAdminUsuario(id: string | null): void {
     return;
   }
 
-  if (usuario.rol === 'root' && getAdminSessionRole() !== 'root') {
-    mostrarAviso('Sin permisos', 'Solo Root puede eliminar otro perfil Root.', 'error');
+  if (isRolProtegido(usuario.rol)) {
+    mostrarAviso('Accion no permitida', 'Los perfiles Admin y Root no se pueden eliminar.', 'error');
     return;
   }
 
-  if (!window.confirm(`Eliminar a ${usuario.nombreCompleto}? Se quitaran tambien sus asignaciones de turnos.`)) {
-    return;
-  }
+  abrirConfirmacion({
+    titulo: 'Eliminar usuario',
+    mensaje: `Se eliminara a ${usuario.nombreCompleto} y se quitaran sus asignaciones de turnos.`,
+    confirmarTexto: 'Eliminar',
+    onConfirm: () => {
+      StorageDB.eliminarUsuario(usuario.id);
 
-  StorageDB.eliminarUsuario(usuario.id);
+      if (modalAdminUsuario.open) {
+        cerrarModalAdminUsuario();
+      } else {
+        renderAdminUsuarios();
+      }
 
-  if (modalAdminUsuario.open) {
-    cerrarModalAdminUsuario();
-  } else {
-    renderAdminUsuarios();
-  }
+      renderAdminTurnosCubiertos();
+      mostrarAviso('Usuario eliminado', 'El usuario y sus asignaciones fueron eliminados.', 'success');
+    }
+  });
+}
 
-  renderAdminTurnosCubiertos();
-  mostrarAviso('Usuario eliminado', 'El usuario y sus asignaciones fueron eliminados.', 'success');
+function abrirConfirmacion(options: { titulo: string; mensaje: string; confirmarTexto: string; onConfirm: () => void }): void {
+  modalConfirmacionCard.innerHTML = `
+    <header class="modal-header">
+      <div>
+        <p class="modal-kicker">Confirmacion</p>
+        <h2>${escapeHtml(options.titulo)}</h2>
+        <p>${escapeHtml(options.mensaje)}</p>
+      </div>
+      <button class="icon-only modal-close" type="button" data-action="confirmacion-close" aria-label="Cerrar">×</button>
+    </header>
+    <footer class="modal-actions">
+      <button class="button button-secondary" type="button" data-action="confirmacion-close">Cancelar</button>
+      <button class="button button-danger" type="button" data-action="confirmacion-accept">${escapeHtml(options.confirmarTexto)}</button>
+    </footer>
+  `;
+  modalConfirmacion.dataset.pendingAction = 'usuario-delete';
+  pendingConfirmation = options.onConfirm;
+  modalConfirmacion.showModal();
+}
+
+function cerrarConfirmacion(): void {
+  modalConfirmacion.close();
+  modalConfirmacionCard.innerHTML = '';
+  modalConfirmacion.dataset.pendingAction = '';
+  pendingConfirmation = null;
 }
 
 function getAdminTurnoEstado(turno: Turno): AdminTurnoEstado {
@@ -3059,7 +3200,7 @@ function renderPerfilEdicionModal(perfil: PerfilAdorador): string {
       <label class="profile-edit-field">
         <span>Frecuencia <em>Obligatorio</em></span>
         <select id="perfil-edit-frecuencia" required>
-          ${(['fijo', 'suplente', 'puntual'] as UsuarioFrecuencia[]).map((value) => `<option value="${value}" ${perfil.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
+          ${getFrecuenciasEditables().map((value) => `<option value="${value}" ${perfil.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
         </select>
       </label>
 
@@ -3921,6 +4062,18 @@ document.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;
   const viewButton = target.closest<HTMLButtonElement>('[data-view]');
 
+  if (target.closest('[data-action="confirmacion-close"]')) {
+    cerrarConfirmacion();
+    return;
+  }
+
+  if (target.closest('[data-action="confirmacion-accept"]')) {
+    const action = pendingConfirmation;
+    cerrarConfirmacion();
+    action?.();
+    return;
+  }
+
   if (viewButton) {
     mostrarVista(viewButton.dataset.view as Vista);
     return;
@@ -4367,6 +4520,17 @@ document.addEventListener('input', (event) => {
 });
 
 document.addEventListener('submit', (event) => {
+  const form = (event.target as HTMLElement).closest<HTMLFormElement>('[data-admin-catalog-form]');
+
+  if (!form) {
+    return;
+  }
+
+  event.preventDefault();
+  guardarAdminCatalogo(form);
+});
+
+document.addEventListener('submit', (event) => {
   const form = (event.target as HTMLElement).closest<HTMLFormElement>('.admin-user-edit-form');
 
   if (!form) {
@@ -4520,7 +4684,7 @@ function validarRegistroAdorador(showErrors: boolean, inputsToValidate?: Array<H
   const apellidosValido = limpiarTextoRegistro(registroApellidos.value).length >= 2;
   const emailValido = esEmailValido(registroEmail.value);
   const telefonoValido = esTelefonoValido(registroTelefono.value);
-  const frecuenciaValida = ['fijo', 'suplente', 'puntual'].includes(registroFrecuencia.value);
+  const frecuenciaValida = getFrecuenciasEditables().includes(registroFrecuencia.value as UsuarioFrecuencia);
   const passwordValida = registroPassword.value.length >= 6;
   const passwordConfirmValida = registroPasswordConfirm.value.length >= 6 && registroPasswordConfirm.value === registroPassword.value;
   const errores: Array<{ input: HTMLInputElement | HTMLSelectElement; valid: boolean; message: string }> = [
@@ -4707,9 +4871,11 @@ StorageDB.subscribeSync(actualizarEstadoPersistencia);
 
 resetConfig();
 cargarEmailRecordado();
+syncRegistroFrecuencias();
 mostrarVista(getVistaInicial(), { recordHistory: false });
 void StorageDB.loadRemote().then((loaded) => {
   asegurarPerfilesBase();
+  syncRegistroFrecuencias();
 
   if (StorageDB.getPerfilAdorador() && vistaActual === 'admin-login') {
     mostrarVista('usuario', { recordHistory: false });
