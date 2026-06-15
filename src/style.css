@@ -605,8 +605,8 @@ button:disabled {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(7, 65, 76, 0.28) 0%, rgba(18, 158, 178, 0.16) 48%, rgba(221, 250, 255, 0.2) 100%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(214, 241, 245, 0.06));
+    linear-gradient(90deg, rgba(3, 32, 39, 0.62) 0%, rgba(7, 65, 76, 0.48) 48%, rgba(6, 44, 52, 0.34) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.32), rgba(3, 32, 39, 0.36));
   content: "";
 }
 
@@ -796,8 +796,8 @@ button:disabled {
   inset: 0;
   z-index: 0;
   background:
-    linear-gradient(90deg, rgba(7, 65, 76, 0.36) 0%, rgba(18, 158, 178, 0.18) 48%, rgba(221, 250, 255, 0.34) 100%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(214, 241, 245, 0.12));
+    linear-gradient(90deg, rgba(3, 32, 39, 0.66) 0%, rgba(7, 65, 76, 0.5) 48%, rgba(6, 44, 52, 0.38) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(3, 32, 39, 0.38));
   content: "";
   pointer-events: none;
 }
