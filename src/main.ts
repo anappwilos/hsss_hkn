@@ -392,7 +392,7 @@ app.innerHTML = `
             <div class="registro-slider-actions">
               <button id="registro-prev" class="registro-nav-button" type="button" data-action="registro-prev" disabled>Anterior</button>
               <button id="registro-next" class="registro-submit" type="button" data-action="registro-next">Siguiente</button>
-              <button id="registro-submit" class="registro-submit" type="submit" disabled hidden>Finalizar <span aria-hidden="true">&gt;</span></button>
+              <button id="registro-submit" class="registro-submit" type="submit" disabled hidden>Finalizar</span></button>
             </div>
 
             <div class="auth-divider" aria-hidden="true"><span>✚</span></div>
