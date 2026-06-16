@@ -810,24 +810,52 @@ function setCommonHeaders(request, response) {
     response.setHeader('Vary', 'Origin');
   }
 
-  response.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,OPTIONS');
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type,Accept');
+  response.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+  );
+
+  const requestedHeaders = request.headers['access-control-request-headers'];
+
+  response.setHeader(
+    'Access-Control-Allow-Headers',
+    requestedHeaders || 'Content-Type,Accept,Authorization'
+  );
+
+  response.setHeader('Access-Control-Max-Age', '86400');
   response.setHeader('X-Content-Type-Options', 'nosniff');
 }
 
 function getAllowedCorsOrigin(origin) {
   if (!origin) {
-    return '*';
+    return '';
   }
 
-  const configuredOrigins = String(process.env.CORS_ORIGIN || '')
+  const configuredOrigins = String(
+    process.env.CORS_ORIGIN || process.env.CORS_ORIGINS || ''
+  )
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
-  const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
-  const allowedOrigins = configuredOrigins.length > 0 ? configuredOrigins : defaultOrigins;
 
-  if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+  const defaultOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:3009',
+    'http://127.0.0.1:3009',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173'
+  ];
+
+  const allowedOrigins = configuredOrigins.length > 0
+    ? configuredOrigins
+    : defaultOrigins;
+
+  if (allowedOrigins.includes('*')) {
+    return origin;
+  }
+
+  if (allowedOrigins.includes(origin)) {
     return origin;
   }
 
