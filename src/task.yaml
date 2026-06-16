@@ -1,27 +1,31 @@
-En turnos :
-- Los colores deberán de ser : cubierto en verde y sin cubrir en rojo. 
-En Usuarios:
-- Permitir eliminar usuarios si es root o admin 
-- Mostrar roles de Admin/Root
-- Agregaremos el perfil de Sacerdote
-- Al pulsar un usuario poder listar los turnos asignados a ese usuario y se elimina la columna de Proximo turno
+- En el panel de Administrador ver la pestaña de turnos con los miembros asignados
+- Al editar un perfil desde administracion el numero de telefono que siga siendo opcional
 
-Login:
+- Ver en la misma posicion tanto el iniciar sesion como el registrar sesion
+- En el formulario de registro el Enter titene que funcionar en cada pantalla del Slider no en el final.
+- Alinear :
 
-- Revisar que los usuarios registrados puedan acceder
-- Los perfiles de root y admin debera de existir
-  - Estos pueden asignar nuevos roles
-Base de datos:
+<section class="admin-users-card">
+          <div class="admin-users-card-head">
+            <div>
+            </div>
+            <label class="admin-user-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="admin-usuarios-buscar" type="search" value="${escapeHtml(adminUsuariosBusqueda)}" placeholder="Buscar por nombre, email o telefono" autocomplete="off" />
+            </label>
+          </div>
+- Mejorar :
 
-- Eliminar campo de nombre_completo
+        <section class="intro-card">
+          <div>
+            Lotes de turnos
+          </div>
+        </section>
+- El texto :
+
+Velar una hora juntos
+“¿No habéis podido velar una hora conmigo?
+
+poner a la derecha
 
 
----v2
-- No utilizar alerts sino modales
-- Admin y Root NO pueden eliminar 
-- Root puede crear nuevos tipos de frecuencias y roles
-
-
-
-- Utilizar Enter para boton de aceptar
-- En registro solo se puede ser suplente. Si se selcciona Fijo tiene que haber un post aceptacion por parte del admin
