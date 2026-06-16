@@ -312,7 +312,7 @@ app.innerHTML = `
           <div class="registro-content auth-form-panel">
             <div class="registro-progress" aria-label="Progreso del registro">
               <span></span>
-              <strong id="registro-step-label">1 de 4</strong>
+              <strong id="registro-step-label">1 de 3</strong>
             </div>
 
             <div class="registro-slider">
@@ -337,12 +337,12 @@ app.innerHTML = `
               </div>
             </section>
 
-            <section class="registro-group" data-registro-step="1" aria-label="Contacto" hidden>
+            <section class="registro-group" data-registro-step="1" aria-label="Acceso" hidden>
               <header>
                 <span>2</span>
                 <div>
-                  <h3>Contacto</h3>
-                  <p>Solo para avisos relacionados con tus turnos.</p>
+                  <h3>Acceso</h3>
+                  <p>Usa estas credenciales para entrar despues desde cualquier dispositivo.</p>
                 </div>
               </header>
               <div class="registro-grid">
@@ -351,10 +351,15 @@ app.innerHTML = `
                   <input id="registro-email" type="email" autocomplete="email" inputmode="email" placeholder="maria@email.com" required aria-describedby="registro-email-error" />
                   <small id="registro-email-error" class="field-error"></small>
                 </label>
-                <label class="registro-field" data-field="registro-telefono">
-                  <span>Telefono <em>Obligatorio</em></span>
-                  <input id="registro-telefono" type="tel" autocomplete="tel" inputmode="tel" placeholder="+34 600 000 000" required aria-describedby="registro-telefono-error" />
-                  <small id="registro-telefono-error" class="field-error"></small>
+                <label class="registro-field" data-field="registro-password">
+                  <span>Contrasena <em>Obligatorio</em></span>
+                  <input id="registro-password" type="password" autocomplete="new-password" placeholder="Minimo 6 caracteres" minlength="6" required aria-describedby="registro-password-error" />
+                  <small id="registro-password-error" class="field-error"></small>
+                </label>
+                <label class="registro-field" data-field="registro-password-confirm">
+                  <span>Confirmar contrasena <em>Obligatorio</em></span>
+                  <input id="registro-password-confirm" type="password" autocomplete="new-password" placeholder="Repite la contrasena" minlength="6" required aria-describedby="registro-password-confirm-error" />
+                  <small id="registro-password-confirm-error" class="field-error"></small>
                 </label>
               </div>
             </section>
@@ -367,35 +372,20 @@ app.innerHTML = `
                   <p>Ayuda a organizar la cobertura habitual de la capilla.</p>
                 </div>
               </header>
-              <label class="registro-field registro-select-field" data-field="registro-frecuencia">
-                <span>Frecuencia <em>Obligatorio</em></span>
-                <select id="registro-frecuencia" required aria-describedby="registro-frecuencia-error">
-                  <option value="fijo">Fijo</option>
-                  <option value="suplente">Suplente</option>
-                  <option value="puntual" selected>Puntual</option>
-                </select>
-                <small id="registro-frecuencia-error" class="field-error"></small>
-              </label>
-            </section>
-
-            <section class="registro-group" data-registro-step="3" aria-label="Acceso" hidden>
-              <header>
-                <span>4</span>
-                <div>
-                  <h3>Acceso</h3>
-                  <p>Usa estas credenciales para entrar despues desde cualquier dispositivo.</p>
-                </div>
-              </header>
               <div class="registro-grid">
-                <label class="registro-field" data-field="registro-password">
-                  <span>Contrasena <em>Obligatorio</em></span>
-                  <input id="registro-password" type="password" autocomplete="new-password" placeholder="Minimo 6 caracteres" minlength="6" required aria-describedby="registro-password-error" />
-                  <small id="registro-password-error" class="field-error"></small>
+                <label class="registro-field registro-select-field" data-field="registro-frecuencia">
+                  <span>Frecuencia <em>Obligatorio</em></span>
+                  <select id="registro-frecuencia" required aria-describedby="registro-frecuencia-error">
+                    <option value="fijo">Fijo</option>
+                    <option value="suplente">Suplente</option>
+                    <option value="puntual" selected>Puntual</option>
+                  </select>
+                  <small id="registro-frecuencia-error" class="field-error"></small>
                 </label>
-                <label class="registro-field" data-field="registro-password-confirm">
-                  <span>Confirmar contrasena <em>Obligatorio</em></span>
-                  <input id="registro-password-confirm" type="password" autocomplete="new-password" placeholder="Repite la contrasena" minlength="6" required aria-describedby="registro-password-confirm-error" />
-                  <small id="registro-password-confirm-error" class="field-error"></small>
+                <label class="registro-field" data-field="registro-telefono">
+                  <span>Telefono <em>Opcional</em></span>
+                  <input id="registro-telefono" type="tel" autocomplete="tel" inputmode="tel" placeholder="+34 600 000 000" aria-describedby="registro-telefono-error" />
+                  <small id="registro-telefono-error" class="field-error"></small>
                 </label>
               </div>
             </section>
@@ -831,7 +821,7 @@ function getElement<T extends Element>(selector: string): T {
 function renderProfileButton(): void {
   const perfil = StorageDB.getPerfilAdorador();
   const inicial = perfil?.nombreCompleto.trim().charAt(0).toUpperCase() || 'A';
-  btnPerfilUsuario.innerHTML = `<span class="avatar" aria-hidden="true">${escapeHtml(inicial)}</span><span class="avatar-caret" aria-hidden="true">⌄</span>`;
+  btnPerfilUsuario.innerHTML = `<span class="avatar" aria-hidden="true">${escapeHtml(inicial)}</span><span class="avatar-caret" aria-hidden="true"></span>`;
   btnPerfilUsuario.setAttribute('aria-label', perfil ? 'Abrir mi perfil' : 'Crear mi perfil');
 }
 
@@ -1042,7 +1032,7 @@ function validarAdminLogin(showErrors: boolean): boolean {
     return esValido;
   }
 
-  mostrarAdminLoginMensaje('Revisa los campos marcados para continuar.', 'error');
+  // mostrarAdminLoginMensaje('Revisa los campos marcados para continuar.', 'error');
   (emailMessage ? adminEmail : adminPassword).focus();
   return false;
 }
@@ -4738,7 +4728,7 @@ function validarRegistroAdorador(showErrors: boolean, inputsToValidate?: Array<H
   }
 
   const primerError = erroresVisibles.find(({ valid }) => !valid);
-  registroMensaje.textContent = 'Revisa los campos marcados para continuar.';
+  // registroMensaje.textContent = 'Revisa los campos marcados para continuar.';
   registroMensaje.dataset.tone = 'error';
   primerError?.input.focus();
   return false;
