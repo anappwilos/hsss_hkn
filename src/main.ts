@@ -11,7 +11,7 @@ type VistaTurnos = 'diaria' | 'semanal';
 type AdminPanel = 'lotes' | 'usuarios' | 'turnos' | 'catalogos';
 type AdminUsuarioFiltro = 'todos' | 'administrador' | (string & {});
 type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
-type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'pendiente';
+type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'parcial';
 type UsuarioPanel = 'disponibles' | 'asignados';
 type NotificationPersistenceOptions = {
   usuarioId?: string;
@@ -191,11 +191,15 @@ app.innerHTML = `
       </header>
 
       <div class="screen-content">
+        <header class="section-heading admin-heading">
+          <h1>Panel de administraci&oacute;n</h1>
+        </header>
+
         <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
-          <button class="chip is-active" type="button" data-admin-panel="turnos">Turnos</button>
+          <button class="chip" type="button" data-admin-panel="lotes">Lotes</button>
           <button class="chip" type="button" data-admin-panel="usuarios">Usuarios</button>
           <button class="chip" type="button" data-admin-panel="catalogos">Catalogos</button>
-          <button class="chip" type="button" data-admin-panel="lotes">Lotes</button>
+          <button class="chip is-active" type="button" data-admin-panel="turnos">Turnos asignados</button>
         </nav>
 
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
@@ -582,6 +586,13 @@ app.innerHTML = `
       </header>
 
       <form id="form-lote" class="screen-content config-form">
+        <section class="intro-card lote-intro-card">
+          <div>
+            <h2>Lotes de turnos</h2>
+            <p>Configura fechas, horario y dias activos antes de generar los turnos.</p>
+          </div>
+        </section>
+
         <div class="config-layout">
           <section class="config-main-panel">
             <label class="field">
@@ -2107,8 +2118,6 @@ function renderAdminUsuarios(): void {
 
         <section class="admin-users-card">
           <div class="admin-users-card-head">
-            <div>
-            </div>
             <label class="admin-user-search">
               <span aria-hidden="true">⌕</span>
               <input id="admin-usuarios-buscar" type="search" value="${escapeHtml(adminUsuariosBusqueda)}" placeholder="Buscar por nombre, email o telefono" autocomplete="off" />
@@ -2245,7 +2254,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
         </label>
         <label>
           <span>Telefono</span>
-          <input id="admin-user-edit-phone" type="tel" value="${escapeHtml(usuario.telefono)}" required />
+          <input id="admin-user-edit-phone" type="tel" value="${escapeHtml(usuario.telefono)}" />
         </label>
         <label>
           <span>Frecuencia</span>
@@ -2320,8 +2329,8 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   const requestedRol = form.querySelector<HTMLSelectElement>('#admin-user-edit-role')?.value as UsuarioRol;
   const rol = getRolPermitidoParaGuardar(usuario, requestedRol);
 
-  if (!nombreCompleto || !esEmailValido(email) || !esTelefonoValido(telefono)) {
-    mostrarAviso('Revisa el usuario', 'Nombre, email y telefono deben ser validos.', 'error');
+  if (!nombreCompleto || !esEmailValido(email) || (telefono && !esTelefonoValido(telefono))) {
+    mostrarAviso('Revisa el usuario', 'Nombre, email y telefono deben ser validos. El telefono puede quedar vacio.', 'error');
     return;
   }
 
@@ -2549,7 +2558,7 @@ function getAdminTurnoEstado(turno: Turno): AdminTurnoEstado {
     return 'suplente';
   }
 
-  return turno.plazasDisponibles > 0 ? 'pendiente' : 'asignado';
+  return turno.plazasDisponibles > 0 ? 'parcial' : 'asignado';
 }
 
 function getAdminTurnoEstadoLabel(estado: AdminTurnoEstado): string {
@@ -2557,7 +2566,7 @@ function getAdminTurnoEstadoLabel(estado: AdminTurnoEstado): string {
     'sin-asignar': 'Sin asignar',
     asignado: 'Asignado',
     suplente: 'Suplente',
-    pendiente: 'Pendiente'
+    parcial: 'Parcial'
   };
 
   return labels[estado];
@@ -2600,18 +2609,10 @@ function matchesAdminTurnoFiltro(turno: Turno): boolean {
   }
 
   if (adminTurnosFiltro === 'asignados') {
-    return estado === 'asignado' || estado === 'pendiente';
+    return estado === 'asignado' || estado === 'parcial';
   }
 
   return estado === 'suplente';
-}
-
-function formatAdminTurnoDia(value: string): string {
-  const fecha = parseFecha(value);
-  const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(fecha);
-  const day = new Intl.DateTimeFormat('es-ES', { day: '2-digit' }).format(fecha);
-  const month = new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(fecha).replace('.', '');
-  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${day} ${month}`;
 }
 
 function formatAdminSemana(inicioSemana: Date): string {
@@ -2648,40 +2649,40 @@ function renderAdminTurnosCubiertos(): void {
   const turnosSuplente = turnosSemana.filter((turno) => getAdminTurnoEstado(turno) === 'suplente').length;
   const turnosAsignados = turnosSemana.filter((turno) => {
     const estado = getAdminTurnoEstado(turno);
-    return estado === 'asignado' || estado === 'pendiente';
+    return estado === 'asignado' || estado === 'parcial';
   }).length;
   const plazasTotales = turnosSemana.reduce((total, turno) => total + turno.plazasTotales, 0);
   const plazasCubiertas = turnosSemana.reduce((total, turno) => total + Math.max(0, turno.plazasTotales - turno.plazasDisponibles), 0);
   const cobertura = plazasTotales > 0 ? Math.round((plazasCubiertas / plazasTotales) * 100) : 0;
 
-  if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && (!adminTurnoSeleccionadoId || !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId))) {
-    adminTurnoSeleccionadoId = turnosFiltrados.find((turno) => getAdminTurnoEstado(turno) === 'sin-asignar')?.id ?? turnosFiltrados[0]?.id ?? null;
+  if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && adminTurnoSeleccionadoId && !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId)) {
+    adminTurnoSeleccionadoId = null;
   }
 
   const selectedTurno = adminTurnoSeleccionadoId && adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED
     ? turnosSemana.find((turno) => turno.id === adminTurnoSeleccionadoId) ?? null
     : null;
-  const turnosPorDia = turnosFiltrados.reduce<Record<string, Turno[]>>((groups, turno) => {
-    groups[turno.dia] = [...(groups[turno.dia] ?? []), turno];
-    return groups;
-  }, {});
+  const fechasSemana = Array.from({ length: 7 }, (_, index) => addDays(inicioSemana, index));
+  const franjasSemana = Array.from(new Set(turnosFiltrados.map((turno) => `${turno.horaInicio}|${turno.horaFin}`)))
+    .toSorted((a, b) => a.localeCompare(b));
 
   adminTurnosCubiertos.innerHTML = `
     <div class="admin-turns-dashboard">
       <header class="admin-turns-hero">
         <div>
-          <h2>Turnos</h2>
-          <p>Cobertura semanal y asignaciones.</p>
+          <p class="section-kicker">Panel administrador</p>
+          <h2>Turnos asignados</h2>
+          <p>Supervisa cobertura, huecos sin asignar y compromisos de la semana.</p>
         </div>
         <div class="admin-week-picker" aria-label="Semana visible">${escapeHtml(formatAdminSemana(inicioSemana))}</div>
       </header>
 
       <section class="admin-turns-metrics" aria-label="Resumen semanal de turnos">
-        <article><small>Hoy</small><strong>${turnosHoy}</strong></article>
-        <article><small>Semana</small><strong>${turnosSemana.length}</strong></article>
-        <article><small>Sin asignar</small><strong>${turnosSinAsignar}</strong></article>
-        <article><small>Suplentes</small><strong>${turnosSuplente}</strong></article>
-        <article class="coverage-metric"><small>Cobertura</small><strong>${cobertura}%</strong><span class="coverage-bar"><i style="width: ${cobertura}%"></i></span></article>
+        <article><span class="metric-icon metric-orange" aria-hidden="true"></span><small>Turnos hoy</small><strong>${turnosHoy}</strong></article>
+        <article><span class="metric-icon metric-blue" aria-hidden="true">○</span><small>Esta semana</small><strong>${turnosSemana.length}</strong></article>
+        <article><span class="metric-icon metric-red" aria-hidden="true">!</span><small>Sin asignar</small><strong>${turnosSinAsignar}</strong></article>
+        <article><span class="metric-icon metric-amber" aria-hidden="true">+</span><small>Suplentes</small><strong>${turnosSuplente}</strong></article>
+        <article class="coverage-metric"><span class="metric-icon metric-green" aria-hidden="true">↗</span><small>Cobertura</small><strong>${cobertura}%</strong><span class="coverage-bar"><i style="width: ${cobertura}%"></i></span></article>
       </section>
 
       <div class="admin-turns-layout">
@@ -2703,67 +2704,110 @@ function renderAdminTurnosCubiertos(): void {
             </div>
 
             ${turnosFiltrados.length > 0
-              ? `<div class="admin-turn-day-list">${Object.entries(turnosPorDia).map(([dia, turnos]) => renderAdminTurnoDiaGroup(dia, turnos)).join('')}</div>`
+              ? `<div class="admin-assignment-scroll">${renderAdminTurnosCalendario(fechasSemana, franjasSemana, turnosFiltrados)}</div>`
               : `<div class="empty-card compact"><h3>No hay turnos con este filtro</h3><p>Ajusta la busqueda o selecciona otro estado.</p></div>`
             }
           </div>
         </section>
 
-        <aside class="admin-turn-detail-panel" aria-label="Detalle del turno">
-          ${renderAdminTurnoDetail(selectedTurno)}
-        </aside>
+        ${selectedTurno ? `
+          <aside class="admin-turn-detail-panel" aria-label="Detalle del turno">
+            ${renderAdminTurnoDetail(selectedTurno)}
+          </aside>
+        ` : ''}
       </div>
     </div>
   `;
 }
 
-function renderAdminTurnoDiaGroup(dia: string, turnos: Turno[]): string {
-  const isCollapsed = adminTurnosDiasColapsados.has(dia);
-  const plazasTotales = turnos.reduce((total, turno) => total + turno.plazasTotales, 0);
-  const plazasCubiertas = turnos.reduce((total, turno) => total + Math.max(0, turno.plazasTotales - turno.plazasDisponibles), 0);
-  const sinAsignar = turnos.filter((turno) => getAdminTurnoEstado(turno) === 'sin-asignar').length;
+function renderAdminTurnosCalendario(fechas: Date[], franjas: string[], turnos: Turno[]): string {
+  const hoy = fechaToInput(new Date());
 
   return `
-    <section class="admin-turn-day-group ${isCollapsed ? 'is-collapsed' : ''}">
-      <header>
-        <button type="button" data-action="admin-turno-dia-toggle" data-dia="${dia}" aria-expanded="${String(!isCollapsed)}">
-          <span class="admin-turn-day-caret" aria-hidden="true">${isCollapsed ? '›' : '⌄'}</span>
-          <strong>${escapeHtml(formatAdminTurnoDia(dia))}</strong>
-        </button>
-        <div class="admin-turn-day-totals" aria-label="Resumen del dia">
-          <span>Total: ${turnos.length}</span>
-          <span>Cubiertas: ${plazasCubiertas}/${plazasTotales}</span>
-          <span>Sin asignar: ${sinAsignar}</span>
-        </div>
-      </header>
-      <div class="admin-turn-day-rows" ${isCollapsed ? 'hidden' : ''}>
-        ${turnos.map(renderAdminTurnoRow).join('')}
-      </div>
-    </section>
+    <div class="admin-assignment-board" style="--admin-calendar-days: ${fechas.length}; --admin-calendar-min-width: ${104 + fechas.length * 156}px;">
+      <div class="admin-calendar-corner" aria-hidden="true"></div>
+      ${fechas.map((date) => {
+        const key = fechaToInput(date);
+        const isToday = key === hoy;
+        const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '');
+        const month = new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(date);
+
+        return `
+          <div class="admin-calendar-day-head ${isToday ? 'is-today' : ''}">
+            <span>${escapeHtml(`${isToday ? 'Hoy' : weekday} ${date.getDate()} ${month}`.toUpperCase())}</span>
+          </div>
+        `;
+      }).join('')}
+
+      ${franjas.map((franja) => {
+        const [horaInicio, horaFin] = franja.split('|');
+
+        return `
+          <div class="admin-calendar-time">
+            <strong>${escapeHtml(horaInicio)}</strong>
+          </div>
+          ${fechas.map((date) => {
+            const key = fechaToInput(date);
+            const turnosCelda = turnos.filter((turno) => turno.dia === key && turno.horaInicio === horaInicio && turno.horaFin === horaFin);
+
+            return `
+              <div class="admin-calendar-cell">
+                ${turnosCelda.length > 0
+                  ? turnosCelda.map(renderAdminTurnoCalendarCard).join('')
+                  : '<span class="admin-calendar-empty">Sin turnos</span>'
+                }
+              </div>
+            `;
+          }).join('')}
+        `;
+      }).join('')}
+    </div>
   `;
 }
 
-function renderAdminTurnoRow(turno: Turno): string {
+function renderAdminTurnoCalendarCard(turno: Turno): string {
   const estado = getAdminTurnoEstado(turno);
-  const principal = getAdminTurnoPrincipal(turno);
-  const iniciales = principal.usuario ? getInicialesUsuario(principal.usuario) : '';
   const selected = adminTurnoSeleccionadoId === turno.id;
+  const miembros = renderAdminTurnoMiembros(turno, 'compact');
+  const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
 
   return `
-    <article class="admin-turn-row ${selected ? 'is-selected' : ''}" data-turno-id="${turno.id}">
-      <button class="admin-turn-row-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver detalle de ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
-        <span class="turn-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
-        <span class="turn-owner">
-          ${principal.usuario ? `<i>${escapeHtml(iniciales)}</i>` : '<i class="is-empty">□</i>'}
-          <b>${escapeHtml(principal.nombre)}</b>
-        </span>
-        <span class="turn-status turn-status-${estado}">${escapeHtml(getAdminTurnoEstadoLabel(estado))}</span>
+    <article class="admin-calendar-turn is-${estado} ${selected ? 'is-selected' : ''}">
+      <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
+        ${miembros}
+        <small>${ocupadas}/${turno.plazasTotales} cubiertas</small>
       </button>
-      <button class="admin-turn-action" type="button" data-action="${estado === 'sin-asignar' || estado === 'suplente' ? 'admin-turno-assign' : 'admin-turno-select'}" data-id="${turno.id}">
+      <button class="admin-calendar-turn-action" type="button" data-action="${estado === 'sin-asignar' || estado === 'suplente' ? 'admin-turno-assign' : 'admin-turno-select'}" data-id="${turno.id}">
         ${estado === 'sin-asignar' ? 'Asignar' : estado === 'suplente' ? 'Cambiar' : 'Ver'}
       </button>
     </article>
   `;
+}
+
+function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail'): string {
+  if (turno.inscritos.length === 0) {
+    return variant === 'compact'
+      ? '<span class="admin-turn-members is-empty">Sin miembros asignados</span>'
+      : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>';
+  }
+
+  const items = turno.inscritos.map((inscrito) => {
+    const usuario = getUsuarioByNombre(inscrito);
+    const iniciales = usuario ? getInicialesUsuario(usuario) : inscrito.trim().charAt(0).toUpperCase() || 'A';
+    const detalle = usuario
+      ? `${formatFrecuencia(usuario.frecuencia)} · ${formatRol(usuario.rol)}`
+      : 'Perfil no encontrado';
+
+    return `
+      <span class="admin-turn-member ${usuario ? '' : 'is-missing'}">
+        <i aria-hidden="true">${escapeHtml(iniciales)}</i>
+        <b>${escapeHtml(inscrito)}</b>
+        ${variant === 'detail' ? `<small>${escapeHtml(detalle)}</small>` : ''}
+      </span>
+    `;
+  }).join('');
+
+  return `<span class="admin-turn-members ${variant === 'detail' ? 'is-detail' : ''}">${items}</span>`;
 }
 
 function renderAdminTurnoDetail(turno: Turno | null): string {
@@ -2780,6 +2824,7 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
   const principal = getAdminTurnoPrincipal(turno);
   const usuario = principal.usuario;
   const lote = getAdminTurnoLote(turno);
+  const miembros = renderAdminTurnoMiembros(turno, 'detail');
 
   return `
     <header class="admin-turn-detail-head">
@@ -2794,8 +2839,13 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
       <div><dt>Fecha</dt><dd>${escapeHtml(formatFecha(turno.dia))}</dd></div>
       <div><dt>Hora</dt><dd>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</dd></div>
       <div><dt>Lote</dt><dd>${escapeHtml(lote?.nombre ?? 'Lote sin identificar')}</dd></div>
-      <div><dt>Adorador</dt><dd>${escapeHtml(principal.nombre)}</dd></div>
+      <div><dt>Miembros</dt><dd>${turno.inscritos.length}</dd></div>
     </dl>
+
+    <section class="admin-turn-members-panel" aria-label="Miembros asignados al turno">
+      <h4>Miembros asignados</h4>
+      ${miembros}
+    </section>
 
     <section class="admin-turn-detail-stats">
       <div><span>Plazas cubiertas</span><strong>${turno.plazasTotales - turno.plazasDisponibles}/${turno.plazasTotales}</strong></div>
@@ -2815,7 +2865,7 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
 
     <section class="admin-turn-last-action">
       <strong>Ultima accion administrativa</strong>
-      <span>${turno.inscritos.length > 0 ? 'Turno sincronizado con adorador registrado.' : 'Turno pendiente de asignacion.'}</span>
+      <span>${turno.inscritos.length > 0 ? 'Turno sincronizado con adorador registrado.' : 'Turno sin asignar.'}</span>
       <button type="button" data-action="admin-audit-info">Ver historial completo <span>›</span></button>
     </section>
   `;
@@ -2842,6 +2892,12 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
   const diaTurno = getWeekdayIso(fechaTurno);
   const lotesMes = getLotesMesTurno(turno);
   const titulo = modo === 'agregar' ? 'Buscar suplente' : turno.inscritos.length > 0 ? 'Reasignar turno' : 'Asignar adorador';
+  const turnosMismaHoraSemana = getTurnosOrdenados().filter((item) =>
+    item.dia >= fechaToInput(startOfWeekMonday(fechaTurno)) &&
+    item.dia <= fechaToInput(addDays(startOfWeekMonday(fechaTurno), 6)) &&
+    item.horaInicio === turno.horaInicio &&
+    item.horaFin === turno.horaFin
+  ).length;
 
   return `
     <header class="modal-header admin-turn-modal-head">
@@ -2854,14 +2910,14 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
     </header>
 
     <section class="admin-turn-modal-summary">
-      <div><span>Actual</span><strong>${escapeHtml(turno.inscritos[0] ?? 'Sin asignar')}</strong></div>
+      <div><span>Miembros actuales</span><strong>${turno.inscritos.length > 0 ? escapeHtml(turno.inscritos.join(', ')) : 'Sin asignar'}</strong></div>
       <div><span>Plazas</span><strong>${turno.plazasTotales - turno.plazasDisponibles}/${turno.plazasTotales}</strong></div>
-      <div><span>Modo</span><strong>${modo === 'agregar' ? 'Agregar suplente' : 'Reemplazar titular'}</strong></div>
+      <div><span>Misma hora esta semana</span><strong>${turnosMismaHoraSemana}</strong></div>
     </section>
 
     <form class="admin-turn-assign-form" data-admin-turno-form="${turno.id}">
       <label>
-        <span>Adorador</span>
+        <span>1. Elegir adorador</span>
         <select id="admin-turno-usuario" required ${usuarios.length === 0 ? 'disabled' : ''}>
           ${usuarios.length === 0
             ? '<option value="">No hay adoradores registrados</option>'
@@ -2871,30 +2927,30 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
       </label>
 
       <fieldset class="admin-turn-mode-field">
-        <legend>Tipo de asignacion</legend>
+        <legend>2. Como asignar</legend>
         <label>
           <input type="radio" name="admin-turno-modo" value="reemplazar" ${modo === 'reemplazar' ? 'checked' : ''} />
-          <span>Reemplazar titular</span>
+          <span>Titular: sustituye los miembros actuales</span>
         </label>
         <label>
           <input type="radio" name="admin-turno-modo" value="agregar" ${modo === 'agregar' ? 'checked' : ''} />
-          <span>Agregar como suplente si hay plaza</span>
+          <span>Agregar miembro si queda plaza</span>
         </label>
       </fieldset>
 
       <fieldset class="admin-turn-period-field">
-        <legend>Alcance</legend>
+        <legend>3. Alcance de la asignacion</legend>
         <label>
           <input type="radio" name="admin-turno-alcance" value="unico" checked />
-          <span>Solo este turno</span>
+          <span>Solo esta celda</span>
         </label>
         <label>
           <input type="radio" name="admin-turno-alcance" value="rango" />
-          <span>Usar fechas periodicamente</span>
+          <span>Misma hora en un rango de fechas</span>
         </label>
         <label>
           <input type="radio" name="admin-turno-alcance" value="lote" ${lotesMes.length === 0 ? 'disabled' : ''} />
-          <span>Lote del mes del turno</span>
+          <span>Todo el lote del mes</span>
         </label>
       </fieldset>
 
@@ -2910,7 +2966,7 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
       </div>
 
       <label class="admin-turn-lote-field">
-        <span>Lote del mes</span>
+        <span>Lote a usar si eliges todo el mes</span>
         <select id="admin-turno-lote" ${lotesMes.length === 0 ? 'disabled' : ''}>
           ${lotesMes.length === 0
             ? '<option value="">No hay lote para este mes</option>'
@@ -2920,7 +2976,7 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
       </label>
 
       <fieldset class="admin-turn-weekdays-field">
-        <legend>Dias de repeticion</legend>
+        <legend>Dias incluidos</legend>
         <div>
           ${diasSemana.map((dia) => `
             <label>
@@ -2931,11 +2987,14 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
         </div>
       </fieldset>
 
-      <p class="admin-turn-modal-note">Se aplicara a turnos de ${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)} que coincidan con el alcance y los dias marcados.</p>
+      <section class="admin-turn-bulk-note">
+        <strong>Asignacion masiva controlada</strong>
+        <p>Se aplicara solo a turnos de ${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)} que coincidan con el alcance y los dias marcados. Los turnos llenos o duplicados se omitiran si agregas miembro.</p>
+      </section>
 
       <footer class="modal-actions">
         <button class="button button-secondary" type="button" data-action="admin-turno-modal-close">Cancelar</button>
-        <button class="button button-primary" type="submit" ${usuarios.length === 0 ? 'disabled' : ''}>Guardar asignacion</button>
+        <button class="button button-primary" type="submit" ${usuarios.length === 0 ? 'disabled' : ''}>Aplicar asignacion</button>
       </footer>
     </form>
   `;
@@ -3246,8 +3305,8 @@ function renderPerfilEdicionModal(perfil: PerfilAdorador): string {
           <small id="perfil-edit-email-error" class="field-error"></small>
         </label>
         <label class="profile-edit-field">
-          <span>Telefono <em>Obligatorio</em></span>
-          <input id="perfil-edit-telefono" type="tel" autocomplete="tel" value="${escapeHtml(perfil.telefono)}" required aria-describedby="perfil-edit-telefono-error" />
+          <span>Telefono <em>Opcional</em></span>
+          <input id="perfil-edit-telefono" type="tel" autocomplete="tel" value="${escapeHtml(perfil.telefono)}" aria-describedby="perfil-edit-telefono-error" />
           <small id="perfil-edit-telefono-error" class="field-error"></small>
         </label>
       </div>
@@ -3332,7 +3391,7 @@ function guardarPerfilDesdeModal(form: HTMLFormElement): void {
     { input: form.querySelector<HTMLInputElement>('#perfil-edit-nombre'), valid: nombre.length >= 2, message: 'El nombre debe tener al menos 2 caracteres.' },
     { input: form.querySelector<HTMLInputElement>('#perfil-edit-apellidos'), valid: apellidos.length >= 2, message: 'Los apellidos deben tener al menos 2 caracteres.' },
     { input: form.querySelector<HTMLInputElement>('#perfil-edit-email'), valid: esEmailValido(email), message: email ? 'Introduce un correo valido.' : 'El correo es obligatorio.' },
-    { input: form.querySelector<HTMLInputElement>('#perfil-edit-telefono'), valid: esTelefonoValido(telefono), message: telefono ? 'El telefono debe tener entre 7 y 15 digitos.' : 'El telefono es obligatorio.' },
+    { input: form.querySelector<HTMLInputElement>('#perfil-edit-telefono'), valid: !telefono || esTelefonoValido(telefono), message: 'El telefono debe tener entre 7 y 15 digitos.' },
     { input: form.querySelector<HTMLSelectElement>('#perfil-edit-frecuencia'), valid: ['fijo', 'suplente', 'puntual'].includes(frecuencia), message: 'Selecciona una frecuencia.' },
     { input: form.querySelector<HTMLInputElement>('#perfil-edit-password'), valid: !password || password.length >= 6, message: 'La contrasena debe tener al menos 6 caracteres.' },
     { input: form.querySelector<HTMLInputElement>('#perfil-edit-password-confirm'), valid: !password || password === passwordConfirm, message: 'Las contrasenas no coinciden.' }
@@ -3587,12 +3646,6 @@ function prepararFechaUsuario(): void {
   semanaUsuarioInicio = startOfWeekMonday(parseFecha(fechaUsuarioSeleccionada));
 }
 
-function getOcupacion(turno: Pick<Turno, 'plazasTotales' | 'plazasDisponibles'>): number {
-  return turno.plazasTotales <= 0
-    ? 0
-    : Math.round(((turno.plazasTotales - turno.plazasDisponibles) / turno.plazasTotales) * 100);
-}
-
 function agruparTurnosCalendario(turnos: Turno[]): TurnoCalendario[] {
   const grupos = new Map<string, TurnoCalendario>();
 
@@ -3698,7 +3751,7 @@ function renderListaTurnosDia(
             <strong>${escapeHtml(weekday)}</strong>
             <span>${escapeHtml(formatFecha(key))}</span>
           </div>
-          <small>${turnosDia.length > 0 ? `${formatPlural(plazasLibres, 'plaza libre', 'plazas libres')}` : 'Sin disponibilidad'}</small>
+          <small>${turnosDia.length > 0 && plazasLibres > 0 ? 'Disponible' : 'Sin disponibilidad'}</small>
         </header>
       ` : ''}
       ${items.length > 0
@@ -3727,48 +3780,23 @@ function renderUsuario(): void {
     ...bloqueosSemana.map((bloqueo) => `${bloqueo.horaInicio}|${bloqueo.horaFin}`)
   ]))
     .toSorted((a, b) => a.localeCompare(b));
-  const plazasLibresSemana = turnosSemana.reduce((total, turno) => total + turno.plazasDisponibles, 0);
-  const turnosLibresSemana = turnosSemana.filter((turno) => turno.plazasDisponibles > 0).length;
-  const misTurnosSemana = perfil
-    ? turnosSemana.filter((turno) => estaInscrito(turno, perfil.nombreCompleto)).length
-    : 0;
-  const turnosDiaSeleccionado = turnosSemana.filter((turno) => turno.dia === fechaUsuarioSeleccionada);
-  const plazasDiaSeleccionado = turnosDiaSeleccionado.reduce((total, turno) => total + turno.plazasDisponibles, 0);
-
   document.querySelectorAll<HTMLButtonElement>('[data-action="vista-turnos"]').forEach((button) => {
     const isActive = button.dataset.mode === vistaTurnos;
     button.classList.toggle('is-active', isActive);
     button.setAttribute('aria-pressed', String(isActive));
   });
 
-  usuarioBookingStats.innerHTML = `
-    <article>
-      <span>Plazas libres</span>
-      <strong>${plazasLibresSemana}</strong>
-      <small>${formatPlural(turnosLibresSemana, 'turno con disponibilidad', 'turnos con disponibilidad')}</small>
-    </article>
-    <article>
-      <span>Dia seleccionado</span>
-      <strong>${plazasDiaSeleccionado}</strong>
-      <small>${formatPlural(turnosDiaSeleccionado.length, 'franja publicada', 'franjas publicadas')}</small>
-    </article>
-    <article>
-      <span>Mis turnos</span>
-      <strong>${misTurnosSemana}</strong>
-      <small>en esta semana visible</small>
-    </article>
-  `;
+  usuarioBookingStats.hidden = true;
+  usuarioBookingStats.innerHTML = '';
 
   usuarioDias.innerHTML = fechas.map((date) => {
     const key = fechaToInput(date);
     const hoy = key === fechaToInput(new Date());
     const label = hoy ? 'HOY' : new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '').toUpperCase();
     const estado = getEstadoDiaCalendario(key, turnosSemana, bloqueosSemana);
-    const turnosDia = turnosSemana.filter((turno) => turno.dia === key);
-    const plazasDia = turnosDia.reduce((total, turno) => total + turno.plazasDisponibles, 0);
     const estadoTexto = {
-      disponible: formatPlural(plazasDia, 'libre', 'libres'),
-      completo: 'Completo',
+      disponible: 'Disponible',
+      completo: 'No disponible',
       'sin-exposicion': 'Sin exposicion',
       vacio: 'Sin turnos'
     }[estado];
@@ -3870,25 +3898,23 @@ function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
 }
 
 function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | null): string {
-  const ocupacion = getOcupacion(turno);
   const completo = turno.plazasDisponibles === 0;
   const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
-  const estado = propio ? 'Mi turno' : completo ? 'Completo' : 'Libre';
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
   const estadoClase = propio ? 'is-mine' : completo ? 'is-covered' : ocupadas > 0 ? 'is-partial' : 'is-free';
+  const estadoVisible = propio ? 'Mi turno' : completo ? 'Completo' : '';
 
   return `
     <article class="calendar-event ${estadoClase}">
-      <div class="calendar-event-top">
-        <strong>${escapeHtml(estado)}</strong>
-      </div>
+      ${estadoVisible
+        ? `<div class="calendar-event-top"><strong>${escapeHtml(estadoVisible)}</strong></div>`
+        : ''
+      }
       <div class="calendar-event-main">
         <p class="calendar-event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
-        <p class="calendar-event-capacity">${ocupadas}/${turno.plazasTotales} plazas cubiertas</p>
       </div>
-      <div class="calendar-progress" aria-hidden="true"><span style="width: ${ocupacion}%"></span></div>
       ${propio || completo
-        ? `<span class="calendar-event-status">${propio ? 'Inscrito' : formatPlural(turno.inscritos.length, 'adorador', 'adoradores')}</span>`
+        ? `<span class="calendar-event-status">${propio ? 'Inscrito' : 'Completo'}</span>`
         : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">Cubrir</button>`
       }
     </article>
@@ -3991,7 +4017,7 @@ function setModalPaso(paso: ModalInscripcionPaso): void {
     const turno = turnoModalId ? StorageDB.getTurnos().find((item) => item.id === turnoModalId) : undefined;
     modalTurnoTitle.textContent = 'Reservar turno';
     modalTurnoDetail.textContent = turno
-      ? `${formatFecha(turno.dia)} · ${turno.horaInicio} - ${turno.horaFin} · ${formatPlural(turno.plazasDisponibles, 'plaza libre', 'plazas libres')}`
+      ? `${formatFecha(turno.dia)} · ${turno.horaInicio} - ${turno.horaFin}`
       : 'Elige una opcion para continuar.';
   }
 
@@ -4341,7 +4367,7 @@ document.addEventListener('click', (event) => {
       return;
     }
 
-    mostrarAviso('Accion pendiente', 'Este flujo administrativo se conectara con la asignacion avanzada de adoradores.', 'info');
+    mostrarAviso('Accion no disponible', 'Este flujo administrativo se conectara con la asignacion avanzada de adoradores.', 'info');
     return;
   }
 
@@ -4720,6 +4746,19 @@ formRegistroAdorador.addEventListener('submit', (event) => {
 
   renderProfileButton();
   mostrarVista('usuario');
+});
+
+formRegistroAdorador.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' || event.shiftKey || isTypingTarget(event.target) && (event.target as HTMLElement).tagName === 'TEXTAREA') {
+    return;
+  }
+
+  const totalSteps = formRegistroAdorador.querySelectorAll('[data-registro-step]').length;
+
+  if (registroStep < totalSteps - 1) {
+    event.preventDefault();
+    moverRegistroSlider(1);
+  }
 });
 
 function limpiarTextoRegistro(value: string): string {

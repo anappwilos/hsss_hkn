@@ -3163,7 +3163,7 @@ button:disabled {
 
 .admin-turn-row-main {
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr) 118px;
+  grid-template-columns: 140px minmax(160px, 0.85fr) minmax(180px, 1.15fr) 118px;
   gap: 16px;
   align-items: center;
   min-width: 0;
@@ -3199,6 +3199,64 @@ button:disabled {
   font-size: 0.72rem;
   font-style: normal;
   font-weight: 900;
+}
+
+.admin-turn-members {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-turn-members.is-empty,
+.admin-turn-members-empty {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.admin-turn-member {
+  display: inline-grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-height: 30px;
+  border: 1px solid rgba(33, 160, 183, 0.16);
+  border-radius: 999px;
+  padding: 3px 9px 3px 3px;
+  color: var(--color-ink);
+  background: rgba(234, 246, 249, 0.86);
+}
+
+.admin-turn-member i {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--color-primary);
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.admin-turn-member b {
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-turn-member.is-missing {
+  border-color: rgba(216, 75, 95, 0.18);
+  background: #fff5f7;
+}
+
+.admin-turn-member.is-missing i {
+  background: var(--color-danger);
 }
 
 .turn-owner i.is-empty {
@@ -3240,7 +3298,7 @@ button:disabled {
   background: #dbeaf0;
 }
 
-.turn-status-pendiente {
+.turn-status-parcial {
   color: #168fa3;
   background: #eaf6f9;
 }
@@ -3317,6 +3375,42 @@ button:disabled {
   margin: 0;
   color: var(--color-ink);
   font-weight: 850;
+}
+
+.admin-turn-members-panel {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid rgba(77, 117, 128, 0.14);
+  padding-top: 16px;
+}
+
+.admin-turn-members-panel h4 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 0.94rem;
+}
+
+.admin-turn-members.is-detail {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-turn-members.is-detail .admin-turn-member {
+  grid-template-columns: 34px minmax(0, 1fr);
+  border-radius: 16px;
+  padding: 8px;
+}
+
+.admin-turn-members.is-detail .admin-turn-member i {
+  width: 34px;
+  height: 34px;
+  font-size: 0.74rem;
+}
+
+.admin-turn-members.is-detail .admin-turn-member small {
+  grid-column: 2;
+  color: var(--color-muted);
+  font-size: 0.76rem;
 }
 
 .admin-turn-detail-stats {
@@ -3525,6 +3619,27 @@ button:disabled {
   margin: 0;
   color: var(--color-muted);
   font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.admin-turn-bulk-note {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(33, 160, 183, 0.18);
+  border-radius: 16px;
+  padding: 14px;
+  background: #eefcff;
+}
+
+.admin-turn-bulk-note strong {
+  color: var(--color-ink);
+  font-size: 0.92rem;
+}
+
+.admin-turn-bulk-note p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.86rem;
   line-height: 1.4;
 }
 
@@ -5327,6 +5442,738 @@ body,
   }
 
   .admin-catalog-card form {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   15. ESTILO AQUA ADMIN
+========================================================= */
+
+.admin-lotes-view {
+  background:
+    radial-gradient(circle at 72% 16%, rgba(232, 249, 252, 0.82), transparent 28rem),
+    linear-gradient(135deg, #75aab7 0%, #9dcbd5 46%, #d9edf1 100%);
+}
+
+.admin-lotes-view .mobile-topbar {
+  height: 68px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42);
+  background: rgba(183, 216, 224, 0.72);
+  box-shadow: none;
+}
+
+.admin-lotes-view .brand-button,
+.admin-lotes-view .mobile-topbar h1 {
+  color: #ffffff;
+  text-shadow: 0 10px 24px rgba(6, 69, 82, 0.16);
+}
+
+.admin-lotes-view .topbar-text-button,
+.admin-lotes-view .back-button {
+  border-color: rgba(255, 255, 255, 0.7);
+  color: #168fa3;
+  background: rgba(244, 251, 253, 0.9);
+}
+
+.admin-lotes-view .screen-content {
+  width: min(100%, 1280px);
+  padding: 42px 38px 56px;
+}
+
+.admin-heading {
+  margin: 0 0 38px;
+}
+
+.admin-heading h1 {
+  margin: 0;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: clamp(2.55rem, 5vw, 4rem);
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 18px 42px rgba(6, 69, 82, 0.16);
+}
+
+.admin-lotes-view .admin-panel-tabs {
+  display: grid;
+  width: 100%;
+  grid-auto-flow: initial;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0 0 38px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip {
+  width: 100%;
+  min-height: 66px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 999px;
+  color: #168fa3;
+  background: rgba(244, 251, 253, 0.9);
+  box-shadow: 0 12px 30px rgba(6, 69, 82, 0.05);
+  font-size: clamp(0.92rem, 1.6vw, 1.2rem);
+  font-weight: 900;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip.is-active {
+  border-color: rgba(255, 255, 255, 0.82);
+  color: #ffffff;
+  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  box-shadow:
+    0 0 0 6px rgba(219, 234, 240, 0.82),
+    0 16px 34px rgba(33, 160, 183, 0.24);
+}
+
+.admin-lotes-view .admin-covered-panel,
+.admin-lotes-view .admin-users-card,
+.admin-lotes-view .admin-user-catalog,
+.admin-lotes-view .admin-turns-card,
+.admin-lotes-view .admin-turn-detail-panel,
+.admin-lotes-view .lote-card,
+.admin-lotes-view .empty-card {
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 22px;
+  background: rgba(244, 251, 253, 0.78);
+  box-shadow: 0 24px 58px rgba(6, 69, 82, 0.1);
+}
+
+.admin-lotes-view .admin-covered-panel {
+  padding: 24px;
+}
+
+.admin-lotes-view .admin-turns-hero,
+.admin-lotes-view .admin-users-hero {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-lotes-view .section-kicker {
+  color: #21a0b7;
+  letter-spacing: 0.1em;
+}
+
+.admin-lotes-view .admin-turns-hero h2,
+.admin-lotes-view .admin-users-hero h2 {
+  color: var(--color-ink);
+  font-size: clamp(1.95rem, 3.3vw, 2.55rem);
+}
+
+.admin-lotes-view .admin-turns-hero p:not(.section-kicker),
+.admin-lotes-view .admin-users-hero p {
+  color: #3f7480;
+  font-size: 0.98rem;
+}
+
+.admin-lotes-view .admin-week-picker,
+.admin-lotes-view .admin-month-pill {
+  min-height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 999px;
+  padding: 0 18px;
+  color: var(--color-ink);
+  background: rgba(244, 251, 253, 0.92);
+  box-shadow: 0 16px 32px rgba(6, 69, 82, 0.08);
+}
+
+.admin-lotes-view .admin-turns-metrics {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-lotes-view .admin-turns-metrics article,
+.admin-lotes-view .admin-user-metrics article {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 2px 14px;
+  min-height: 104px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 16px;
+  padding: 18px;
+  background: rgba(244, 251, 253, 0.86);
+  box-shadow: 0 12px 30px rgba(6, 69, 82, 0.05);
+}
+
+.admin-lotes-view .metric-icon {
+  display: grid;
+  grid-row: 1 / span 2;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 16px;
+  color: #168fa3;
+  background: #dbeaf0;
+  font-weight: 900;
+}
+
+.admin-lotes-view .admin-turns-metrics small,
+.admin-lotes-view .admin-user-metrics span,
+.admin-lotes-view .admin-user-metrics small {
+  color: #47717a;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.admin-lotes-view .admin-turns-metrics strong,
+.admin-lotes-view .admin-user-metrics strong {
+  color: var(--color-ink);
+  font-size: 1.85rem;
+}
+
+.admin-lotes-view .coverage-metric {
+  grid-template-columns: 48px minmax(0, 1fr) minmax(72px, 0.5fr);
+}
+
+.admin-lotes-view .coverage-bar {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+}
+
+.admin-lotes-view .admin-turns-layout {
+  gap: 18px;
+}
+
+.admin-lotes-view .admin-turns-card,
+.admin-lotes-view .admin-turn-detail-panel,
+.admin-lotes-view .admin-users-card {
+  padding: 22px;
+}
+
+.admin-lotes-view .admin-turn-filter-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-lotes-view .admin-turn-search,
+.admin-lotes-view .admin-user-search,
+.admin-lotes-view .search-box {
+  border-color: rgba(255, 255, 255, 0.68);
+  border-radius: 999px;
+  background: rgba(244, 251, 253, 0.9);
+  box-shadow: 0 12px 28px rgba(6, 69, 82, 0.05);
+}
+
+.admin-lotes-view .admin-turn-filters button,
+.admin-lotes-view .admin-user-filters button {
+  min-height: 48px;
+  border-color: rgba(255, 255, 255, 0.58);
+  border-radius: 999px;
+  background: rgba(244, 251, 253, 0.86);
+  font-weight: 900;
+}
+
+.admin-lotes-view .admin-turn-filters button.is-active,
+.admin-lotes-view .admin-user-filters button.is-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #39aac1, #21a0b7);
+}
+
+.admin-lotes-view .admin-catalog-card {
+  border-color: rgba(255, 255, 255, 0.58);
+  border-radius: 18px;
+  background: rgba(244, 251, 253, 0.86);
+}
+
+@media (max-width: 900px) {
+  .admin-lotes-view .admin-panel-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-lotes-view .admin-turns-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-lotes-view .coverage-metric {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-lotes-view .screen-content {
+    padding: 28px 18px 46px;
+  }
+
+  .admin-heading {
+    margin-bottom: 24px;
+  }
+
+  .admin-lotes-view .admin-panel-tabs {
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .admin-lotes-view .admin-panel-tabs .chip {
+    min-height: 50px;
+    padding: 0 10px;
+    font-size: 0.86rem;
+  }
+}
+
+/* =========================================================
+   16. AJUSTES GENERALES DE INTERACCION
+========================================================= */
+
+.button,
+.registro-submit,
+.registro-nav-button,
+.calendar-event-action,
+.admin-turn-action,
+.topbar-text-button,
+.auth-link-button,
+.admin-turn-filter-button,
+.admin-user-filters button,
+.admin-turn-filters button,
+.admin-row-actions button,
+.admin-users-pagination button {
+  border-radius: 999px;
+}
+
+.landing-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(178px, 220px));
+  justify-content: center;
+  align-items: center;
+}
+
+.landing-actions .button {
+  width: 100%;
+}
+
+.hero-adoracion {
+  justify-content: flex-end;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(122, 169, 182, 0.2) 0%,
+      rgba(161, 204, 215, 0.5) 42%,
+      rgba(33, 160, 183, 0.78) 100%
+    ),
+    url("./assets/a_solas.jpg") center / cover no-repeat;
+}
+
+.hero-adoracion::before {
+  background:
+    radial-gradient(circle at 78% 42%, rgba(255, 255, 255, 0.18), transparent 20rem),
+    linear-gradient(180deg, rgba(8, 47, 56, 0.04), rgba(8, 47, 56, 0.22));
+}
+
+.hero-copy {
+  justify-items: end;
+  margin: 0 0 0 auto;
+  text-align: right;
+}
+
+.hero-copy h1,
+.hero-copy p {
+  text-align: right;
+}
+
+.booking-stats[hidden] {
+  display: none !important;
+}
+
+.calendar-event {
+  min-height: 104px;
+  align-content: space-between;
+}
+
+.calendar-event-main {
+  gap: 0;
+}
+
+.calendar-event-action {
+  min-height: 38px;
+}
+
+.admin-users-card-head {
+  grid-template-columns: minmax(280px, 460px);
+  justify-content: end;
+}
+
+.admin-user-search {
+  width: 100%;
+}
+
+.lote-intro-card {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 16px;
+}
+
+.lote-intro-card h2 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1.35rem;
+}
+
+.lote-intro-card p {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+.admin-turns-layout:not(:has(.admin-turn-detail-panel)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-assignment-board {
+  display: grid;
+  grid-template-columns: 72px repeat(var(--admin-calendar-days), minmax(156px, 1fr));
+  width: max(100%, var(--admin-calendar-min-width));
+  min-width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(77, 117, 128, 0.14);
+  border-radius: 18px;
+  background: rgba(244, 251, 253, 0.72);
+}
+
+.admin-assignment-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scrollbar-color: rgba(33, 160, 183, 0.55) rgba(234, 246, 249, 0.8);
+}
+
+.admin-calendar-corner,
+.admin-calendar-day-head,
+.admin-calendar-time,
+.admin-calendar-cell {
+  border-right: 1px solid rgba(33, 160, 183, 0.14);
+  border-bottom: 1px solid rgba(33, 160, 183, 0.14);
+}
+
+.admin-calendar-corner,
+.admin-calendar-day-head {
+  min-height: 46px;
+  background: rgba(234, 246, 249, 0.88);
+}
+
+.admin-calendar-day-head {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+}
+
+.admin-calendar-day-head span {
+  color: var(--color-ink);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.admin-calendar-day-head.is-today span {
+  color: var(--color-primary);
+}
+
+.admin-calendar-time {
+  display: grid;
+  min-height: 112px;
+  place-items: center;
+  padding: 10px;
+  background: rgba(244, 251, 253, 0.72);
+}
+
+.admin-calendar-time strong {
+  color: var(--color-ink);
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.admin-calendar-cell {
+  display: grid;
+  min-height: 112px;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+}
+
+.admin-calendar-empty {
+  align-self: center;
+  justify-self: center;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+}
+
+.admin-calendar-turn {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 18px;
+  padding: 10px;
+  background: rgba(244, 251, 253, 0.9);
+  box-shadow: 0 10px 24px rgba(6, 69, 82, 0.05);
+}
+
+.admin-calendar-turn.is-selected {
+  outline: 3px solid rgba(33, 160, 183, 0.2);
+}
+
+.admin-calendar-turn-main {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-calendar-turn-main > strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #168fa3;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.admin-calendar-turn-main > strong::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.admin-calendar-turn-main small {
+  color: var(--color-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.admin-calendar-turn-action {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  color: #168fa3;
+  background: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.admin-calendar-turn.is-asignado,
+.admin-calendar-turn.is-parcial {
+  background: #eefcff;
+}
+
+.admin-calendar-turn.is-suplente {
+  background: #fff8e8;
+}
+
+.admin-calendar-turn.is-sin-asignar {
+  background: rgba(244, 251, 253, 0.94);
+}
+
+.admin-calendar-turn .admin-turn-members {
+  display: grid;
+}
+
+.admin-calendar-turn .admin-turn-member {
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .admin-assignment-board {
+    grid-template-columns: 68px repeat(var(--admin-calendar-days), minmax(140px, 1fr));
+  }
+}
+
+/* =========================================================
+   17. ADMIN TURNOS RESPONSIVE
+========================================================= */
+
+.admin-turns-main,
+.admin-turns-card {
+  min-width: 0;
+}
+
+.admin-turns-card {
+  overflow: hidden;
+}
+
+.admin-turn-detail-panel {
+  min-width: 0;
+}
+
+@media (max-width: 1180px) {
+  .admin-lotes-view .admin-turns-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-turn-detail-panel {
+    order: 2;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-lotes-view .admin-turns-hero {
+    display: grid;
+  }
+
+  .admin-lotes-view .admin-turns-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-lotes-view .coverage-metric {
+    grid-column: 1 / -1;
+  }
+
+  .admin-turns-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-turn-filter-button {
+    min-height: 44px;
+  }
+
+  .admin-turn-filters {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .admin-turn-filters button {
+    flex: 0 0 auto;
+    min-width: 150px;
+  }
+
+  .admin-assignment-board {
+    grid-template-columns: 62px repeat(var(--admin-calendar-days), minmax(132px, 1fr));
+    width: max(100%, calc(62px + var(--admin-calendar-days) * 132px));
+  }
+
+  .admin-calendar-time,
+  .admin-calendar-cell {
+    min-height: 102px;
+  }
+
+  .admin-calendar-turn {
+    border-radius: 15px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-lotes-view .admin-turns-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-lotes-view .admin-turns-metrics article,
+  .admin-lotes-view .admin-user-metrics article {
+    min-height: 76px;
+  }
+
+  .admin-lotes-view .admin-turns-card,
+  .admin-lotes-view .admin-turn-detail-panel {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .admin-assignment-scroll {
+    margin: 0 -4px;
+    padding: 0 4px 8px;
+  }
+
+  .admin-assignment-board {
+    grid-template-columns: 56px repeat(var(--admin-calendar-days), minmax(122px, 1fr));
+    width: max(100%, calc(56px + var(--admin-calendar-days) * 122px));
+    border-radius: 14px;
+  }
+
+  .admin-calendar-corner,
+  .admin-calendar-day-head {
+    min-height: 40px;
+  }
+
+  .admin-calendar-day-head span {
+    font-size: 0.66rem;
+  }
+
+  .admin-calendar-time {
+    min-height: 96px;
+    padding: 6px;
+  }
+
+  .admin-calendar-time strong {
+    font-size: 0.78rem;
+  }
+
+  .admin-calendar-cell {
+    min-height: 96px;
+    padding: 7px;
+  }
+
+  .admin-calendar-turn-main > strong {
+    font-size: 0.82rem;
+  }
+
+  .admin-calendar-turn-main small {
+    font-size: 0.68rem;
+  }
+
+  .admin-calendar-turn-action {
+    min-height: 30px;
+    font-size: 0.74rem;
+  }
+
+  .admin-calendar-turn .admin-turn-member {
+    grid-template-columns: 22px minmax(0, 1fr);
+    min-height: 28px;
+  }
+
+  .admin-calendar-turn .admin-turn-member i {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+@media (max-width: 700px) {
+  .landing-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero-adoracion {
+    justify-content: flex-end;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(122, 169, 182, 0.1) 0%,
+        rgba(161, 204, 215, 0.34) 34%,
+        rgba(33, 160, 183, 0.84) 100%
+      ),
+      url("./assets/a_solas.jpg") 58% center / cover no-repeat;
+  }
+
+  .hero-copy {
+    justify-items: end;
+    margin-left: auto;
+    margin-right: 0;
+    text-align: right;
+  }
+
+  .hero-copy h1,
+  .hero-copy p {
+    text-align: right;
+  }
+
+  .admin-users-card-head {
     grid-template-columns: 1fr;
   }
 }
