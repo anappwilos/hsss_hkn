@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { readFile, stat } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
@@ -14,17 +14,28 @@ const port = Number(process.env.PORT || 3000);
 const distDir = path.join(__dirname, 'dist');
 const maxBodyBytes = 1024 * 1024;
 const databaseUrl = process.env.DATABASE_URL || '';
+const storageDriver = String(process.env.STORAGE_DRIVER || (databaseUrl ? 'postgres' : 'json')).trim().toLowerCase();
+const jsonDataFile = process.env.JSON_DATA_FILE || path.join(__dirname, 'data', 'a-solas-state.json');
+const adminEmail = String(process.env.VITE_ADMIN_EMAIL || 'admin@admin.com').trim().toLowerCase();
+const adminPassword = String(process.env.VITE_ADMIN_PASSWORD || 'admin');
+const superadminEmail = String(process.env.VITE_SUPERADMIN_EMAIL || 'root@root.com').trim().toLowerCase();
+const superadminPassword = String(process.env.VITE_SUPERADMIN_PASSWORD || 'root');
 const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const passwordHashPrefix = 'scrypt';
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL es obligatorio: la persistencia usa solo PostgreSQL. Ejecuta npm run db:up y define DATABASE_URL en .env.');
+const isPostgresStorage = storageDriver === 'postgres';
+
+if (isPostgresStorage && !databaseUrl) {
+  throw new Error('DATABASE_URL es obligatorio cuando STORAGE_DRIVER=postgres.');
 }
 
-const pool = new Pool({
-  connectionString: databaseUrl,
-  ssl: shouldUseDatabaseSsl(databaseUrl) ? { rejectUnauthorized: false } : undefined
-});
+const pool = isPostgresStorage
+  ? new Pool({
+    connectionString: databaseUrl,
+    ssl: shouldUseDatabaseSsl(databaseUrl) ? { rejectUnauthorized: false } : undefined
+  })
+  : null;
+const store = createStore();
 
 const emptyState = {
   usuarios: [],
@@ -53,8 +64,8 @@ const mimeTypes = new Map([
   ['.webmanifest', 'application/manifest+json; charset=utf-8']
 ]);
 
-await waitForDatabase();
-await initializeStore();
+await store.initialize();
+await ensureBaseUsersAvailable();
 
 const server = createServer(async (request, response) => {
   try {
@@ -92,10 +103,14 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, () => {
   console.log(`A solas escuchando en http://localhost:${port}`);
-  console.log('Datos persistentes solo en PostgreSQL.');
+  console.log(store.description);
 });
 
 async function waitForDatabase(retries = 20, delayMs = 1000) {
+  if (!pool) {
+    return;
+  }
+
   for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {
       await pool.query('SELECT 1');
@@ -153,7 +168,85 @@ function shouldUseDatabaseSsl(connectionString) {
   }
 }
 
-async function initializeStore() {
+function createStore() {
+  if (isPostgresStorage) {
+    return createPostgresStore();
+  }
+
+  return createJsonStore();
+}
+
+function createJsonStore() {
+  return {
+    description: `Datos temporales en JSON: ${jsonDataFile}`,
+    async initialize() {
+      await mkdir(path.dirname(jsonDataFile), { recursive: true });
+
+      try {
+        await readFile(jsonDataFile, 'utf8');
+      } catch {
+        await writeJsonState(emptyState);
+      }
+
+      await migrateStoredPasswords();
+    },
+    async readState() {
+      try {
+        return normalizeState(JSON.parse(await readFile(jsonDataFile, 'utf8')));
+      } catch {
+        await writeJsonState(emptyState);
+        return normalizeState(emptyState);
+      }
+    },
+    async writeState(state) {
+      await writeJsonState(await withBaseUsers(state));
+    },
+    async findUserByEmail(email) {
+      const state = await this.readState();
+      return state.usuarios.find((item) => item.email.toLowerCase() === email);
+    }
+  };
+}
+
+function createPostgresStore() {
+  return {
+    description: 'Datos persistentes en PostgreSQL.',
+    async initialize() {
+      await initializePostgresStore();
+      await migrateStoredPasswords();
+    },
+    async readState() {
+      const result = await pool.query('SELECT state FROM app_state WHERE id = $1', ['default']);
+      return normalizeState(result.rows[0]?.state);
+    },
+    async writeState(state) {
+      const stateWithBaseUsers = await withBaseUsers(state);
+      await pool.query(
+        `INSERT INTO app_state (id, state, updated_at)
+         VALUES ('default', $1::jsonb, now())
+         ON CONFLICT (id)
+         DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
+        [JSON.stringify(stateWithBaseUsers)]
+      );
+      await writeRelationalState(stateWithBaseUsers);
+    },
+    async findUserByEmail(email) {
+      const result = await pool.query(
+        `SELECT id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
+         FROM usuarios
+         WHERE lower(email) = $1
+         LIMIT 1`,
+        [email]
+      );
+
+      return mapDbUser(result.rows[0]);
+    }
+  };
+}
+
+async function initializePostgresStore() {
+  await waitForDatabase();
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_state (
       id text PRIMARY KEY,
@@ -230,12 +323,10 @@ async function initializeStore() {
      ON CONFLICT (id) DO NOTHING`,
     [JSON.stringify(emptyState)]
   );
-
-  await migrateStoredPasswords();
 }
 
 async function migrateStoredPasswords() {
-  const state = await readState();
+  const state = await store.readState();
   let changed = false;
 
   state.usuarios = await Promise.all(state.usuarios.map(async (usuario) => {
@@ -251,22 +342,23 @@ async function migrateStoredPasswords() {
   }));
 
   if (changed) {
-    await writeState(state);
+    await store.writeState(state);
   }
 }
 
 async function handleState(request, response) {
   if (request.method === 'GET') {
-    sendJson(response, 200, sanitizeStateForClient(await readState()));
+    sendJson(response, 200, sanitizeStateForClient(await store.readState()));
     return;
   }
 
   if (request.method === 'PUT') {
     const body = await readJsonBody(request);
-    const currentState = await readState();
+    const currentState = await store.readState();
     const state = await normalizeIncomingState(body, currentState);
-    await writeState(state);
-    sendJson(response, 200, sanitizeStateForClient(state));
+    const stateWithBaseUsers = await withBaseUsers(state);
+    await store.writeState(stateWithBaseUsers);
+    sendJson(response, 200, sanitizeStateForClient(stateWithBaseUsers));
     return;
   }
 
@@ -288,14 +380,7 @@ async function handleLogin(request, response) {
     return;
   }
 
-  const result = await pool.query(
-    `SELECT id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
-     FROM usuarios
-     WHERE lower(email) = $1
-     LIMIT 1`,
-    [email]
-  );
-  const usuario = result.rows[0];
+  const usuario = await store.findUserByEmail(email);
 
   if (!usuario || !(await verifyPassword(password, usuario.password))) {
     sendJson(response, 401, { error: 'Correo o contrasena incorrectos.' });
@@ -305,33 +390,42 @@ async function handleLogin(request, response) {
   sendJson(response, 200, {
     usuario: {
       id: usuario.id,
-      nombreCompleto: usuario.nombre_completo || `${usuario.nombre} ${usuario.apellidos}`.trim(),
+      nombreCompleto: usuario.nombreCompleto || `${usuario.nombre} ${usuario.apellidos}`.trim(),
       nombre: usuario.nombre,
       apellidos: usuario.apellidos,
       email: usuario.email,
       telefono: usuario.telefono,
       frecuencia: usuario.frecuencia,
       rol: usuario.rol,
-      creadoEn: usuario.creado_en ? new Date(usuario.creado_en).getTime() : Date.now(),
-      actualizadoEn: usuario.actualizado_en ? new Date(usuario.actualizado_en).getTime() : Date.now()
+      creadoEn: usuario.creadoEn || Date.now(),
+      actualizadoEn: usuario.actualizadoEn || Date.now()
     }
   });
 }
 
-async function readState() {
-  const result = await pool.query('SELECT state FROM app_state WHERE id = $1', ['default']);
-  return normalizeState(result.rows[0]?.state);
+async function writeJsonState(state) {
+  await mkdir(path.dirname(jsonDataFile), { recursive: true });
+  await writeFile(jsonDataFile, JSON.stringify(normalizeState(state), null, 2), 'utf8');
 }
 
-async function writeState(state) {
-  await pool.query(
-    `INSERT INTO app_state (id, state, updated_at)
-     VALUES ('default', $1::jsonb, now())
-     ON CONFLICT (id)
-     DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
-    [JSON.stringify(state)]
-  );
-  await writeRelationalState(state);
+function mapDbUser(row) {
+  if (!row) {
+    return undefined;
+  }
+
+  return normalizeUsuarios([{
+    id: row.id,
+    nombreCompleto: row.nombre_completo || `${row.nombre} ${row.apellidos}`.trim(),
+    nombre: row.nombre,
+    apellidos: row.apellidos,
+    email: row.email,
+    telefono: row.telefono,
+    frecuencia: row.frecuencia,
+    rol: row.rol,
+    password: row.password,
+    creadoEn: row.creado_en ? new Date(row.creado_en).getTime() : Date.now(),
+    actualizadoEn: row.actualizado_en ? new Date(row.actualizado_en).getTime() : Date.now()
+  }])[0];
 }
 
 function normalizeState(value) {
@@ -381,6 +475,90 @@ function sanitizeStateForClient(state) {
     ...state,
     usuarios: state.usuarios.map(({ password, ...usuario }) => usuario)
   };
+}
+
+async function ensureBaseUsersAvailable() {
+  await store.writeState(await withBaseUsers(await store.readState()));
+}
+
+async function withBaseUsers(value) {
+  const state = normalizeState(value);
+  state.usuarios = dedupeUsersByEmail(state.usuarios);
+  const usersByEmail = new Map(state.usuarios.map((usuario) => [usuario.email.toLowerCase(), usuario]));
+  const now = Date.now();
+
+  for (const base of getBaseUsers()) {
+    const existing = usersByEmail.get(base.email);
+    const password = existing?.password && await verifyPassword(base.password, existing.password)
+      ? existing.password
+      : await hashPassword(base.password);
+    const usuario = {
+      id: existing?.id || base.id,
+      nombreCompleto: existing?.nombreCompleto || base.nombre,
+      nombre: existing?.nombre || base.nombre,
+      apellidos: existing?.apellidos || '',
+      email: base.email,
+      telefono: existing?.telefono || '000000000',
+      frecuencia: existing?.frecuencia || 'puntual',
+      rol: base.rol,
+      password,
+      creadoEn: existing?.creadoEn || now,
+      actualizadoEn: now
+    };
+
+    if (existing) {
+      const index = state.usuarios.findIndex((item) => item.email.toLowerCase() === base.email);
+      state.usuarios[index] = usuario;
+    } else {
+      state.usuarios.unshift(usuario);
+    }
+  }
+
+  return normalizeState(state);
+}
+
+function dedupeUsersByEmail(usuarios) {
+  const deduped = [];
+  const indexesByEmail = new Map();
+
+  for (const usuario of usuarios) {
+    const email = usuario.email.toLowerCase();
+    const existingIndex = indexesByEmail.get(email);
+
+    if (existingIndex === undefined) {
+      indexesByEmail.set(email, deduped.length);
+      deduped.push(usuario);
+      continue;
+    }
+
+    deduped[existingIndex] = {
+      ...deduped[existingIndex],
+      ...usuario,
+      id: deduped[existingIndex].id || usuario.id,
+      password: deduped[existingIndex].password || usuario.password,
+      creadoEn: Math.min(deduped[existingIndex].creadoEn || usuario.creadoEn, usuario.creadoEn || deduped[existingIndex].creadoEn),
+      actualizadoEn: Math.max(deduped[existingIndex].actualizadoEn || usuario.actualizadoEn, usuario.actualizadoEn || deduped[existingIndex].actualizadoEn)
+    };
+  }
+
+  return deduped;
+}
+
+function getBaseUsers() {
+  const users = [
+    { id: 'root-user', email: superadminEmail, password: superadminPassword, rol: 'root', nombre: 'Root' },
+    { id: 'admin-user', email: adminEmail, password: adminPassword, rol: 'admin', nombre: 'Admin' }
+  ];
+  const seen = new Set();
+
+  return users.filter((usuario) => {
+    if (!usuario.email || !usuario.password || seen.has(usuario.email)) {
+      return false;
+    }
+
+    seen.add(usuario.email);
+    return true;
+  });
 }
 
 function normalizeUsuarios(value) {

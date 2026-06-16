@@ -86,10 +86,11 @@ export interface RemoteSnapshot {
 }
 
 type SyncListener = (status: SyncStatus, message: string) => void;
+const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '')).replace(/\/$/, '');
 
 export class StorageDB {
   private static readonly REMOTE_ENABLED = (import.meta.env.VITE_ENABLE_REMOTE_STORAGE ?? 'true') !== 'false';
-  private static readonly API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+  private static readonly API_BASE_URL = apiBaseUrl;
   private static readonly PERFIL_ADORADOR_SESSION_KEY = 'hsss_perfil_adorador_id';
   private static readonly PERFIL_ADORADOR_CACHE_KEY = 'hsss_perfil_adorador_cache';
   private static applyingRemoteSnapshot = false;
@@ -125,7 +126,7 @@ export class StorageDB {
         throw new Error(`Servidor no disponible (${response.status})`);
       }
 
-      StorageDB.applyRemoteSnapshot(StorageDB.normalizeSnapshot(await response.json()));
+      StorageDB.applyRemoteSnapshot(StorageDB.normalizeSnapshot(await StorageDB.readJsonResponse(response)));
       StorageDB.emitSync('online', 'Datos sincronizados desde PostgreSQL.');
       return true;
     } catch {
@@ -139,21 +140,26 @@ export class StorageDB {
       return undefined;
     }
 
-    const response = await fetch(StorageDB.apiUrl('/api/login'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      },
-      body: JSON.stringify({ email, password })
-    });
+    try {
+      const response = await fetch(StorageDB.apiUrl('/api/login'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        return undefined;
+      }
+
+      const payload = await StorageDB.readJsonResponse(response) as { usuario?: unknown };
+      return payload.usuario ? StorageDB.normalizeUsuario(payload.usuario) : undefined;
+    } catch {
+      StorageDB.emitSync('offline', 'Sin conexion con el servidor local. Revisa que este activo.');
       return undefined;
     }
-
-    const payload = await response.json() as { usuario?: unknown };
-    return payload.usuario ? StorageDB.normalizeUsuario(payload.usuario) : undefined;
   }
 
   public static queueRemoteSync(): void {
@@ -182,6 +188,17 @@ export class StorageDB {
 
   private static apiUrl(path: string): string {
     return `${StorageDB.API_BASE_URL}${path}`;
+  }
+
+  private static async readJsonResponse(response: Response): Promise<unknown> {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (!contentType.includes('application/json')) {
+      const preview = (await response.text()).trim().slice(0, 80);
+      throw new Error(`La API no devolvio JSON. Respuesta recibida: ${preview}`);
+    }
+
+    return response.json();
   }
 
   private static emitSync(status: SyncStatus, message: string): void {
@@ -260,7 +277,7 @@ export class StorageDB {
 
       StorageDB.emitSync('online', 'Cambios guardados en PostgreSQL.');
     } catch {
-      StorageDB.emitSync('offline', 'No se pudieron guardar los cambios en PostgreSQL. Revisa la API local.');
+      StorageDB.emitSync('offline', 'No se pudieron guardar los cambios. Revisa que el servidor este activo.');
       throw new Error('PostgreSQL sync failed');
     }
   }

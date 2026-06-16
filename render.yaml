@@ -9,8 +9,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: VITE_ENABLE_REMOTE_STORAGE
-        value: "true"
       - key: VITE_ADMIN_EMAIL
         sync: false
       - key: VITE_ADMIN_PASSWORD
@@ -19,14 +17,7 @@ services:
         sync: false
       - key: VITE_SUPERADMIN_PASSWORD
         sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: a-solas-db
-          property: connectionString
-
-databases:
-  - name: a-solas-db
-    plan: free
-    postgresMajorVersion: "16"
-    databaseName: a_solas
-    user: a_solas
+      - key: STORAGE_DRIVER
+        value: json
+      - key: JSON_DATA_FILE
+        value: /tmp/a-solas-state.json

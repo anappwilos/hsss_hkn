@@ -937,6 +937,14 @@ function canAssignAdminRoles(): boolean {
 }
 
 function getVistaInicial(): Vista {
+  if (isAdminAuthenticated()) {
+    return 'admin';
+  }
+
+  if (StorageDB.getPerfilAdorador()) {
+    return 'usuario';
+  }
+
   return 'inicio';
 }
 
@@ -979,9 +987,8 @@ function setFieldError(input: HTMLInputElement | HTMLSelectElement, message: str
 function getRegistroStepInputs(step = registroStep): Array<HTMLInputElement | HTMLSelectElement> {
   const steps: Array<Array<HTMLInputElement | HTMLSelectElement>> = [
     [registroNombre, registroApellidos],
-    [registroEmail, registroTelefono],
-    [registroFrecuencia],
-    [registroPassword, registroPasswordConfirm]
+    [registroEmail, registroPassword, registroPasswordConfirm],
+    [registroFrecuencia, registroTelefono]
   ];
 
   return steps[step] ?? [];
@@ -1066,6 +1073,18 @@ function normalizeCatalogInput(value: string): string {
 function getVistaDestino(vista: Vista): Vista {
   const hasAdminSession = isAdminAuthenticated();
   const hasUserSession = Boolean(StorageDB.getPerfilAdorador());
+
+  if (vista === 'inicio') {
+    if (hasAdminSession) {
+      return 'admin';
+    }
+
+    if (hasUserSession) {
+      return 'usuario';
+    }
+
+    return 'inicio';
+  }
 
   if (hasAdminSession && (vista === 'admin-login' || vista === 'registro-adorador')) {
     return 'admin';
@@ -4701,7 +4720,8 @@ function validarRegistroAdorador(showErrors: boolean, inputsToValidate?: Array<H
   const nombreValido = limpiarTextoRegistro(registroNombre.value).length >= 2;
   const apellidosValido = limpiarTextoRegistro(registroApellidos.value).length >= 2;
   const emailValido = esEmailValido(registroEmail.value);
-  const telefonoValido = esTelefonoValido(registroTelefono.value);
+  const telefonoNormalizado = limpiarTelefono(registroTelefono.value);
+  const telefonoValido = !telefonoNormalizado || esTelefonoValido(telefonoNormalizado);
   const frecuenciaValida = getFrecuenciasEditables().includes(registroFrecuencia.value as UsuarioFrecuencia);
   const passwordValida = registroPassword.value.length >= 6;
   const passwordConfirmValida = registroPasswordConfirm.value.length >= 6 && registroPasswordConfirm.value === registroPassword.value;
@@ -4709,7 +4729,7 @@ function validarRegistroAdorador(showErrors: boolean, inputsToValidate?: Array<H
     { input: registroNombre, valid: nombreValido, message: 'El nombre es obligatorio y debe tener al menos 2 caracteres.' },
     { input: registroApellidos, valid: apellidosValido, message: 'Los apellidos son obligatorios y deben tener al menos 2 caracteres.' },
     { input: registroEmail, valid: emailValido, message: registroEmail.value.trim() ? 'Introduce un correo valido.' : 'El correo es obligatorio.' },
-    { input: registroTelefono, valid: telefonoValido, message: registroTelefono.value.trim() ? 'El telefono debe tener entre 7 y 15 digitos.' : 'El telefono es obligatorio.' },
+    { input: registroTelefono, valid: telefonoValido, message: 'El telefono debe tener entre 7 y 15 digitos.' },
     { input: registroFrecuencia, valid: frecuenciaValida, message: 'Selecciona una frecuencia.' },
     { input: registroPassword, valid: passwordValida, message: registroPassword.value ? 'La contrasena debe tener al menos 6 caracteres.' : 'La contrasena es obligatoria.' },
     { input: registroPasswordConfirm, valid: passwordConfirmValida, message: registroPasswordConfirm.value ? 'Las contrasenas no coinciden.' : 'Confirma la contrasena.' }
