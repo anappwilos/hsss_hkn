@@ -132,7 +132,7 @@ app.innerHTML = `
       <video class="auth-bg-video optional-bg-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
         <source src="/landing-video.mp4" type="video/mp4" />
       </video>
-      <header class="mobile-topbar">
+      <header class="">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
         </button>
@@ -145,8 +145,7 @@ app.innerHTML = `
             <span class="auth-symbol">✚</span>
             <span class="auth-spark auth-spark-right">✦</span>
           </div>
-          <h1>Bienvenido de nuevo</h1>
-          <p>Inicia sesion para continuar en tu espacio de adoracion.</p>
+            <h1>Iniciar sesion</h1>
         </section>
 
         <section class="auth-form-panel" aria-label="Credenciales de acceso">
@@ -193,8 +192,7 @@ app.innerHTML = `
 
       <div class="screen-content">
         <header class="section-heading">
-          <h1>Panel administrador</h1>
-          <p>Gestiona lotes, usuarios registrados y turnos asignados de la capilla.</p>
+          <h1>Panel de administración<h1>
         </header>
 
         <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
@@ -291,9 +289,8 @@ app.innerHTML = `
       <video class="auth-bg-video optional-bg-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
         <source src="/landing-video.mp4" type="video/mp4" />
       </video>
-      <header class="mobile-topbar registro-topbar">
+      <header class=" registro-topbar">
         <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
-        <h1>Registro A solas</h1>
         <span aria-hidden="true"></span>
       </header>
 
@@ -305,8 +302,7 @@ app.innerHTML = `
               <span class="auth-symbol">✚</span>
               <span class="auth-spark auth-spark-right">✦</span>
             </div>
-            <h2>Crea tu cuenta</h2>
-            <p>Prepara tu perfil para reservar turnos y continuar en tu espacio de adoracion.</p>
+            <h1>Crea tu cuenta</h1>
           </section>
 
           <div class="registro-content auth-form-panel">
@@ -587,8 +583,7 @@ app.innerHTML = `
       <form id="form-lote" class="screen-content config-form">
         <section class="intro-card">
           <div>
-            <h2>Planificaci&oacute;n del Sagrario</h2>
-            <p>Define los periodos y horarios para la adoraci&oacute;n eucar&iacute;stica comunitaria.</p>
+            Lotes de turnos
           </div>
         </section>
 
@@ -659,8 +654,6 @@ app.innerHTML = `
 
         <section class="summary-card">
           <div class="summary-copy">
-            <span aria-hidden="true">✦</span>
-            <div>
               <h2>Resumen de Configuraci&oacute;n</h2>
               <p id="resumen-lote">Se habilitar&aacute;n los turnos de adoraci&oacute;n con la configuraci&oacute;n seleccionada.</p>
             </div>
@@ -2097,7 +2090,6 @@ function renderAdminUsuarios(): void {
           <div>
             <p class="section-kicker">Solo administradores</p>
             <h2>Gestion de usuarios</h2>
-            <p>Administra perfiles, roles, frecuencia y proximos turnos de los adoradores.</p>
           </div>
           <div class="admin-month-pill" aria-label="Periodo visible">
             <span aria-hidden="true"></span>
@@ -2115,8 +2107,6 @@ function renderAdminUsuarios(): void {
         <section class="admin-users-card">
           <div class="admin-users-card-head">
             <div>
-              <p class="section-kicker">Directorio</p>
-              <p>Datos visibles solo para administradores.</p>
             </div>
             <label class="admin-user-search">
               <span aria-hidden="true">⌕</span>
