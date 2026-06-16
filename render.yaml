@@ -3,7 +3,8 @@ services:
     name: a-solas
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
+    rootDir: backend
+    buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -21,3 +22,5 @@ services:
         value: json
       - key: JSON_DATA_FILE
         value: /tmp/a-solas-state.json
+      - key: CORS_ORIGIN
+        sync: false

@@ -24,6 +24,8 @@ npm run build
 npm start
 ```
 
+El servidor Node vive en `backend/` como paquete independiente. Los comandos `npm run dev:api` y `npm start` delegan en ese paquete.
+
 ## URLs locales
 
 Con el entorno de desarrollo levantado, usa estas URLs:
@@ -41,6 +43,8 @@ http://localhost:5173
 ```
 
 `http://localhost:3000` es el servidor Node. No es la pantalla principal en desarrollo; Vite sirve la app en el puerto `5173` y se conecta al servidor local automaticamente.
+
+En desarrollo CORS permite automaticamente `http://localhost:5173` y `http://127.0.0.1:5173`. Si despliegas frontend y backend en dominios separados, define `CORS_ORIGIN` con el dominio permitido.
 
 ## Persistencia local
 
@@ -124,23 +128,24 @@ Nota: `npm run db:down` detiene el contenedor, pero conserva el volumen de datos
 
 ## Persistencia y Render
 
-La app puede desplegarse en Render como un Blueprint desde `render.yaml`. El Blueprint actual crea solo el servicio web y usa `STORAGE_DRIVER=json` con `JSON_DATA_FILE=/tmp/a-solas-state.json` como base temporal.
+El backend puede desplegarse en Render como un Blueprint desde `render.yaml`. El Blueprint actual usa `backend/` como `rootDir` y crea un servicio API con `STORAGE_DRIVER=json` y `JSON_DATA_FILE=/tmp/a-solas-state.json` como base temporal.
 
 ### Despliegue recomendado con Blueprint
 
 1. Sube este repositorio a GitHub/GitLab/Bitbucket.
 2. En Render, crea un **New Blueprint Instance** y selecciona el repositorio.
 3. Render leera `render.yaml` y creara:
-   - Servicio web `a-solas` con `buildCommand: npm install && npm run build`, `startCommand: npm start` y healthcheck `/api/health`.
+   - Servicio backend `a-solas` con `rootDir: backend`, `buildCommand: npm install`, `startCommand: npm start` y healthcheck `/api/health`.
    - Archivo JSON temporal en `/tmp/a-solas-state.json` para guardar usuarios, lotes, turnos y notificaciones mientras viva la instancia.
 4. Cuando Render pida variables marcadas con `sync: false`, define:
    - `VITE_ADMIN_EMAIL`: correo del administrador.
    - `VITE_ADMIN_PASSWORD`: contrasena del administrador.
    - `VITE_SUPERADMIN_EMAIL`: correo del superadministrador.
    - `VITE_SUPERADMIN_PASSWORD`: contrasena del superadministrador.
+   - `CORS_ORIGIN`: dominio del frontend si queda desplegado separado.
 5. Al terminar el despliegue, abre `https://<tu-servicio>.onrender.com/api/health`; deberia devolver `{"ok":true}`.
 
-El Blueprint activa `STORAGE_DRIVER=json`. En produccion el cliente sincroniza contra el mismo dominio del servicio, sin configurar una URL de API aparte.
+El Blueprint activa `STORAGE_DRIVER=json`. Si el frontend se despliega separado, compila el frontend con `VITE_API_BASE_URL` apuntando a la URL publica del backend y define `CORS_ORIGIN` con el dominio del frontend.
 
 El modo JSON sincroniza todo el estado compartido en un unico documento con estos dominios principales:
 

@@ -8,14 +8,16 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '..');
+const runtimeRoot = process.cwd();
 await loadEnvFile();
 
 const port = Number(process.env.PORT || 3000);
-const distDir = path.join(__dirname, 'dist');
+const distDir = resolveRuntimePath(process.env.STATIC_DIST_DIR || path.join('..', 'dist'));
 const maxBodyBytes = 1024 * 1024;
 const databaseUrl = process.env.DATABASE_URL || '';
 const storageDriver = String(process.env.STORAGE_DRIVER || (databaseUrl ? 'postgres' : 'json')).trim().toLowerCase();
-const jsonDataFile = process.env.JSON_DATA_FILE || path.join(__dirname, 'data', 'a-solas-state.json');
+const jsonDataFile = resolveRuntimePath(process.env.JSON_DATA_FILE || path.join('data', 'a-solas-state.json'));
 const adminEmail = String(process.env.VITE_ADMIN_EMAIL || 'admin@admin.com').trim().toLowerCase();
 const adminPassword = String(process.env.VITE_ADMIN_PASSWORD || 'admin');
 const superadminEmail = String(process.env.VITE_SUPERADMIN_EMAIL || 'root@root.com').trim().toLowerCase();
@@ -69,7 +71,7 @@ await ensureBaseUsersAvailable();
 
 const server = createServer(async (request, response) => {
   try {
-    setCommonHeaders(response);
+    setCommonHeaders(request, response);
 
     if (request.method === 'OPTIONS') {
       response.writeHead(204);
@@ -127,32 +129,44 @@ async function waitForDatabase(retries = 20, delayMs = 1000) {
 }
 
 async function loadEnvFile() {
-  try {
-    const raw = await readFile(path.join(__dirname, '.env'), 'utf8');
+  const envFiles = [
+    path.join(runtimeRoot, '.env'),
+    path.join(projectRoot, '.env'),
+    path.join(__dirname, '.env')
+  ];
 
-    for (const line of raw.split(/\r?\n/)) {
-      const trimmed = line.trim();
+  for (const envFile of Array.from(new Set(envFiles))) {
+    try {
+      const raw = await readFile(envFile, 'utf8');
 
-      if (!trimmed || trimmed.startsWith('#')) {
-        continue;
+      for (const line of raw.split(/\r?\n/)) {
+        const trimmed = line.trim();
+
+        if (!trimmed || trimmed.startsWith('#')) {
+          continue;
+        }
+
+        const separatorIndex = trimmed.indexOf('=');
+
+        if (separatorIndex === -1) {
+          continue;
+        }
+
+        const key = trimmed.slice(0, separatorIndex).trim();
+        const value = trimmed.slice(separatorIndex + 1).trim().replace(/^["']|["']$/g, '');
+
+        if (key && process.env[key] === undefined) {
+          process.env[key] = value;
+        }
       }
-
-      const separatorIndex = trimmed.indexOf('=');
-
-      if (separatorIndex === -1) {
-        continue;
-      }
-
-      const key = trimmed.slice(0, separatorIndex).trim();
-      const value = trimmed.slice(separatorIndex + 1).trim().replace(/^["']|["']$/g, '');
-
-      if (key && process.env[key] === undefined) {
-        process.env[key] = value;
-      }
+    } catch {
+      // .env is optional; try the next conventional location.
     }
-  } catch {
-    // .env is optional in production because Render injects environment variables.
   }
+}
+
+function resolveRuntimePath(value) {
+  return path.isAbsolute(value) ? value : path.resolve(runtimeRoot, value);
 }
 
 function shouldUseDatabaseSsl(connectionString) {
@@ -758,7 +772,19 @@ async function serveStatic(pathname, response) {
     return;
   }
 
-  const filePath = await existingFile(resolvedPath) || path.join(distDir, 'index.html');
+  const filePath = await existingFile(resolvedPath) || await existingFile(path.join(distDir, 'index.html'));
+
+  if (!filePath) {
+    sendJson(response, pathname === '/' ? 200 : 404, {
+      ok: pathname === '/',
+      service: 'a-solas-backend',
+      message: pathname === '/'
+        ? 'Backend activo. Usa /api/health, /api/state o /api/login.'
+        : 'Not found'
+    });
+    return;
+  }
+
   const extension = path.extname(filePath);
   const contentType = mimeTypes.get(extension) || 'application/octet-stream';
 
@@ -775,11 +801,37 @@ async function existingFile(filePath) {
   }
 }
 
-function setCommonHeaders(response) {
-  response.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+function setCommonHeaders(request, response) {
+  const origin = request.headers.origin;
+  const allowedOrigin = getAllowedCorsOrigin(origin);
+
+  if (allowedOrigin) {
+    response.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    response.setHeader('Vary', 'Origin');
+  }
+
   response.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,OPTIONS');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type,Accept');
   response.setHeader('X-Content-Type-Options', 'nosniff');
+}
+
+function getAllowedCorsOrigin(origin) {
+  if (!origin) {
+    return '*';
+  }
+
+  const configuredOrigins = String(process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  const allowedOrigins = configuredOrigins.length > 0 ? configuredOrigins : defaultOrigins;
+
+  if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+    return origin;
+  }
+
+  return '';
 }
 
 function sendJson(response, statusCode, payload) {
