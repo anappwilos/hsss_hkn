@@ -134,6 +134,28 @@ export class StorageDB {
     }
   }
 
+  public static async login(email: string, password: string): Promise<Usuario | undefined> {
+    if (!StorageDB.REMOTE_ENABLED) {
+      return undefined;
+    }
+
+    const response = await fetch(StorageDB.apiUrl('/api/login'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) {
+      return undefined;
+    }
+
+    const payload = await response.json() as { usuario?: unknown };
+    return payload.usuario ? StorageDB.normalizeUsuario(payload.usuario) : undefined;
+  }
+
   public static queueRemoteSync(): void {
     if (!StorageDB.REMOTE_ENABLED || StorageDB.applyingRemoteSnapshot) {
       return;
@@ -209,7 +231,9 @@ export class StorageDB {
   private static writePerfilAdoradorCache(usuario: Usuario | null): void {
     try {
       if (usuario) {
-        localStorage.setItem(StorageDB.PERFIL_ADORADOR_CACHE_KEY, JSON.stringify(StorageDB.normalizeUsuario(usuario)));
+        const safeUsuario = StorageDB.normalizeUsuario(usuario);
+        delete safeUsuario.password;
+        localStorage.setItem(StorageDB.PERFIL_ADORADOR_CACHE_KEY, JSON.stringify(safeUsuario));
         return;
       }
 

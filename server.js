@@ -1,7 +1,9 @@
 import { createReadStream } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
@@ -13,6 +15,8 @@ const distDir = path.join(__dirname, 'dist');
 const maxBodyBytes = 1024 * 1024;
 const databaseUrl = process.env.DATABASE_URL || '';
 const { Pool } = pg;
+const scryptAsync = promisify(scryptCallback);
+const passwordHashPrefix = 'scrypt';
 if (!databaseUrl) {
   throw new Error('DATABASE_URL es obligatorio: la persistencia usa solo PostgreSQL. Ejecuta npm run db:up y define DATABASE_URL en .env.');
 }
@@ -71,6 +75,11 @@ const server = createServer(async (request, response) => {
 
     if (url.pathname === '/api/state') {
       await handleState(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/login') {
+      await handleLogin(request, response);
       return;
     }
 
@@ -221,23 +230,92 @@ async function initializeStore() {
      ON CONFLICT (id) DO NOTHING`,
     [JSON.stringify(emptyState)]
   );
+
+  await migrateStoredPasswords();
+}
+
+async function migrateStoredPasswords() {
+  const state = await readState();
+  let changed = false;
+
+  state.usuarios = await Promise.all(state.usuarios.map(async (usuario) => {
+    if (!usuario.password || isPasswordHash(usuario.password)) {
+      return usuario;
+    }
+
+    changed = true;
+    return {
+      ...usuario,
+      password: await hashPassword(usuario.password)
+    };
+  }));
+
+  if (changed) {
+    await writeState(state);
+  }
 }
 
 async function handleState(request, response) {
   if (request.method === 'GET') {
-    sendJson(response, 200, await readState());
+    sendJson(response, 200, sanitizeStateForClient(await readState()));
     return;
   }
 
   if (request.method === 'PUT') {
     const body = await readJsonBody(request);
-    const state = normalizeState(body);
+    const currentState = await readState();
+    const state = await normalizeIncomingState(body, currentState);
     await writeState(state);
-    sendJson(response, 200, state);
+    sendJson(response, 200, sanitizeStateForClient(state));
     return;
   }
 
   sendJson(response, 405, { error: 'Method not allowed' });
+}
+
+async function handleLogin(request, response) {
+  if (request.method !== 'POST') {
+    sendJson(response, 405, { error: 'Method not allowed' });
+    return;
+  }
+
+  const body = await readJsonBody(request);
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '');
+
+  if (!email || !password) {
+    sendJson(response, 400, { error: 'Email y contrasena son obligatorios.' });
+    return;
+  }
+
+  const result = await pool.query(
+    `SELECT id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
+     FROM usuarios
+     WHERE lower(email) = $1
+     LIMIT 1`,
+    [email]
+  );
+  const usuario = result.rows[0];
+
+  if (!usuario || !(await verifyPassword(password, usuario.password))) {
+    sendJson(response, 401, { error: 'Correo o contrasena incorrectos.' });
+    return;
+  }
+
+  sendJson(response, 200, {
+    usuario: {
+      id: usuario.id,
+      nombreCompleto: usuario.nombre_completo || `${usuario.nombre} ${usuario.apellidos}`.trim(),
+      nombre: usuario.nombre,
+      apellidos: usuario.apellidos,
+      email: usuario.email,
+      telefono: usuario.telefono,
+      frecuencia: usuario.frecuencia,
+      rol: usuario.rol,
+      creadoEn: usuario.creado_en ? new Date(usuario.creado_en).getTime() : Date.now(),
+      actualizadoEn: usuario.actualizado_en ? new Date(usuario.actualizado_en).getTime() : Date.now()
+    }
+  });
 }
 
 async function readState() {
@@ -266,6 +344,42 @@ function normalizeState(value) {
     notificaciones: normalizeNotificaciones(source.notificaciones),
     catalogoUsuarios: normalizeCatalogoUsuarios(source.catalogoUsuarios),
     updatedAt: typeof source.updatedAt === 'number' ? source.updatedAt : Date.now()
+  };
+}
+
+async function normalizeIncomingState(value, currentState) {
+  const state = normalizeState(value);
+  const currentUsers = new Map();
+
+  for (const usuario of currentState.usuarios) {
+    currentUsers.set(usuario.id, usuario);
+    currentUsers.set(usuario.email.toLowerCase(), usuario);
+  }
+
+  state.usuarios = await Promise.all(state.usuarios.map(async (usuario) => {
+    const current = currentUsers.get(usuario.id) || currentUsers.get(usuario.email.toLowerCase());
+    const rawPassword = typeof usuario.password === 'string' ? usuario.password.trim() : '';
+
+    if (rawPassword) {
+      return {
+        ...usuario,
+        password: isPasswordHash(rawPassword) ? rawPassword : await hashPassword(rawPassword)
+      };
+    }
+
+    return {
+      ...usuario,
+      password: current?.password || ''
+    };
+  }));
+
+  return state;
+}
+
+function sanitizeStateForClient(state) {
+  return {
+    ...state,
+    usuarios: state.usuarios.map(({ password, ...usuario }) => usuario)
   };
 }
 
@@ -349,6 +463,38 @@ function normalizeNotificaciones(value) {
       leidoEn: typeof source.leidoEn === 'number' ? source.leidoEn : undefined
     };
   }).filter((notificacion) => notificacion.id && notificacion.titulo);
+}
+
+function isPasswordHash(value) {
+  return value.startsWith(`${passwordHashPrefix}$`);
+}
+
+async function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const derived = await scryptAsync(password, salt, 64);
+  return `${passwordHashPrefix}$${salt}$${Buffer.from(derived).toString('hex')}`;
+}
+
+async function verifyPassword(password, storedPassword) {
+  if (!storedPassword) {
+    return false;
+  }
+
+  if (!isPasswordHash(storedPassword)) {
+    return password === storedPassword;
+  }
+
+  const [, salt, storedKey] = storedPassword.split('$');
+
+  if (!salt || !storedKey) {
+    return false;
+  }
+
+  const stored = Buffer.from(storedKey, 'hex');
+  const derived = await scryptAsync(password, salt, stored.length);
+  const candidate = Buffer.from(derived);
+
+  return stored.length === candidate.length && timingSafeEqual(stored, candidate);
 }
 
 async function writeRelationalState(state) {
@@ -453,7 +599,7 @@ async function existingFile(filePath) {
 
 function setCommonHeaders(response) {
   response.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
-  response.setHeader('Access-Control-Allow-Methods', 'GET,PUT,OPTIONS');
+  response.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,OPTIONS');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type,Accept');
   response.setHeader('X-Content-Type-Options', 'nosniff');
 }

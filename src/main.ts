@@ -1006,6 +1006,7 @@ function renderRegistroSlider(): void {
   registroPrev.disabled = registroStep === 0;
   registroNext.hidden = registroStep === steps.length - 1;
   registroSubmit.hidden = registroStep !== steps.length - 1;
+  registroSubmit.disabled = false;
   registroStepLabel.textContent = `${registroStep + 1} de ${steps.length}`;
   formRegistroAdorador.style.setProperty('--registro-progress', `${((registroStep + 1) / steps.length) * 100}%`);
 }
@@ -1015,6 +1016,7 @@ function moverRegistroSlider(direction: 1 | -1): void {
     return;
   }
 
+  getRegistroStepInputs().forEach((input) => setFieldError(input, '', false));
   const totalSteps = formRegistroAdorador.querySelectorAll('[data-registro-step]').length;
   registroStep = Math.min(Math.max(registroStep + direction, 0), totalSteps - 1);
   registroMensaje.textContent = '';
@@ -1043,25 +1045,6 @@ function validarAdminLogin(showErrors: boolean): boolean {
   mostrarAdminLoginMensaje('Revisa los campos marcados para continuar.', 'error');
   (emailMessage ? adminEmail : adminPassword).focus();
   return false;
-}
-
-function getAdminLoginRol(email: string, password: string): Extract<UsuarioRol, 'root' | 'admin'> | null {
-  const adminValido = Boolean(ADMIN_EMAIL && ADMIN_PASSWORD && email === ADMIN_EMAIL && password === ADMIN_PASSWORD);
-  const superadminValido = Boolean(SUPERADMIN_EMAIL && SUPERADMIN_PASSWORD && email === SUPERADMIN_EMAIL && password === SUPERADMIN_PASSWORD);
-
-  if (superadminValido) {
-    return 'root';
-  }
-
-  return adminValido ? 'admin' : null;
-}
-
-function getUsuarioLoginValido(email: string, password: string): PerfilAdorador | undefined {
-  return StorageDB.getUsuarios().find((usuario) =>
-    usuario.email.toLowerCase() === email &&
-    Boolean(usuario.password) &&
-    usuario.password === password
-  );
 }
 
 function isAdminRol(rol: UsuarioRol): rol is Extract<UsuarioRol, 'root' | 'admin'> {
@@ -2108,7 +2091,7 @@ function renderAdminUsuarios(): void {
             <p>Administra perfiles, roles, frecuencia y proximos turnos de los adoradores.</p>
           </div>
           <div class="admin-month-pill" aria-label="Periodo visible">
-            <span aria-hidden="true">□</span>
+            <span aria-hidden="true"></span>
             <strong>${escapeHtml(new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()))}</strong>
           </div>
         </header>
@@ -2656,7 +2639,7 @@ function renderAdminTurnosCubiertos(): void {
       </header>
 
       <section class="admin-turns-metrics" aria-label="Resumen semanal de turnos">
-        <article><span class="metric-icon metric-orange" aria-hidden="true">□</span><small>Turnos hoy</small><strong>${turnosHoy}</strong></article>
+        <article><span class="metric-icon metric-orange" aria-hidden="true"></span><small>Turnos hoy</small><strong>${turnosHoy}</strong></article>
         <article><span class="metric-icon metric-blue" aria-hidden="true">◌</span><small>Esta semana</small><strong>${turnosSemana.length}</strong></article>
         <article><span class="metric-icon metric-red" aria-hidden="true">!</span><small>Sin asignar</small><strong>${turnosSinAsignar}</strong></article>
         <article><span class="metric-icon metric-amber" aria-hidden="true">+</span><small>Suplentes</small><strong>${turnosSuplente}</strong></article>
@@ -4621,7 +4604,7 @@ document.addEventListener('submit', (event) => {
   guardarPerfilDesdeModal(form);
 });
 
-formAdminLogin.addEventListener('submit', (event) => {
+formAdminLogin.addEventListener('submit', async (event) => {
   event.preventDefault();
 
   if (!validarAdminLogin(true)) {
@@ -4630,20 +4613,7 @@ formAdminLogin.addEventListener('submit', (event) => {
 
   const email = adminEmail.value.trim().toLowerCase();
   const password = adminPassword.value;
-  const adminRole = getAdminLoginRol(email, password);
-
-  if (adminRole) {
-    guardarEmailRecordado(email);
-    setFieldError(adminEmail, '', false);
-    setFieldError(adminPassword, '', false);
-    StorageDB.clearPerfilAdorador();
-    setAdminAuthenticated(true, adminRole);
-    mostrarAdminLoginMensaje('', 'info');
-    mostrarVista('admin');
-    return;
-  }
-
-  const usuario = getUsuarioLoginValido(email, password);
+  const usuario = await StorageDB.login(email, password);
 
   if (usuario) {
     guardarEmailRecordado(email);
@@ -4758,11 +4728,8 @@ function validarRegistroAdorador(showErrors: boolean, inputsToValidate?: Array<H
     ? errores.filter(({ input }) => inputsToValidate.includes(input))
     : errores;
   const esValido = erroresVisibles.every(({ valid }) => valid);
-  const esFormularioCompleto = errores.every(({ valid }) => valid);
 
   erroresVisibles.forEach(({ input, valid, message }) => setFieldError(input, message, showErrors && !valid));
-
-  registroSubmit.disabled = !esFormularioCompleto;
 
   if (!showErrors || esValido) {
     registroMensaje.textContent = '';
@@ -4783,7 +4750,6 @@ function rellenarRegistroSiExiste(): void {
   if (!perfil) {
     registroPassword.value = '';
     registroPasswordConfirm.value = '';
-    validarRegistroAdorador(false);
     return;
   }
 
@@ -4794,11 +4760,9 @@ function rellenarRegistroSiExiste(): void {
   registroFrecuencia.value = perfil.frecuencia ?? 'puntual';
   registroPassword.value = perfil.password ?? '';
   registroPasswordConfirm.value = perfil.password ?? '';
-  validarRegistroAdorador(false);
 }
 
 [registroNombre, registroApellidos, registroEmail, registroTelefono, registroPassword, registroPasswordConfirm].forEach((input) => {
-  input.addEventListener('input', () => validarRegistroAdorador(false, getRegistroStepInputs()));
   input.addEventListener('blur', () => {
     if (input === registroNombre || input === registroApellidos) {
       input.value = limpiarTextoRegistro(input.value);
@@ -4811,12 +4775,8 @@ function rellenarRegistroSiExiste(): void {
     if (input === registroTelefono) {
       input.value = limpiarTelefono(input.value);
     }
-
-    validarRegistroAdorador(input.value.trim().length > 0, getRegistroStepInputs());
   });
 });
-
-registroFrecuencia.addEventListener('change', () => validarRegistroAdorador(false, getRegistroStepInputs()));
 
 duplicarMesInput.addEventListener('input', actualizarPreviewDuplicarMes);
 
