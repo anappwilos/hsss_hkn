@@ -156,18 +156,26 @@ async function initializeStore() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id text PRIMARY KEY,
+      nombre_completo text NOT NULL DEFAULT '',
       nombre text NOT NULL,
       apellidos text NOT NULL,
       email text NOT NULL UNIQUE,
       telefono text NOT NULL,
       frecuencia text NOT NULL,
       rol text NOT NULL,
+      password text NOT NULL DEFAULT '',
       creado_en timestamptz NOT NULL DEFAULT now(),
       actualizado_en timestamptz NOT NULL DEFAULT now()
     )
   `);
 
-  await pool.query('ALTER TABLE usuarios DROP COLUMN IF EXISTS nombre_completo');
+  await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_completo text NOT NULL DEFAULT ''");
+  await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password text NOT NULL DEFAULT ''");
+  await pool.query(`
+    UPDATE usuarios
+    SET nombre_completo = trim(concat_ws(' ', nombre, apellidos))
+    WHERE nombre_completo = ''
+  `);
   await pool.query(`
     DO $$
     BEGIN
@@ -352,9 +360,21 @@ async function writeRelationalState(state) {
 
     for (const usuario of state.usuarios) {
       await client.query(
-        `INSERT INTO usuarios (id, nombre, apellidos, email, telefono, frecuencia, rol, creado_en, actualizado_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8 / 1000.0), to_timestamp($9 / 1000.0))`,
-        [usuario.id, usuario.nombre, usuario.apellidos, usuario.email, usuario.telefono, usuario.frecuencia, usuario.rol, usuario.creadoEn, usuario.actualizadoEn]
+        `INSERT INTO usuarios (id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, to_timestamp($10 / 1000.0), to_timestamp($11 / 1000.0))`,
+        [
+          usuario.id,
+          usuario.nombreCompleto,
+          usuario.nombre,
+          usuario.apellidos,
+          usuario.email,
+          usuario.telefono,
+          usuario.frecuencia,
+          usuario.rol,
+          usuario.password ?? '',
+          usuario.creadoEn,
+          usuario.actualizadoEn
+        ]
       );
     }
 

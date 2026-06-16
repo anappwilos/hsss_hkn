@@ -10,12 +10,14 @@ CREATE TABLE IF NOT EXISTS app_state (
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id text PRIMARY KEY,
+  nombre_completo text NOT NULL DEFAULT '',
   nombre text NOT NULL,
   apellidos text NOT NULL,
   email text NOT NULL UNIQUE,
   telefono text NOT NULL,
   frecuencia text NOT NULL,
   rol text NOT NULL,
+  password text NOT NULL DEFAULT '',
   creado_en timestamptz NOT NULL DEFAULT now(),
   actualizado_en timestamptz NOT NULL DEFAULT now()
 );
