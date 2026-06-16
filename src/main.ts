@@ -8,7 +8,7 @@ type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
 type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
 type VistaTurnos = 'diaria' | 'semanal';
-type AdminPanel = 'lotes' | 'usuarios' | 'turnos';
+type AdminPanel = 'lotes' | 'usuarios' | 'turnos' | 'catalogos';
 type AdminUsuarioFiltro = 'todos' | 'administrador' | (string & {});
 type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
 type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'pendiente';
@@ -83,7 +83,7 @@ let fechaUsuarioSeleccionada = fechaToInput(new Date());
 let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let vistaTurnos: VistaTurnos = 'semanal';
 let usuarioPanel: UsuarioPanel = 'disponibles';
-let adminPanel: AdminPanel = 'lotes';
+let adminPanel: AdminPanel = 'turnos';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
 let adminUsuarioEditandoId: string | null = null;
@@ -191,14 +191,11 @@ app.innerHTML = `
       </header>
 
       <div class="screen-content">
-        <header class="section-heading">
-          <h1>Panel de administración<h1>
-        </header>
-
         <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
-          <button class="chip is-active" type="button" data-admin-panel="lotes">Lotes</button>
+          <button class="chip is-active" type="button" data-admin-panel="turnos">Turnos</button>
           <button class="chip" type="button" data-admin-panel="usuarios">Usuarios</button>
-          <button class="chip" type="button" data-admin-panel="turnos">Turnos asignados</button>
+          <button class="chip" type="button" data-admin-panel="catalogos">Catalogos</button>
+          <button class="chip" type="button" data-admin-panel="lotes">Lotes</button>
         </nav>
 
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
@@ -216,6 +213,10 @@ app.innerHTML = `
 
         <section id="admin-panel-usuarios" class="admin-panel-section" aria-label="Panel de usuarios" hidden>
           <div id="admin-usuarios-lista" class="admin-users-list"></div>
+        </section>
+
+        <section id="admin-panel-catalogos" class="admin-panel-section" aria-label="Panel de catalogos" hidden>
+          <div id="admin-catalogos-lista" class="admin-users-list"></div>
         </section>
 
         <section id="admin-panel-turnos" class="admin-panel-section" aria-label="Panel de turnos asignados" hidden>
@@ -576,25 +577,21 @@ app.innerHTML = `
     <section id="vista-configuracion" class="view config-view" style="display: none;">
       <header class="mobile-topbar">
         <button class="icon-only" type="button" data-view="admin" aria-label="Volver">‹</button>
-        <h1>Configurar Exposici&oacute;n</h1>
+        <h1>Lotes</h1>
         <div class="avatar" aria-hidden="true"></div>
       </header>
 
       <form id="form-lote" class="screen-content config-form">
-        <section class="intro-card">
-          <div>
-            Lotes de turnos
-          </div>
-        </section>
+        <div class="config-layout">
+          <section class="config-main-panel">
+            <label class="field">
+              <span>Nombre del lote</span>
+              <input id="lote-nombre" type="text" placeholder="Ej. Semana Santa 2026" required />
+            </label>
 
-        <label class="field">
-          <span>Nombre del lote</span>
-          <input id="lote-nombre" type="text" placeholder="Ej. Semana Santa 2026" required />
-        </label>
-
-        <section class="config-section">
-          <h2>Rango de Fechas</h2>
-          <div class="config-card">
+            <div class="config-section">
+              <h2>Fechas</h2>
+              <div class="config-card">
             <label class="field month-picker-field">
               <span>Mes completo</span>
               <input id="lote-mes-completo" type="month" />
@@ -611,12 +608,12 @@ app.innerHTML = `
                 <input id="lote-fecha-fin" type="date" required />
               </label>
             </div>
-          </div>
-        </section>
+              </div>
+            </div>
 
-        <section class="config-section">
-          <h2>Horario de Exposici&oacute;n</h2>
-          <div class="config-card two-cols">
+            <div class="config-section">
+              <h2>Horario</h2>
+              <div class="config-card two-cols">
             <label class="field">
               <span>Hora Inicio</span>
               <input id="lote-hora-inicio" type="time" value="08:00" required />
@@ -638,29 +635,30 @@ app.innerHTML = `
             <section class="no-exposure-section">
               <div>
                 <h3>Horas sin exposici&oacute;n</h3>
-                <p id="sin-exposicion-resumen">Sin horas sin exposici&oacute;n configuradas.</p>
+              <p id="sin-exposicion-resumen">Sin horas sin exposici&oacute;n configuradas.</p>
               </div>
-              <button id="btn-open-interrupciones" class="button button-secondary" type="button">Configurar horas sin exposici&oacute;n</button>
+              <button id="btn-open-interrupciones" class="button button-secondary" type="button">Horas sin exposici&oacute;n</button>
             </section>
-          </div>
-        </section>
+              </div>
+            </div>
 
-        <section class="config-section">
-          <h2>Recurrencia semanal</h2>
-          <div id="dias-config" class="config-card weekday-row">
+            <div class="config-section">
+              <h2>D&iacute;as activos</h2>
+              <div id="dias-config" class="config-card weekday-row">
             ${diasSemana.map((dia) => `<button class="weekday is-active" type="button" data-day="${dia.value}">${dia.label}</button>`).join('')}
-          </div>
-        </section>
+              </div>
+            </div>
+          </section>
 
-        <section class="summary-card">
-          <div class="summary-copy">
-              <h2>Resumen de Configuraci&oacute;n</h2>
+          <aside class="summary-card">
+            <div class="summary-copy">
+              <h2>Resumen</h2>
               <p id="resumen-lote">Se habilitar&aacute;n los turnos de adoraci&oacute;n con la configuraci&oacute;n seleccionada.</p>
             </div>
+            <button id="btn-guardar-borrador" class="button button-secondary" type="button">Guardar borrador</button>
+            <button class="button button-primary" type="submit">Generar turnos</button>
+          </aside>
           </div>
-          <button id="btn-guardar-borrador" class="button button-secondary" type="button">Guardar Borrador</button>
-          <button class="button button-primary" type="submit">Confirmar Exposici&oacute;n ◎</button>
-        </section>
       </form>
 
     </section>
@@ -717,8 +715,10 @@ const btnNuevoLote = getElement<HTMLButtonElement>('#btn-nuevo-lote');
 const adminPanelTabs = getElement<HTMLElement>('#admin-panel-tabs');
 const adminPanelLotes = getElement<HTMLElement>('#admin-panel-lotes');
 const adminPanelUsuarios = getElement<HTMLElement>('#admin-panel-usuarios');
+const adminPanelCatalogos = getElement<HTMLElement>('#admin-panel-catalogos');
 const adminPanelTurnos = getElement<HTMLElement>('#admin-panel-turnos');
 const adminUsuariosLista = getElement<HTMLElement>('#admin-usuarios-lista');
+const adminCatalogosLista = getElement<HTMLElement>('#admin-catalogos-lista');
 const adminTurnosCubiertos = getElement<HTMLElement>('#admin-turnos-cubiertos');
 const usuarioDias = getElement<HTMLDivElement>('#usuario-dias');
 const usuarioTurnos = getElement<HTMLDivElement>('#usuario-turnos');
@@ -1981,6 +1981,7 @@ function renderAdminPanel(): void {
 
   adminPanelLotes.hidden = adminPanel !== 'lotes';
   adminPanelUsuarios.hidden = adminPanel !== 'usuarios';
+  adminPanelCatalogos.hidden = adminPanel !== 'catalogos';
   adminPanelTurnos.hidden = adminPanel !== 'turnos';
   btnNuevoLote.hidden = adminPanel !== 'lotes';
 
@@ -1990,6 +1991,10 @@ function renderAdminPanel(): void {
 
   if (adminPanel === 'usuarios') {
     renderAdminUsuarios();
+  }
+
+  if (adminPanel === 'catalogos') {
+    renderAdminCatalogos();
   }
 
   if (adminPanel === 'turnos') {
@@ -2088,13 +2093,9 @@ function renderAdminUsuarios(): void {
       <section class="admin-users-main">
         <header class="admin-users-hero">
           <div>
-            <p class="section-kicker">Solo administradores</p>
-            <h2>Gestion de usuarios</h2>
+          <h2>Usuarios</h2>
           </div>
-          <div class="admin-month-pill" aria-label="Periodo visible">
-            <span aria-hidden="true"></span>
-            <strong>${escapeHtml(new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()))}</strong>
-          </div>
+          <div class="admin-month-pill" aria-label="Periodo visible">${escapeHtml(new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()))}</div>
         </header>
 
         <section class="admin-user-metrics" aria-label="Resumen de usuarios">
@@ -2119,8 +2120,6 @@ function renderAdminUsuarios(): void {
             ${getFrecuenciasEditables().map((frecuencia) => renderAdminUsuarioFiltroButton(frecuencia, formatFrecuencia(frecuencia), usuarios.filter((usuario) => usuario.frecuencia === frecuencia).length)).join('')}
             ${renderAdminUsuarioFiltroButton('administrador', 'Admin/Root', usuarios.filter((usuario) => isAdminRol(usuario.rol)).length)}
           </div>
-
-          ${canAssignAdminRoles() ? renderAdminCatalogoUsuarios() : ''}
 
           ${usuarios.length === 0
             ? `<div class="empty-card compact"><h3>No hay usuarios registrados</h3><p>Cuando un adorador complete su perfil, aparecera aqui para administracion.</p></div>`
@@ -2349,31 +2348,75 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   mostrarAviso('Usuario actualizado', 'Los cambios del perfil se guardaron correctamente.', 'success');
 }
 
+function renderAdminCatalogos(): void {
+  const catalogo = StorageDB.getCatalogoUsuarios();
+
+  adminCatalogosLista.innerHTML = `
+    <div class="admin-catalog-screen">
+      <header class="admin-users-hero">
+        <div>
+          <h2>Catalogos</h2>
+          <p>Opciones maestras para clasificar usuarios y permisos.</p>
+        </div>
+      </header>
+
+      <section class="admin-user-metrics" aria-label="Resumen de catalogos">
+        <article><span>Frecuencias</span><strong>${catalogo.frecuencias.length}</strong><small>tipos disponibles</small></article>
+        <article><span>Roles</span><strong>${catalogo.roles.length}</strong><small>niveles de acceso</small></article>
+      </section>
+
+      ${canAssignAdminRoles()
+        ? renderAdminCatalogoUsuarios()
+        : `<section class="admin-user-catalog admin-catalog-empty"><h3>Solo Root puede editar catalogos</h3><p>Los administradores pueden consultar usuarios y turnos, pero la creacion de roles y frecuencias queda reservada a Root.</p></section>`
+      }
+    </div>
+  `;
+}
+
 function renderAdminCatalogoUsuarios(): string {
   const catalogo = StorageDB.getCatalogoUsuarios();
 
   return `
     <section class="admin-user-catalog" aria-label="Catalogo de usuarios">
-      <div>
+      <div class="admin-catalog-head">
         <h3>Catalogos</h3>
-        <p>Root puede crear nuevas frecuencias y roles para asignarlos a usuarios.</p>
+        <p>Crea opciones reutilizables para los formularios de usuarios y registro.</p>
       </div>
-      <form data-admin-catalog-form="frecuencia">
-        <label>
-          <span>Nueva frecuencia</span>
-          <input name="catalog-value" type="text" placeholder="Ej. mensual" autocomplete="off" />
-        </label>
-        <button class="button button-secondary" type="submit">Agregar</button>
-      </form>
-      <form data-admin-catalog-form="rol">
-        <label>
-          <span>Nuevo rol</span>
-          <input name="catalog-value" type="text" placeholder="Ej. coordinador" autocomplete="off" />
-        </label>
-        <button class="button button-secondary" type="submit">Agregar</button>
-      </form>
-      <p><strong>Frecuencias:</strong> ${catalogo.frecuencias.map((item) => escapeHtml(formatFrecuencia(item))).join(', ')}</p>
-      <p><strong>Roles:</strong> ${catalogo.roles.map((item) => escapeHtml(formatRol(item))).join(', ')}</p>
+      <div class="admin-catalog-grid">
+        <article class="admin-catalog-card">
+          <header>
+            <h4>Frecuencias</h4>
+            <span>${catalogo.frecuencias.length}</span>
+          </header>
+          <form data-admin-catalog-form="frecuencia">
+            <label>
+              <span>Nueva frecuencia</span>
+              <input name="catalog-value" type="text" placeholder="Ej. mensual" autocomplete="off" />
+            </label>
+            <button class="button button-secondary" type="submit">Agregar</button>
+          </form>
+          <div class="admin-catalog-chip-list" aria-label="Frecuencias disponibles">
+            ${catalogo.frecuencias.map((item) => `<span>${escapeHtml(formatFrecuencia(item))}</span>`).join('')}
+          </div>
+        </article>
+
+        <article class="admin-catalog-card">
+          <header>
+            <h4>Roles</h4>
+            <span>${catalogo.roles.length}</span>
+          </header>
+          <form data-admin-catalog-form="rol">
+            <label>
+              <span>Nuevo rol</span>
+              <input name="catalog-value" type="text" placeholder="Ej. coordinador" autocomplete="off" />
+            </label>
+            <button class="button button-secondary" type="submit">Agregar</button>
+          </form>
+          <div class="admin-catalog-chip-list" aria-label="Roles disponibles">
+            ${catalogo.roles.map((item) => `<span>${escapeHtml(formatRol(item))}</span>`).join('')}
+          </div>
+        </article>
+      </div>
     </section>
   `;
 }
@@ -2402,7 +2445,7 @@ function guardarAdminCatalogo(form: HTMLFormElement): void {
 
     StorageDB.agregarFrecuenciaUsuario(value);
     syncRegistroFrecuencias();
-    renderAdminUsuarios();
+    renderAdminPanel();
     mostrarAviso('Frecuencia creada', `${formatFrecuencia(value)} ya se puede asignar.`, 'success');
     return;
   }
@@ -2414,7 +2457,7 @@ function guardarAdminCatalogo(form: HTMLFormElement): void {
     }
 
     StorageDB.agregarRolUsuario(value);
-    renderAdminUsuarios();
+    renderAdminPanel();
     mostrarAviso('Rol creado', `${formatRol(value)} ya se puede asignar.`, 'success');
   }
 }
@@ -2627,32 +2670,22 @@ function renderAdminTurnosCubiertos(): void {
     <div class="admin-turns-dashboard">
       <header class="admin-turns-hero">
         <div>
-          <p class="section-kicker">Panel administrador</p>
-          <h2>Turnos asignados</h2>
-          <p>Supervisa cobertura, huecos sin asignar y compromisos de la semana.</p>
+          <h2>Turnos</h2>
+          <p>Cobertura semanal y asignaciones.</p>
         </div>
-        <div class="admin-week-picker" aria-label="Semana visible">
-          <span aria-hidden="true">□</span>
-          <strong>${escapeHtml(formatAdminSemana(inicioSemana))}</strong>
-        </div>
+        <div class="admin-week-picker" aria-label="Semana visible">${escapeHtml(formatAdminSemana(inicioSemana))}</div>
       </header>
 
       <section class="admin-turns-metrics" aria-label="Resumen semanal de turnos">
-        <article><span class="metric-icon metric-orange" aria-hidden="true"></span><small>Turnos hoy</small><strong>${turnosHoy}</strong></article>
-        <article><span class="metric-icon metric-blue" aria-hidden="true">◌</span><small>Esta semana</small><strong>${turnosSemana.length}</strong></article>
-        <article><span class="metric-icon metric-red" aria-hidden="true">!</span><small>Sin asignar</small><strong>${turnosSinAsignar}</strong></article>
-        <article><span class="metric-icon metric-amber" aria-hidden="true">+</span><small>Suplentes</small><strong>${turnosSuplente}</strong></article>
-        <article class="coverage-metric"><span class="metric-icon metric-green" aria-hidden="true">↗</span><small>Cobertura</small><strong>${cobertura}%</strong><span class="coverage-bar"><i style="width: ${cobertura}%"></i></span></article>
+        <article><small>Hoy</small><strong>${turnosHoy}</strong></article>
+        <article><small>Semana</small><strong>${turnosSemana.length}</strong></article>
+        <article><small>Sin asignar</small><strong>${turnosSinAsignar}</strong></article>
+        <article><small>Suplentes</small><strong>${turnosSuplente}</strong></article>
+        <article class="coverage-metric"><small>Cobertura</small><strong>${cobertura}%</strong><span class="coverage-bar"><i style="width: ${cobertura}%"></i></span></article>
       </section>
 
       <div class="admin-turns-layout">
         <section class="admin-turns-main">
-          <div class="admin-turns-tabs" aria-label="Resumen por seccion">
-            <button type="button" data-admin-panel="lotes">Lotes <span>${StorageDB.getLotes().length}</span></button>
-            <button type="button" data-admin-panel="usuarios">Usuarios <span>${StorageDB.getUsuarios().length}</span></button>
-            <button class="is-active" type="button" data-admin-panel="turnos">Turnos asignados <span>${turnosSemana.length}</span></button>
-          </div>
-
           <div class="admin-turns-card">
             <div class="admin-turns-tools">
               <label class="admin-turn-search">
