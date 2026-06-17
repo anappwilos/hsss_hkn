@@ -7365,3 +7365,97 @@ body,
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   26. ADMIN TURNOS DIA / SEMANA
+========================================================= */
+
+.admin-turns-period-controls {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+.admin-view-toggle {
+  min-width: 220px;
+}
+
+.admin-view-toggle button {
+  min-height: 42px;
+  padding: 0 18px;
+  font-size: 0.84rem;
+}
+
+.admin-period-actions {
+  align-items: center;
+}
+
+.admin-period-actions .icon-round {
+  width: 42px;
+  height: 42px;
+  font-size: 1.45rem;
+}
+
+.admin-period-actions .admin-week-picker {
+  min-width: 184px;
+  justify-content: center;
+}
+
+@media (max-width: 900px) {
+  .admin-turns-period-controls {
+    justify-items: stretch;
+  }
+
+  .admin-view-toggle,
+  .admin-period-actions {
+    width: 100%;
+  }
+
+  .admin-period-actions {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+  }
+
+  .admin-period-actions .admin-week-picker {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* =========================================================
+   27. USUARIO ORDEN TURNOS
+========================================================= */
+
+.user-sort-control {
+  display: inline-grid;
+  min-width: 168px;
+  gap: 4px;
+}
+
+.user-sort-control span {
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.user-sort-control select {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 999px;
+  padding: 0 38px 0 16px;
+  color: var(--color-ink);
+  background: rgba(244, 251, 253, 0.9);
+  box-shadow: var(--shadow-sm);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .user-sort-control {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}
