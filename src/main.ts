@@ -2207,7 +2207,8 @@ function renderAdminUsuarios(): void {
       <section class="admin-users-main">
         <header class="admin-users-hero">
           <div>
-          <h2>Usuarios</h2>
+            <h2>Usuarios</h2>
+            <button id="btn-admin-user-create" class="button button-primary button-small" type="button">Crear usuario</button>
           </div>
           <div class="admin-month-pill" aria-label="Periodo visible">${escapeHtml(new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()))}</div>
         </header>
@@ -2326,14 +2327,15 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
 }
 
 function renderAdminUsuarioModal(usuario: Usuario): string {
-  const turnosAsignados = getTurnosUsuario(usuario);
+  const isNew = !StorageDB.getUsuarios().some((item) => item.id === usuario.id);
+  const turnosAsignados = isNew ? [] : getTurnosUsuario(usuario);
   const rolesEditables = getRolesEditables(usuario);
 
   return `
       <header class="modal-header admin-user-modal-head">
         <div>
-          <p class="modal-kicker">Editar usuario</p>
-          <h3>${escapeHtml(usuario.nombreCompleto)}</h3>
+          <p class="modal-kicker">${isNew ? 'Crear usuario' : 'Editar usuario'}</p>
+          <h3>${escapeHtml(isNew ? 'Nuevo perfil' : usuario.nombreCompleto)}</h3>
         </div>
         <button class="icon-only modal-close" type="button" data-action="admin-user-close" aria-label="Cerrar">×</button>
       </header>
@@ -2395,8 +2397,25 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
   `;
 }
 
+function crearUsuarioVacio(): Usuario {
+  const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  return {
+    id,
+    nombreCompleto: '',
+    nombre: '',
+    apellidos: '',
+    email: '',
+    telefono: '',
+    frecuencia: 'puntual',
+    rol: 'usuario',
+    creadoEn: Date.now(),
+    actualizadoEn: Date.now()
+  };
+}
+
 function abrirModalAdminUsuario(id: string | null): void {
-  const usuario = id ? StorageDB.getUsuarios().find((item) => item.id === id) : undefined;
+  const usuario = id ? StorageDB.getUsuarios().find((item) => item.id === id) : crearUsuarioVacio();
 
   if (!usuario) {
     mostrarAviso('Usuario no encontrado', 'No se pudo localizar el perfil para editarlo.', 'error');
@@ -2418,11 +2437,12 @@ function cerrarModalAdminUsuario(): void {
 
 function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   const id = form.dataset.adminUserForm;
-  const usuario = id ? StorageDB.getUsuarios().find((item) => item.id === id) : undefined;
+  const usuarios = StorageDB.getUsuarios();
+  let usuario = id ? usuarios.find((item) => item.id === id) : undefined;
+  const isNew = !usuario;
 
   if (!usuario) {
-    mostrarAviso('Usuario no encontrado', 'No se pudo localizar el perfil para guardar cambios.', 'error');
-    return;
+    usuario = crearUsuarioVacio();
   }
 
   const nombreCompleto = limpiarTextoRegistro(form.querySelector<HTMLInputElement>('#admin-user-edit-name')?.value ?? '');
@@ -2457,7 +2477,7 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   } else {
     renderAdminUsuarios();
   }
-  mostrarAviso('Usuario actualizado', 'Los cambios del perfil se guardaron correctamente.', 'success');
+  mostrarAviso(isNew ? 'Usuario creado' : 'Usuario actualizado', isNew ? 'El nuevo perfil se ha guardado correctamente.' : 'Los cambios del perfil se guardaron correctamente.', 'success');
 }
 
 function renderAdminCatalogos(): void {
@@ -4744,6 +4764,11 @@ document.addEventListener('click', (event) => {
       mostrarAviso('Historial administrativo', 'El historial completo se incorporara en la siguiente fase.', 'info');
       return;
     }
+  }
+
+  if (target.closest('#btn-admin-user-create')) {
+    abrirModalAdminUsuario(null);
+    return;
   }
 
   if (target.closest('#btn-nuevo-lote')) {
