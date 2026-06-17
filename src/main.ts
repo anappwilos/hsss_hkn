@@ -1,7 +1,7 @@
 import './style.css';
 import adoracionHeroUrl from './assets/a_solas.jpg';
 import { NotificationService, type AppNotification } from './notifications';
-import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type Usuario, type UsuarioFrecuencia, type UsuarioRol } from './storage';
+import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type TurnoAsignacionTipo, type Usuario, type UsuarioFrecuencia, type UsuarioRol } from './storage';
 
 type Vista = 'inicio' | 'admin-login' | 'admin' | 'configuracion' | 'registro-adorador' | 'usuario';
 type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
@@ -13,6 +13,7 @@ type AdminUsuarioFiltro = 'todos' | 'administrador' | (string & {});
 type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
 type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'parcial';
 type UsuarioPanel = 'disponibles' | 'asignados';
+type AdminAsignacionModo = 'reemplazar' | 'agregar' | 'cubrir';
 type NotificationPersistenceOptions = {
   usuarioId?: string;
   tipo?: 'sistema' | 'inscripcion' | 'lote' | 'recordatorio';
@@ -32,6 +33,7 @@ type TurnoCalendario = {
   plazasTotales: number;
   plazasDisponibles: number;
   inscritos: string[];
+  asignaciones?: Turno['asignaciones'];
   turnos: Turno[];
 };
 
@@ -1360,6 +1362,50 @@ function timeToMinutes(value: string): number {
   return hours * 60 + minutes;
 }
 
+function getTurnoFinDate(turno: Pick<Turno, 'dia' | 'horaInicio' | 'horaFin'>): Date {
+  const fin = parseFecha(turno.dia);
+  const inicioMinutos = timeToMinutes(turno.horaInicio);
+  let finMinutos = timeToMinutes(turno.horaFin);
+
+  if (finMinutos <= inicioMinutos) {
+    finMinutos += 1440;
+  }
+
+  fin.setMinutes(finMinutos);
+  return fin;
+}
+
+function isTurnoPasado(turno: Pick<Turno, 'dia' | 'horaInicio' | 'horaFin'>): boolean {
+  return getTurnoFinDate(turno).getTime() <= Date.now();
+}
+
+function renderNowLine(dia: string, horaInicio: string, horaFin: string, className = 'now-line'): string {
+  const now = new Date();
+
+  if (dia !== fechaToInput(now)) {
+    return '';
+  }
+
+  const start = timeToMinutes(horaInicio);
+  let end = timeToMinutes(horaFin);
+  let current = now.getHours() * 60 + now.getMinutes();
+
+  if (end <= start) {
+    end += 1440;
+  }
+
+  if (current < start && end > 1440) {
+    current += 1440;
+  }
+
+  if (current < start || current > end) {
+    return '';
+  }
+
+  const top = ((current - start) / Math.max(1, end - start)) * 100;
+  return `<span class="${className}" style="top: ${top.toFixed(2)}%" aria-hidden="true"></span>`;
+}
+
 function minutesToTime(totalMinutes: number): string {
   const normalized = totalMinutes % 1440;
   const hours = Math.floor(normalized / 60);
@@ -1460,6 +1506,45 @@ function getNombrePrivado(nombreCompleto: string): string {
 
 function formatFrecuencia(frecuencia: UsuarioFrecuencia = 'puntual'): string {
   return FRECUENCIA_LABELS[frecuencia] ?? toTitleLabel(frecuencia);
+}
+
+function normalizarTipoAsignacion(value: unknown): TurnoAsignacionTipo {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === 'fijo' || normalized === 'suplente' || normalized === 'puntual' ? normalized : 'puntual';
+}
+
+function getTurnoAsignacionTipo(turno: Turno, nombreCompleto?: string): TurnoAsignacionTipo {
+  const asignaciones = turno.asignaciones ?? [];
+  const match = nombreCompleto
+    ? asignaciones.find((asignacion) => normalizarNombre(asignacion.nombreCompleto) === normalizarNombre(nombreCompleto))
+    : asignaciones[0];
+
+  if (match) {
+    return normalizarTipoAsignacion(match.tipo);
+  }
+
+  const usuario = nombreCompleto ? getUsuarioByNombre(nombreCompleto) : getUsuarioByNombre(turno.inscritos[0] ?? '');
+  return normalizarTipoAsignacion(usuario?.frecuencia);
+}
+
+function getTurnoAsignacionLabel(turno: Turno, nombreCompleto?: string): string {
+  return formatFrecuencia(getTurnoAsignacionTipo(turno, nombreCompleto));
+}
+
+function getTurnoAsignacionRepeticion(turno: Turno, nombreCompleto?: string): string {
+  const asignacion = (turno.asignaciones ?? []).find((item) =>
+    !nombreCompleto || normalizarNombre(item.nombreCompleto) === normalizarNombre(nombreCompleto)
+  );
+
+  if (asignacion?.repeticion === 'semanal') {
+    return 'Semanal';
+  }
+
+  if (asignacion?.repeticion === 'mensual') {
+    return 'Mensual';
+  }
+
+  return 'Una vez';
 }
 
 function formatRol(rol: UsuarioRol = 'usuario'): string {
@@ -1673,9 +1758,11 @@ function regenerarTurnosDeLote(lote: LoteExposicion, loteAnterior?: LoteExposici
   const loteReferencia = loteAnterior ?? lote;
   const turnosDelLote = anteriores.filter((turno) => turnoPerteneceAlLote(turno, loteReferencia));
   const inscritosPorFranja = new Map<string, string[]>();
+  const asignacionesPorFranja = new Map<string, Turno['asignaciones']>();
 
   for (const turno of turnosDelLote) {
     inscritosPorFranja.set(`${turno.dia}|${turno.horaInicio}|${turno.horaFin}`, turno.inscritos);
+    asignacionesPorFranja.set(`${turno.dia}|${turno.horaInicio}|${turno.horaFin}`, turno.asignaciones ?? []);
   }
 
   const turnosActualizados = turnosNuevos.map((turno) => {
@@ -1685,6 +1772,8 @@ function regenerarTurnosDeLote(lote: LoteExposicion, loteAnterior?: LoteExposici
     return {
       ...turno,
       inscritos,
+      asignaciones: (asignacionesPorFranja.get(`${turno.dia}|${turno.horaInicio}|${turno.horaFin}`) ?? [])
+        .filter((asignacion) => inscritos.some((inscrito) => normalizarNombre(inscrito) === normalizarNombre(asignacion.nombreCompleto))),
       plazasDisponibles: Math.max(0, turno.plazasTotales - inscritos.length)
     };
   });
@@ -2556,7 +2645,7 @@ function getAdminTurnoEstado(turno: Turno): AdminTurnoEstado {
     return 'sin-asignar';
   }
 
-  const tieneSuplente = turno.inscritos.some((inscrito) => getUsuarioByNombre(inscrito)?.frecuencia === 'suplente');
+  const tieneSuplente = turno.inscritos.some((inscrito) => getTurnoAsignacionTipo(turno, inscrito) === 'suplente');
 
   if (tieneSuplente) {
     return 'suplente';
@@ -2666,7 +2755,8 @@ function renderAdminTurnosCubiertos(): void {
   const selectedTurno = adminTurnoSeleccionadoId && adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED
     ? turnosSemana.find((turno) => turno.id === adminTurnoSeleccionadoId) ?? null
     : null;
-  const fechasSemana = Array.from({ length: 7 }, (_, index) => addDays(inicioSemana, index));
+  const diasConTurnos = Array.from(new Set(turnosFiltrados.map((turno) => turno.dia))).toSorted();
+  const fechasSemana = diasConTurnos.map(parseFecha);
   const franjasSemana = Array.from(new Set(turnosFiltrados.map((turno) => `${turno.horaInicio}|${turno.horaFin}`)))
     .toSorted((a, b) => a.localeCompare(b));
 
@@ -2756,6 +2846,7 @@ function renderAdminTurnosCalendario(fechas: Date[], franjas: string[], turnos: 
 
             return `
               <div class="admin-calendar-cell">
+                ${renderNowLine(key, horaInicio, horaFin, 'admin-now-line')}
                 ${turnosCelda.length > 0
                   ? turnosCelda.map(renderAdminTurnoCalendarCard).join('')
                   : '<span class="admin-calendar-empty">Sin turnos</span>'
@@ -2771,19 +2862,24 @@ function renderAdminTurnosCalendario(fechas: Date[], franjas: string[], turnos: 
 
 function renderAdminTurnoCalendarCard(turno: Turno): string {
   const estado = getAdminTurnoEstado(turno);
+  const tipo = getTurnoAsignacionTipo(turno);
   const selected = adminTurnoSeleccionadoId === turno.id;
+  const pasado = isTurnoPasado(turno);
   const miembros = renderAdminTurnoMiembros(turno, 'compact');
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
+  const canAssign = !pasado && (estado === 'sin-asignar' || estado === 'suplente' || estado === 'parcial');
 
   return `
-    <article class="admin-calendar-turn is-${estado} ${selected ? 'is-selected' : ''}">
+    <article class="admin-calendar-turn is-${estado} assignment-${tipo} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
       <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
         ${miembros}
         <small>${ocupadas}/${turno.plazasTotales} cubiertas</small>
+        ${turno.inscritos.length > 0 ? `<span class="assignment-badge assignment-badge-${tipo}">${escapeHtml(getTurnoAsignacionLabel(turno))}</span>` : ''}
       </button>
-      <button class="admin-calendar-turn-action" type="button" data-action="${estado === 'sin-asignar' || estado === 'suplente' ? 'admin-turno-assign' : 'admin-turno-select'}" data-id="${turno.id}">
-        ${estado === 'sin-asignar' ? 'Asignar' : estado === 'suplente' ? 'Cambiar' : 'Ver'}
-      </button>
+      ${canAssign
+        ? `<button class="admin-calendar-turn-action" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${estado === 'sin-asignar' ? 'Asignar' : estado === 'parcial' ? 'Cubrir' : 'Cambiar'}</button>`
+        : ''
+      }
     </article>
   `;
 }
@@ -2797,13 +2893,14 @@ function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail'): 
 
   const items = turno.inscritos.map((inscrito) => {
     const usuario = getUsuarioByNombre(inscrito);
+    const tipo = getTurnoAsignacionTipo(turno, inscrito);
     const iniciales = usuario ? getInicialesUsuario(usuario) : inscrito.trim().charAt(0).toUpperCase() || 'A';
     const detalle = usuario
-      ? `${formatFrecuencia(usuario.frecuencia)} · ${formatRol(usuario.rol)}`
+      ? `${getTurnoAsignacionLabel(turno, inscrito)} · ${formatRol(usuario.rol)} · ${getTurnoAsignacionRepeticion(turno, inscrito)}`
       : 'Perfil no encontrado';
 
     return `
-      <span class="admin-turn-member ${usuario ? '' : 'is-missing'}">
+      <span class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}">
         <i aria-hidden="true">${escapeHtml(iniciales)}</i>
         <b>${escapeHtml(inscrito)}</b>
         ${variant === 'detail' ? `<small>${escapeHtml(detalle)}</small>` : ''}
@@ -2827,8 +2924,16 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
   const estado = getAdminTurnoEstado(turno);
   const principal = getAdminTurnoPrincipal(turno);
   const usuario = principal.usuario;
+  const tipo = getTurnoAsignacionTipo(turno);
   const lote = getAdminTurnoLote(turno);
   const miembros = renderAdminTurnoMiembros(turno, 'detail');
+  const tienePlazasLibres = turno.plazasDisponibles > 0;
+  const pasado = isTurnoPasado(turno);
+  const textoAccionPrincipal = estado === 'sin-asignar'
+    ? 'Asignar adorador'
+    : tienePlazasLibres
+      ? 'Cubrir plaza restante'
+      : 'Reasignar turno';
 
   return `
     <header class="admin-turn-detail-head">
@@ -2853,18 +2958,18 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
 
     <section class="admin-turn-detail-stats">
       <div><span>Plazas cubiertas</span><strong>${turno.plazasTotales - turno.plazasDisponibles}/${turno.plazasTotales}</strong></div>
-      <div><span>Frecuencia sugerida</span><strong>${escapeHtml(usuario ? formatFrecuencia(usuario.frecuencia) : 'Puntual')}</strong></div>
-      <div><span>Prioridad</span><strong>${estado === 'sin-asignar' ? 'Alta' : 'Normal'}</strong></div>
+      <div><span>Tipo</span><strong>${escapeHtml(usuario ? formatFrecuencia(tipo) : 'Puntual')}</strong></div>
+      <div><span>Estado horario</span><strong>${pasado ? 'Pasado' : estado === 'sin-asignar' ? 'Pendiente' : 'Activo'}</strong></div>
     </section>
 
     <div class="admin-turn-detail-actions">
-      <button class="button button-primary" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${estado === 'sin-asignar' ? 'Asignar adorador' : 'Reasignar turno'}</button>
-      <button class="button button-secondary" type="button" data-action="admin-turno-suplente" data-id="${turno.id}">Buscar suplente</button>
+      <button class="button button-primary" type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>${pasado ? 'Turno pasado' : textoAccionPrincipal}</button>
+      <button class="button button-secondary" type="button" data-action="admin-turno-suplente" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>Buscar suplente</button>
     </div>
 
     <section class="admin-turn-quick-actions">
       <h4>Acciones rapidas</h4>
-      <button type="button" data-action="admin-turno-assign" data-id="${turno.id}">Reasignar turno <span>›</span></button>
+      <button type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>${pasado ? 'Turno pasado' : textoAccionPrincipal} <span>›</span></button>
     </section>
 
     <section class="admin-turn-last-action">
@@ -2875,7 +2980,7 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
   `;
 }
 
-function getUsuariosAsignables(modo: 'reemplazar' | 'agregar'): Usuario[] {
+function getUsuariosAsignables(modo: AdminAsignacionModo): Usuario[] {
   const usuarios = StorageDB.getUsuarios()
     .filter((usuario) => !isAdminRol(usuario.rol))
     .toSorted((a, b) => {
@@ -2889,13 +2994,33 @@ function getUsuariosAsignables(modo: 'reemplazar' | 'agregar'): Usuario[] {
   return usuarios;
 }
 
-function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agregar'): string {
+function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo): string {
   const usuarios = getUsuariosAsignables(modo);
   const lote = getAdminTurnoLote(turno);
   const fechaTurno = parseFecha(turno.dia);
   const diaTurno = getWeekdayIso(fechaTurno);
   const lotesMes = getLotesMesTurno(turno);
-  const titulo = modo === 'agregar' ? 'Buscar suplente' : turno.inscritos.length > 0 ? 'Reasignar turno' : 'Asignar adorador';
+  const tipoInicial = modo === 'agregar' ? 'suplente' : normalizarTipoAsignacion(getUsuarioByNombre(turno.inscritos[0] ?? '')?.frecuencia ?? 'puntual');
+  const usuariosPorTipo = (['fijo', 'suplente', 'puntual'] as TurnoAsignacionTipo[]).map((tipo) => ({
+    tipo,
+    usuarios: usuarios.filter((usuario) => normalizarTipoAsignacion(usuario.frecuencia) === tipo)
+  }));
+  const turnosParaHoras = getTurnosOrdenados().filter((item) => {
+    if (turno.loteId) {
+      return item.loteId === turno.loteId;
+    }
+
+    return item.dia >= turno.dia && item.dia <= fechaToInput(addDays(fechaTurno, 31));
+  });
+  const horasDisponibles = Array.from(new Set([
+    `${turno.horaInicio}|${turno.horaFin}`,
+    ...turnosParaHoras.map((item) => `${item.horaInicio}|${item.horaFin}`)
+  ])).toSorted((a, b) => a.localeCompare(b));
+  const titulo = modo === 'agregar'
+    ? 'Buscar suplente'
+    : modo === 'cubrir'
+      ? 'Cubrir plaza restante'
+      : turno.inscritos.length > 0 ? 'Reasignar turno' : 'Asignar adorador';
   const turnosMismaHoraSemana = getTurnosOrdenados().filter((item) =>
     item.dia >= fechaToInput(startOfWeekMonday(fechaTurno)) &&
     item.dia <= fechaToInput(addDays(startOfWeekMonday(fechaTurno), 6)) &&
@@ -2920,41 +3045,54 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
     </section>
 
     <form class="admin-turn-assign-form" data-admin-turno-form="${turno.id}">
-      <label>
-        <span>1. Elegir adorador</span>
-        <select id="admin-turno-usuario" required ${usuarios.length === 0 ? 'disabled' : ''}>
-          ${usuarios.length === 0
-            ? '<option value="">No hay adoradores registrados</option>'
-            : usuarios.map((usuario) => `<option value="${usuario.id}">${escapeHtml(usuario.nombreCompleto)} · ${escapeHtml(formatFrecuencia(usuario.frecuencia))}</option>`).join('')
-          }
-        </select>
-      </label>
+      <fieldset class="admin-turn-type-field">
+        <legend>1. Tipo</legend>
+        <div>
+          ${(['fijo', 'suplente', 'puntual'] as TurnoAsignacionTipo[]).map((tipo) => `
+            <label class="assignment-type-card is-${tipo}">
+              <input type="radio" name="admin-turno-tipo" value="${tipo}" ${tipo === tipoInicial ? 'checked' : ''} />
+              <span>${escapeHtml(formatFrecuencia(tipo))}</span>
+              <small>${usuariosPorTipo.find((grupo) => grupo.tipo === tipo)?.usuarios.length ?? 0} adoradores</small>
+            </label>
+          `).join('')}
+        </div>
+      </fieldset>
+
+      <section class="admin-turn-user-pickers" aria-label="Usuarios por tipo seleccionado">
+        ${usuariosPorTipo.map(({ tipo, usuarios: usuariosTipo }) => `
+          <label class="admin-turn-user-picker" data-user-picker="${tipo}">
+            <span>1.1 Usuarios ${escapeHtml(formatFrecuencia(tipo).toLowerCase())}</span>
+            <select name="admin-turno-usuario-${tipo}" ${usuariosTipo.length === 0 ? 'disabled' : ''}>
+              ${usuariosTipo.length === 0
+                ? `<option value="">No hay adoradores ${escapeHtml(formatFrecuencia(tipo).toLowerCase())}</option>`
+                : usuariosTipo.map((usuario) => `<option value="${usuario.id}">${escapeHtml(usuario.nombreCompleto)} · ${escapeHtml(usuario.email)}</option>`).join('')
+              }
+            </select>
+          </label>
+        `).join('')}
+      </section>
 
       <fieldset class="admin-turn-mode-field">
-        <legend>2. Como asignar</legend>
+        <legend>2. Eliminamos</legend>
         <label>
-          <input type="radio" name="admin-turno-modo" value="reemplazar" ${modo === 'reemplazar' ? 'checked' : ''} />
-          <span>Titular: sustituye los miembros actuales</span>
-        </label>
-        <label>
-          <input type="radio" name="admin-turno-modo" value="agregar" ${modo === 'agregar' ? 'checked' : ''} />
-          <span>Agregar miembro si queda plaza</span>
+          <input type="checkbox" name="admin-turno-eliminar-actuales" ${modo === 'reemplazar' ? 'checked' : ''} />
+          <span>Eliminar miembros actuales antes de asignar</span>
         </label>
       </fieldset>
 
       <fieldset class="admin-turn-period-field">
         <legend>3. Alcance de la asignacion</legend>
         <label>
-          <input type="radio" name="admin-turno-alcance" value="unico" checked />
-          <span>Solo esta celda</span>
+          <input type="radio" name="admin-turno-repeticion" value="unica" checked />
+          <span>1 vez solo</span>
         </label>
         <label>
-          <input type="radio" name="admin-turno-alcance" value="rango" />
-          <span>Misma hora en un rango de fechas</span>
+          <input type="radio" name="admin-turno-repeticion" value="semanal" />
+          <span>1 vez cada semana</span>
         </label>
         <label>
-          <input type="radio" name="admin-turno-alcance" value="lote" ${lotesMes.length === 0 ? 'disabled' : ''} />
-          <span>Todo el lote del mes</span>
+          <input type="radio" name="admin-turno-repeticion" value="mensual" />
+          <span>1 vez cada mes</span>
         </label>
       </fieldset>
 
@@ -2970,7 +3108,7 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
       </div>
 
       <label class="admin-turn-lote-field">
-        <span>Lote a usar si eliges todo el mes</span>
+        <span>Lote</span>
         <select id="admin-turno-lote" ${lotesMes.length === 0 ? 'disabled' : ''}>
           ${lotesMes.length === 0
             ? '<option value="">No hay lote para este mes</option>'
@@ -2978,6 +3116,22 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
           }
         </select>
       </label>
+
+      <fieldset class="admin-turn-hours-field">
+        <legend>Hora u horas</legend>
+        <div>
+          ${horasDisponibles.map((hora) => {
+            const [horaInicio, horaFin] = hora.split('|');
+
+            return `
+              <label>
+                <input type="checkbox" name="admin-turno-hora" value="${escapeHtml(hora)}" ${horaInicio === turno.horaInicio && horaFin === turno.horaFin ? 'checked' : ''} />
+                <span>${escapeHtml(horaInicio)} - ${escapeHtml(horaFin)}</span>
+              </label>
+            `;
+          }).join('')}
+        </div>
+      </fieldset>
 
       <fieldset class="admin-turn-weekdays-field">
         <legend>Dias incluidos</legend>
@@ -2993,7 +3147,7 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: 'reemplazar' | 'agr
 
       <section class="admin-turn-bulk-note">
         <strong>Asignacion masiva controlada</strong>
-        <p>Se aplicara solo a turnos de ${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)} que coincidan con el alcance y los dias marcados. Los turnos llenos o duplicados se omitiran si agregas miembro.</p>
+        <p>Se aplicara solo a turnos del lote, horas, dias y repeticion seleccionados. Los turnos llenos o duplicados se omitiran si conservas miembros actuales.</p>
       </section>
 
       <footer class="modal-actions">
@@ -3021,26 +3175,25 @@ function getDiasAsignacionTurno(form: HTMLFormElement, fallbackDia: string): num
   return selectedDays.length > 0 ? selectedDays : [getWeekdayIso(parseFecha(fallbackDia))];
 }
 
+function getHorasAsignacionTurno(form: HTMLFormElement, turnoBase: Turno): Set<string> {
+  const selectedHours = Array.from(form.querySelectorAll<HTMLInputElement>('input[name="admin-turno-hora"]:checked'))
+    .map((input) => input.value)
+    .filter(Boolean);
+
+  return new Set(selectedHours.length > 0 ? selectedHours : [`${turnoBase.horaInicio}|${turnoBase.horaFin}`]);
+}
+
 function getTurnosObjetivoAsignacion(turnoBase: Turno, form: HTMLFormElement): Turno[] {
-  const alcance = form.querySelector<HTMLInputElement>('input[name="admin-turno-alcance"]:checked')?.value ?? 'unico';
+  const repeticion = form.querySelector<HTMLInputElement>('input[name="admin-turno-repeticion"]:checked')?.value ?? 'unica';
 
-  if (alcance === 'unico') {
-    return [turnoBase];
-  }
-
+  const horasSeleccionadas = getHorasAsignacionTurno(form, turnoBase);
   const diasSeleccionados = new Set(getDiasAsignacionTurno(form, turnoBase.dia));
   let fechaInicio = form.querySelector<HTMLInputElement>('#admin-turno-fecha-inicio')?.value || turnoBase.dia;
   let fechaFin = form.querySelector<HTMLInputElement>('#admin-turno-fecha-fin')?.value || turnoBase.dia;
-  let loteId: string | undefined;
+  const lote = StorageDB.getLotes().find((item) => item.id === form.querySelector<HTMLSelectElement>('#admin-turno-lote')?.value);
+  const loteId = lote?.id;
 
-  if (alcance === 'lote') {
-    const lote = StorageDB.getLotes().find((item) => item.id === form.querySelector<HTMLSelectElement>('#admin-turno-lote')?.value);
-
-    if (!lote) {
-      throw new Error('Selecciona un lote valido para aplicar la asignacion.');
-    }
-
-    loteId = lote.id;
+  if (lote) {
     fechaInicio = lote.fechaInicio;
     fechaFin = lote.fechaFin;
   }
@@ -3049,21 +3202,47 @@ function getTurnosObjetivoAsignacion(turnoBase: Turno, form: HTMLFormElement): T
     throw new Error('La fecha final debe ser posterior a la inicial.');
   }
 
-  return getTurnosOrdenados().filter((turno) =>
-    turno.dia >= fechaInicio &&
-    turno.dia <= fechaFin &&
-    turno.horaInicio === turnoBase.horaInicio &&
-    turno.horaFin === turnoBase.horaFin &&
-    diasSeleccionados.has(getWeekdayIso(parseFecha(turno.dia))) &&
-    (!loteId || turno.loteId === loteId)
-  );
+  return getTurnosOrdenados().filter((turno) => {
+    const horaKey = `${turno.horaInicio}|${turno.horaFin}`;
+    const turnoDate = parseFecha(turno.dia);
+    const baseDate = parseFecha(turnoBase.dia);
+
+    if (isTurnoPasado(turno) || !horasSeleccionadas.has(horaKey) || (!loteId && turno.dia < fechaInicio) || turno.dia > fechaFin || (loteId && turno.loteId !== loteId)) {
+      return false;
+    }
+
+    if (repeticion === 'unica') {
+      return turno.dia === turnoBase.dia;
+    }
+
+    if (!diasSeleccionados.has(getWeekdayIso(turnoDate))) {
+      return false;
+    }
+
+    if (repeticion === 'mensual') {
+      return turnoDate.getDate() === baseDate.getDate();
+    }
+
+    return true;
+  });
 }
 
-function abrirModalAdminTurnoAsignacion(id: string | null, modo: 'reemplazar' | 'agregar' = 'reemplazar'): void {
+function getModoAsignacionParaTurno(turno: Turno): AdminAsignacionModo {
+  return turno.inscritos.length > 0 && turno.plazasDisponibles > 0 ? 'cubrir' : 'reemplazar';
+}
+
+function abrirModalAdminTurnoAsignacion(id: string | null, modo: AdminAsignacionModo = 'reemplazar'): void {
   const turno = id ? StorageDB.getTurnos().find((item) => item.id === id) : undefined;
 
   if (!turno) {
     mostrarAviso('Turno no encontrado', 'No se pudo localizar el turno para asignarlo.', 'error');
+    return;
+  }
+
+  if (isTurnoPasado(turno)) {
+    mostrarAviso('Turno pasado', 'No se pueden asignar adoradores a un turno cuya hora ya termino.', 'error');
+    adminTurnoSeleccionadoId = turno.id;
+    renderAdminTurnosCubiertos();
     return;
   }
 
@@ -3082,11 +3261,13 @@ function cerrarModalAdminTurno(): void {
 
 function guardarAsignacionTurnoDesdeFormulario(form: HTMLFormElement): void {
   const turno = adminTurnoAsignacionId ? StorageDB.getTurnos().find((item) => item.id === adminTurnoAsignacionId) : undefined;
-  const usuarioId = form.querySelector<HTMLSelectElement>('#admin-turno-usuario')?.value ?? '';
+  const tipoAsignacion = normalizarTipoAsignacion(form.querySelector<HTMLInputElement>('input[name="admin-turno-tipo"]:checked')?.value);
+  const usuarioId = form.querySelector<HTMLSelectElement>(`select[name="admin-turno-usuario-${tipoAsignacion}"]`)?.value ?? '';
   const usuario = StorageDB.getUsuarios().find((item) => item.id === usuarioId);
-  const modo = form.querySelector<HTMLInputElement>('input[name="admin-turno-modo"]:checked')?.value as 'reemplazar' | 'agregar' | undefined;
+  const eliminarActuales = Boolean(form.querySelector<HTMLInputElement>('input[name="admin-turno-eliminar-actuales"]')?.checked);
+  const repeticion = (form.querySelector<HTMLInputElement>('input[name="admin-turno-repeticion"]:checked')?.value ?? 'unica') as 'unica' | 'semanal' | 'mensual';
 
-  if (!turno || !usuario || !modo) {
+  if (!turno || !usuario) {
     mostrarAviso('No se pudo asignar', 'Selecciona un adorador valido para continuar.', 'error');
     return;
   }
@@ -3110,22 +3291,35 @@ function guardarAsignacionTurnoDesdeFormulario(form: HTMLFormElement): void {
 
   objetivos.forEach((objetivo) => {
     const yaInscrito = objetivo.inscritos.some((inscrito) => normalizarNombre(inscrito) === normalizarNombre(usuario.nombreCompleto));
-    let inscritos = [...objetivo.inscritos];
+    let inscritos = eliminarActuales ? [] : [...objetivo.inscritos];
+    let asignaciones = eliminarActuales ? [] : [...(objetivo.asignaciones ?? [])];
 
-    if (modo === 'reemplazar') {
-      inscritos = [usuario.nombreCompleto];
-    } else {
-      if (yaInscrito || inscritos.length >= objetivo.plazasTotales) {
-        omitidos += 1;
-        return;
-      }
-
-      inscritos = [...inscritos, usuario.nombreCompleto];
+    if (yaInscrito && !eliminarActuales) {
+      omitidos += 1;
+      return;
     }
+
+    if (inscritos.length >= objetivo.plazasTotales) {
+      omitidos += 1;
+      return;
+    }
+
+    inscritos = [...inscritos, usuario.nombreCompleto];
+    asignaciones = [
+      ...asignaciones.filter((asignacion) => normalizarNombre(asignacion.nombreCompleto) !== normalizarNombre(usuario.nombreCompleto)),
+      {
+        nombreCompleto: usuario.nombreCompleto,
+        tipo: tipoAsignacion,
+        origen: 'admin' as const,
+        repeticion,
+        creadoEn: Date.now()
+      }
+    ];
 
     StorageDB.actualizarTurno({
       ...objetivo,
       inscritos,
+      asignaciones,
       plazasDisponibles: Math.max(0, objetivo.plazasTotales - inscritos.length)
     });
     actualizados += 1;
@@ -3153,9 +3347,11 @@ function renderMiTurnoCard(turno: Turno): string {
   const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(fecha).replace('.', '');
   const day = new Intl.DateTimeFormat('es-ES', { day: '2-digit' }).format(fecha);
   const month = new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(fecha).replace('.', '');
+  const perfil = StorageDB.getPerfilAdorador();
+  const tipo = getTurnoAsignacionTipo(turno, perfil?.nombreCompleto);
 
   return `
-    <article class="my-turn-card">
+    <article class="my-turn-card assignment-${tipo}">
       <div class="my-turn-date" aria-hidden="true">
         <span>${escapeHtml(weekday)}</span>
         <strong>${escapeHtml(day)}</strong>
@@ -3165,7 +3361,7 @@ function renderMiTurnoCard(turno: Turno): string {
         <strong>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</strong>
         <span>${escapeHtml(lote?.nombre ?? formatFecha(turno.dia))}</span>
       </div>
-      <span class="my-turn-state">Reservado</span>
+      <span class="my-turn-state assignment-badge assignment-badge-${tipo}">${escapeHtml(formatFrecuencia(tipo))}</span>
     </article>
   `;
 }
@@ -3657,6 +3853,7 @@ function agruparTurnosCalendario(turnos: Turno[]): TurnoCalendario[] {
     const key = `${turno.dia}|${turno.horaInicio}|${turno.horaFin}`;
     const grupo = grupos.get(key);
     const inscritos = grupo?.inscritos ?? [];
+    const asignaciones = grupo?.asignaciones ?? [];
 
     for (const inscrito of turno.inscritos) {
       if (!inscritos.some((item) => normalizarNombre(item) === normalizarNombre(inscrito))) {
@@ -3664,10 +3861,17 @@ function agruparTurnosCalendario(turnos: Turno[]): TurnoCalendario[] {
       }
     }
 
+    for (const asignacion of turno.asignaciones ?? []) {
+      if (!asignaciones.some((item) => normalizarNombre(item.nombreCompleto) === normalizarNombre(asignacion.nombreCompleto))) {
+        asignaciones.push(asignacion);
+      }
+    }
+
     if (grupo) {
       grupo.plazasTotales += turno.plazasTotales;
       grupo.plazasDisponibles += turno.plazasDisponibles;
       grupo.inscritos = inscritos;
+      grupo.asignaciones = asignaciones;
       grupo.turnos.push(turno);
 
       if (grupo.plazasDisponibles <= 0 && turno.plazasDisponibles > 0) {
@@ -3685,6 +3889,7 @@ function agruparTurnosCalendario(turnos: Turno[]): TurnoCalendario[] {
       plazasTotales: turno.plazasTotales,
       plazasDisponibles: turno.plazasDisponibles,
       inscritos,
+      asignaciones,
       turnos: [turno]
     });
   }
@@ -3703,7 +3908,7 @@ function agruparTurnosCalendario(turnos: Turno[]): TurnoCalendario[] {
 function getEstadoDiaCalendario(dia: string, turnos: TurnoCalendario[], bloqueos: BloqueoCalendario[]): 'disponible' | 'completo' | 'sin-exposicion' | 'vacio' {
   const turnosDia = turnos.filter((turno) => turno.dia === dia);
 
-  if (turnosDia.some((turno) => turno.plazasDisponibles > 0)) {
+  if (turnosDia.some((turno) => turno.plazasDisponibles > 0 && !isTurnoPasado(turno))) {
     return 'disponible';
   }
 
@@ -3769,11 +3974,22 @@ function renderListaTurnosDia(
 function renderUsuario(): void {
   const hoy = fechaToInput(new Date());
   const perfil = StorageDB.getPerfilAdorador();
-  const fechas = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index))
+  const fechasRango = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index))
     .filter((date) => fechaToInput(date) >= hoy);
+  const fechasRangoSet = new Set(fechasRango.map((date) => fechaToInput(date)));
+  const turnosBaseSemana = StorageDB.getTurnos()
+    .filter((turno) => fechasRangoSet.has(turno.dia) && turno.dia >= hoy);
+  const fechas = Array.from(new Set(turnosBaseSemana.map((turno) => turno.dia)))
+    .toSorted()
+    .map(parseFecha);
+
+  if (fechas.length > 0 && !fechas.some((date) => fechaToInput(date) === fechaUsuarioSeleccionada)) {
+    fechaUsuarioSeleccionada = fechaToInput(fechas[0]);
+  }
+
   const fechasSemana = new Set(fechas.map((date) => fechaToInput(date)));
-  const turnosSemana = agruparTurnosCalendario(StorageDB.getTurnos()
-    .filter((turno) => fechasSemana.has(turno.dia) && turno.dia >= hoy)
+  const turnosSemana = agruparTurnosCalendario(turnosBaseSemana
+    .filter((turno) => fechasSemana.has(turno.dia))
   ).toSorted((a, b) => {
       const byTime = a.horaInicio.localeCompare(b.horaInicio);
       return byTime !== 0 ? byTime : a.dia.localeCompare(b.dia);
@@ -3874,6 +4090,7 @@ function renderUsuario(): void {
 
             return `
               <div class="calendar-cell ${key === fechaUsuarioSeleccionada ? 'is-selected-day' : ''}">
+                ${renderNowLine(key, horaInicio, horaFin)}
                 ${bloqueos.map(renderBloqueoCalendario).join('')}
                 ${turnos.map((turno) => renderTurnoCalendario(turno, perfil)).join('')}
               </div>
@@ -3893,10 +4110,9 @@ function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
   return `
     <article class="calendar-event calendar-event--blocked">
       <div class="calendar-event-top">
-        <strong>Sin exposici&oacute;n</strong>
+        <strong>Sin Adoracion: ${escapeHtml(bloqueo.motivo || 'Sin motivo')}</strong>
       </div>
       <p>${escapeHtml(bloqueo.horaInicio)} - ${escapeHtml(bloqueo.horaFin)}</p>
-      <span class="calendar-event-status">${escapeHtml(bloqueo.motivo || 'Interrupcion')}</span>
     </article>
   `;
 }
@@ -3904,22 +4120,26 @@ function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
 function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | null): string {
   const completo = turno.plazasDisponibles === 0;
   const propio = perfil ? estaInscrito(turno, perfil.nombreCompleto) : false;
+  const pasado = isTurnoPasado(turno);
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
-  const estadoClase = propio ? 'is-mine' : completo ? 'is-covered' : ocupadas > 0 ? 'is-partial' : 'is-free';
-  const estadoVisible = propio ? 'Mi turno' : completo ? 'Completo' : '';
+  const tipo = getTurnoAsignacionTipo(turno, perfil?.nombreCompleto);
+  const estadoClase = pasado ? 'is-past' : propio ? 'is-mine' : completo ? 'is-covered' : ocupadas > 0 ? 'is-partial' : 'is-free';
+  const estadoVisible = pasado ? '' : propio ? 'Mi turno' : completo ? 'Completo' : '';
 
   return `
-    <article class="calendar-event ${estadoClase}">
-      ${estadoVisible
+    <article class="calendar-event ${estadoClase} ${!pasado && (propio || completo) ? `assignment-${tipo}` : ''}">
+      ${!pasado && estadoVisible
         ? `<div class="calendar-event-top"><strong>${escapeHtml(estadoVisible)}</strong></div>`
         : ''
       }
-      <div class="calendar-event-main">
-        <p class="calendar-event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
-      </div>
-      ${propio || completo
-        ? `<span class="calendar-event-status">${propio ? 'Inscrito' : 'Completo'}</span>`
-        : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">Cubrir</button>`
+      ${!pasado ? `
+        <div class="calendar-event-main">
+          <p class="calendar-event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
+        </div>
+      ` : ''}
+      ${!pasado && (propio || completo)
+        ? `<span class="calendar-event-status assignment-badge assignment-badge-${tipo}">${propio ? escapeHtml(formatFrecuencia(tipo)) : 'Completo'}</span>`
+        : !pasado ? `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">Cubrir</button>` : ''
       }
     </article>
   `;
@@ -3931,7 +4151,7 @@ function getTurnosEquivalentes(turnoBase: Turno): Turno[] {
   const turnos = StorageDB.getTurnos().filter((turno) => {
     const mismaHora = turno.horaInicio === turnoBase.horaInicio && turno.horaFin === turnoBase.horaFin;
 
-    if (!mismaHora || turno.dia < hoy) {
+    if (!mismaHora || turno.dia < hoy || isTurnoPasado(turno)) {
       return false;
     }
 
@@ -3976,6 +4196,12 @@ function abrirModalInscripcion(idTurno: string): void {
   const turno = StorageDB.getTurnos().find((item) => item.id === idTurno);
 
   if (!turno) {
+    return;
+  }
+
+  if (isTurnoPasado(turno)) {
+    mostrarAviso('Turno no disponible', 'La hora de este turno ya ha pasado.', 'error');
+    renderUsuario();
     return;
   }
 
@@ -4362,7 +4588,8 @@ document.addEventListener('click', (event) => {
     }
 
     if (action === 'admin-turno-assign') {
-      abrirModalAdminTurnoAsignacion(adminTurnoAction.dataset.id ?? null, 'reemplazar');
+      const turno = StorageDB.getTurnos().find((item) => item.id === adminTurnoAction.dataset.id);
+      abrirModalAdminTurnoAsignacion(adminTurnoAction.dataset.id ?? null, turno ? getModoAsignacionParaTurno(turno) : 'reemplazar');
       return;
     }
 

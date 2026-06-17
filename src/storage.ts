@@ -7,6 +7,17 @@ export interface Turno {
   plazasTotales: number;
   plazasDisponibles: number;
   inscritos: string[];
+  asignaciones?: TurnoAsignacion[];
+}
+
+export type TurnoAsignacionTipo = 'fijo' | 'suplente' | 'puntual';
+
+export interface TurnoAsignacion {
+  nombreCompleto: string;
+  tipo: TurnoAsignacionTipo;
+  origen: 'admin' | 'usuario';
+  repeticion?: 'unica' | 'semanal' | 'mensual';
+  creadoEn: number;
 }
 
 export type LoteEstado = 'activo' | 'programado' | 'finalizado' | 'borrador';
@@ -573,10 +584,14 @@ export class StorageDB {
     StorageDB.saveUsuarios(StorageDB.getUsuarios().filter((item) => item.id !== idUsuario));
     StorageDB.saveTurnos(StorageDB.getTurnos().map((turno) => {
       const inscritos = turno.inscritos.filter((inscrito) => inscrito.trim().replace(/\s+/g, ' ').toLowerCase() !== nombreNormalizado);
+      const asignaciones = (turno.asignaciones ?? []).filter((asignacion) =>
+        asignacion.nombreCompleto.trim().replace(/\s+/g, ' ').toLowerCase() !== nombreNormalizado
+      );
 
       return {
         ...turno,
         inscritos,
+        asignaciones,
         plazasDisponibles: Math.max(0, turno.plazasTotales - inscritos.length)
       };
     }));
@@ -638,7 +653,17 @@ export class StorageDB {
     const turnoActualizado: Turno = {
       ...turno,
       plazasDisponibles: turno.plazasDisponibles - 1,
-      inscritos: [...turno.inscritos, nombreCompleto]
+      inscritos: [...turno.inscritos, nombreCompleto],
+      asignaciones: [
+        ...(turno.asignaciones ?? []),
+        {
+          nombreCompleto,
+          tipo: 'puntual',
+          origen: 'usuario',
+          repeticion: 'unica',
+          creadoEn: Date.now()
+        }
+      ]
     };
 
     turnos[index] = turnoActualizado;
