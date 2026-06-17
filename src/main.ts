@@ -45,6 +45,7 @@ const REMEMBERED_EMAIL_KEY = 'hsss_remembered_email';
 const ADMIN_TURNO_DETAIL_CLOSED = '__closed__';
 const ROLES_PROTEGIDOS = new Set<UsuarioRol>(['root', 'admin']);
 const ROLES_ADMINISTRATIVOS = new Set<UsuarioRol>(['root', 'admin']);
+const ROLES_SIN_FRECUENCIA = new Set<UsuarioRol>(['root', 'admin', 'sacerdote']);
 const FRECUENCIA_LABELS: Record<string, string> = {
   fijo: 'Fijo',
   suplente: 'Suplente',
@@ -1070,6 +1071,14 @@ function isAdminRol(rol: UsuarioRol): rol is Extract<UsuarioRol, 'root' | 'admin
 
 function isRolProtegido(rol: UsuarioRol): boolean {
   return ROLES_PROTEGIDOS.has(rol);
+}
+
+function rolTieneFrecuencia(rol: UsuarioRol): boolean {
+  return !ROLES_SIN_FRECUENCIA.has(rol);
+}
+
+function usuarioTieneFrecuencia(usuario: Usuario): boolean {
+  return rolTieneFrecuencia(usuario.rol);
 }
 
 function getRolesEditables(usuario: Usuario): UsuarioRol[] {
@@ -2176,7 +2185,7 @@ function matchesAdminUsuarioFiltro(usuario: Usuario): boolean {
     return isAdminRol(usuario.rol);
   }
 
-  return usuario.frecuencia === adminUsuariosFiltro;
+  return usuarioTieneFrecuencia(usuario) && usuario.frecuencia === adminUsuariosFiltro;
 }
 
 function matchesAdminUsuarioBusqueda(usuario: Usuario): boolean {
@@ -2189,7 +2198,7 @@ function matchesAdminUsuarioBusqueda(usuario: Usuario): boolean {
     usuario.nombreCompleto,
     usuario.email,
     usuario.telefono,
-    formatFrecuencia(usuario.frecuencia),
+    usuarioTieneFrecuencia(usuario) ? formatFrecuencia(usuario.frecuencia) : '',
     formatRol(usuario.rol)
   ].some((value) => normalizarNombre(value).includes(query));
 }
@@ -2197,9 +2206,10 @@ function matchesAdminUsuarioBusqueda(usuario: Usuario): boolean {
 function renderAdminUsuarios(): void {
   const usuarios = StorageDB.getUsuarios().toSorted((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto));
   const filtrados = usuarios.filter((usuario) => matchesAdminUsuarioFiltro(usuario) && matchesAdminUsuarioBusqueda(usuario));
-  const totalFijos = usuarios.filter((usuario) => usuario.frecuencia === 'fijo').length;
-  const totalSuplentes = usuarios.filter((usuario) => usuario.frecuencia === 'suplente').length;
-  const totalPuntuales = usuarios.filter((usuario) => usuario.frecuencia === 'puntual').length;
+  const usuariosConFrecuencia = usuarios.filter(usuarioTieneFrecuencia);
+  const totalFijos = usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === 'fijo').length;
+  const totalSuplentes = usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === 'suplente').length;
+  const totalPuntuales = usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === 'puntual').length;
   const selectedId = adminUsuarioEditandoId;
 
   adminUsuariosLista.innerHTML = `
@@ -2230,7 +2240,7 @@ function renderAdminUsuarios(): void {
 
           <div class="admin-user-filters" aria-label="Filtros de usuarios">
             ${renderAdminUsuarioFiltroButton('todos', 'Todos', usuarios.length)}
-            ${getFrecuenciasEditables().map((frecuencia) => renderAdminUsuarioFiltroButton(frecuencia, formatFrecuencia(frecuencia), usuarios.filter((usuario) => usuario.frecuencia === frecuencia).length)).join('')}
+            ${getFrecuenciasEditables().map((frecuencia) => renderAdminUsuarioFiltroButton(frecuencia, formatFrecuencia(frecuencia), usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === frecuencia).length)).join('')}
             ${renderAdminUsuarioFiltroButton('administrador', 'Admin/Root', usuarios.filter((usuario) => isAdminRol(usuario.rol)).length)}
           </div>
 
@@ -2293,6 +2303,10 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
 }
 
 function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): string {
+  const frecuenciaCell = usuarioTieneFrecuencia(usuario)
+    ? `<strong class="admin-table-main">${escapeHtml(formatFrecuencia(usuario.frecuencia))}</strong><small>${escapeHtml(getFrecuenciaDetalle(usuario.frecuencia))}</small>`
+    : '<strong class="admin-table-main">No aplica</strong><small>Rol sin frecuencia asociada</small>';
+
   return `
     <tr class="${selectedId === usuario.id ? 'is-selected' : ''}">
       <td>
@@ -2307,8 +2321,7 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
         </div>
       </td>
       <td>
-        <strong class="admin-table-main">${escapeHtml(formatFrecuencia(usuario.frecuencia))}</strong>
-        <small>${escapeHtml(getFrecuenciaDetalle(usuario.frecuencia))}</small>
+        ${frecuenciaCell}
       </td>
       <td><span class="admin-role-chip">${escapeHtml(formatRol(usuario.rol))}</span></td>
       <td>
@@ -2330,6 +2343,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
   const isNew = !StorageDB.getUsuarios().some((item) => item.id === usuario.id);
   const turnosAsignados = isNew ? [] : getTurnosUsuario(usuario);
   const rolesEditables = getRolesEditables(usuario);
+  const mostrarFrecuencia = isNew || usuarioTieneFrecuencia(usuario);
 
   return `
       <header class="modal-header admin-user-modal-head">
@@ -2361,11 +2375,12 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
           <span>Telefono</span>
           <input id="admin-user-edit-phone" type="tel" value="${escapeHtml(usuario.telefono)}" />
         </label>
-        <label>
+        <label ${mostrarFrecuencia ? '' : 'hidden'}>
           <span>Frecuencia</span>
-          <select id="admin-user-edit-frequency">
+          <select id="admin-user-edit-frequency" ${mostrarFrecuencia ? '' : 'disabled'}>
             ${getFrecuenciasEditables().map((value) => `<option value="${value}" ${usuario.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
           </select>
+          ${mostrarFrecuencia ? '' : '<small>Admin, Root y Sacerdotes no tienen frecuencia asociada.</small>'}
         </label>
         <label>
           <span>Rol</span>
@@ -2448,9 +2463,10 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   const nombreCompleto = limpiarTextoRegistro(form.querySelector<HTMLInputElement>('#admin-user-edit-name')?.value ?? '');
   const email = form.querySelector<HTMLInputElement>('#admin-user-edit-email')?.value.trim().toLowerCase() ?? '';
   const telefono = limpiarTelefono(form.querySelector<HTMLInputElement>('#admin-user-edit-phone')?.value ?? '');
-  const frecuencia = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency')?.value as UsuarioFrecuencia;
+  const requestedFrecuencia = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency')?.value as UsuarioFrecuencia | undefined;
   const requestedRol = form.querySelector<HTMLSelectElement>('#admin-user-edit-role')?.value as UsuarioRol;
   const rol = getRolPermitidoParaGuardar(usuario, requestedRol);
+  const frecuencia = rolTieneFrecuencia(rol) ? (requestedFrecuencia ?? usuario.frecuencia ?? 'puntual') : usuario.frecuencia;
 
   if (!nombreCompleto || !esEmailValido(email) || (telefono && !esTelefonoValido(telefono))) {
     mostrarAviso('Revisa el usuario', 'Nombre, email y telefono deben ser validos. El telefono puede quedar vacio.', 'error');
@@ -3032,7 +3048,7 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
 
 function getUsuariosAsignables(modo: AdminAsignacionModo): Usuario[] {
   const usuarios = StorageDB.getUsuarios()
-    .filter((usuario) => !isAdminRol(usuario.rol))
+    .filter(usuarioTieneFrecuencia)
     .toSorted((a, b) => {
       if (modo === 'agregar' && a.frecuencia !== b.frecuencia) {
         return a.frecuencia === 'suplente' ? -1 : b.frecuencia === 'suplente' ? 1 : 0;
