@@ -5321,7 +5321,11 @@ window.addEventListener(NotificationService.EVENT_NAME, (event) => {
 NotificationService.init();
 StorageDB.subscribeSync(actualizarEstadoPersistencia);
 StorageDB.subscribeStateChange(refrescarVistaActual);
-StorageDB.startRemotePolling();
+StorageDB.startRemotePolling(3000);
+
+window.addEventListener('focus', () => {
+  void StorageDB.loadRemote().catch(() => undefined);
+});
 
 resetConfig();
 cargarEmailRecordado();
