@@ -5320,6 +5320,8 @@ window.addEventListener(NotificationService.EVENT_NAME, (event) => {
 
 NotificationService.init();
 StorageDB.subscribeSync(actualizarEstadoPersistencia);
+StorageDB.subscribeStateChange(refrescarVistaActual);
+StorageDB.startRemotePolling();
 
 resetConfig();
 cargarEmailRecordado();

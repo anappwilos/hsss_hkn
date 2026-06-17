@@ -97,6 +97,7 @@ export interface RemoteSnapshot {
 }
 
 type SyncListener = (status: SyncStatus, message: string) => void;
+type StateChangeListener = () => void;
 const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '')).replace(/\/$/, '');
 
 export class StorageDB {
@@ -105,8 +106,11 @@ export class StorageDB {
   private static readonly PERFIL_ADORADOR_SESSION_KEY = 'hsss_perfil_adorador_id';
   private static readonly PERFIL_ADORADOR_CACHE_KEY = 'hsss_perfil_adorador_cache';
   private static applyingRemoteSnapshot = false;
+  private static lastRemoteSnapshotHash: string | null = null;
+  private static remotePollHandle: number | null = null;
   private static syncQueue: Promise<void> = Promise.resolve();
   private static syncListeners = new Set<SyncListener>();
+  private static stateChangeListeners = new Set<StateChangeListener>();
   private static usuarios: Usuario[] = StorageDB.readPerfilAdoradorCacheArray();
   private static lotes: LoteExposicion[] = [];
   private static turnos: Turno[] = [];
@@ -117,6 +121,15 @@ export class StorageDB {
   public static subscribeSync(listener: SyncListener): () => void {
     StorageDB.syncListeners.add(listener);
     return () => StorageDB.syncListeners.delete(listener);
+  }
+
+  public static subscribeStateChange(listener: StateChangeListener): () => void {
+    StorageDB.stateChangeListeners.add(listener);
+    return () => StorageDB.stateChangeListeners.delete(listener);
+  }
+
+  private static emitStateChange(): void {
+    StorageDB.stateChangeListeners.forEach((listener) => listener());
   }
 
   public static async loadRemote(): Promise<boolean> {
@@ -137,8 +150,16 @@ export class StorageDB {
         throw new Error(`Servidor no disponible (${response.status})`);
       }
 
-      StorageDB.applyRemoteSnapshot(StorageDB.normalizeSnapshot(await StorageDB.readJsonResponse(response)));
-      StorageDB.emitSync('online', 'Datos sincronizados desde PostgreSQL.');
+      const snapshot = StorageDB.normalizeSnapshot(await StorageDB.readJsonResponse(response));
+      const snapshotHash = JSON.stringify(snapshot);
+      const hasChanged = snapshotHash !== StorageDB.lastRemoteSnapshotHash;
+
+      if (hasChanged) {
+        StorageDB.applyRemoteSnapshot(snapshot);
+        StorageDB.lastRemoteSnapshotHash = snapshotHash;
+      }
+
+      StorageDB.emitSync('online', hasChanged ? 'Datos sincronizados desde PostgreSQL.' : 'Sincronizado con el servidor. No hay cambios nuevos.');
       return true;
     } catch {
       StorageDB.emitSync('offline', 'Sin conexion con PostgreSQL. No se cargaron datos persistentes.');
@@ -184,6 +205,25 @@ export class StorageDB {
       .catch(() => undefined)
       .then(() => StorageDB.saveRemote(snapshot));
     void StorageDB.syncQueue.catch(() => undefined);
+  }
+
+  public static startRemotePolling(intervalMs = 15000): void {
+    if (!StorageDB.REMOTE_ENABLED || StorageDB.remotePollHandle !== null) {
+      return;
+    }
+
+    StorageDB.remotePollHandle = window.setInterval(() => {
+      void StorageDB.loadRemote().catch(() => undefined);
+    }, intervalMs);
+  }
+
+  public static stopRemotePolling(): void {
+    if (StorageDB.remotePollHandle === null) {
+      return;
+    }
+
+    window.clearInterval(StorageDB.remotePollHandle);
+    StorageDB.remotePollHandle = null;
   }
 
   public static getRemoteSnapshot(): RemoteSnapshot {
@@ -301,6 +341,7 @@ export class StorageDB {
     StorageDB.saveNotificaciones(snapshot.notificaciones);
     StorageDB.saveCatalogoUsuarios(snapshot.catalogoUsuarios);
     StorageDB.applyingRemoteSnapshot = false;
+    StorageDB.emitStateChange();
   }
 
   private static normalizeSnapshot(value: unknown): RemoteSnapshot {
