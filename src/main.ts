@@ -245,18 +245,22 @@ app.innerHTML = `
       </header>
 
       <div class="screen-content user-content">
-     <section class="hero-adoracion" aria-label="Invitacion a la adoracion">
-        <div class="hero-copy">
-          <h1>Velar una hora juntos</h1>
-          <p>&ldquo;&iquest;No hab&eacute;is podido velar una hora conmigo?&rdquo;</p>
-          <span aria-hidden="true"></span>
-        </div>
-      </section>
+        <section class="adorador-heading" aria-labelledby="adorador-heading-title">
+          <h1 id="adorador-heading-title">Panel del adorador</h1>
+        </section>
 
         <nav id="usuario-panel-tabs" class="user-panel-tabs" aria-label="Secciones del adorador">
           <button class="is-active" type="button" data-user-panel="disponibles">Turnos disponibles</button>
           <button type="button" data-user-panel="asignados">Turnos asignados</button>
         </nav>
+
+        <section class="hero-adoracion" aria-label="Invitacion a la adoracion">
+          <div class="hero-copy">
+            <h1>Velar una hora juntos</h1>
+            <p>&ldquo;&iquest;No hab&eacute;is podido velar una hora conmigo?&rdquo;</p>
+            <span aria-hidden="true"></span>
+          </div>
+        </section>
 
         <section id="usuario-mis-turnos" class="my-turns-panel" aria-label="Turnos asignados"></section>
 
