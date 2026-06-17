@@ -17,7 +17,7 @@ const distDir = resolveRuntimePath(process.env.STATIC_DIST_DIR || path.join('..'
 const maxBodyBytes = 1024 * 1024;
 const databaseUrl = process.env.DATABASE_URL || '';
 const storageDriver = String(process.env.STORAGE_DRIVER || (databaseUrl ? 'postgres' : 'json')).trim().toLowerCase();
-const jsonDataFile = resolveRuntimePath(process.env.JSON_DATA_FILE || path.join('data', 'a-solas-state.json'));
+const jsonDataFile = resolveProjectPath(process.env.JSON_DATA_FILE || path.join('data', 'a-solas-state.json'));
 const adminEmail = String(process.env.VITE_ADMIN_EMAIL || 'admin@admin.com').trim().toLowerCase();
 const adminPassword = String(process.env.VITE_ADMIN_PASSWORD || 'admin');
 const superadminEmail = String(process.env.VITE_SUPERADMIN_EMAIL || 'root@root.com').trim().toLowerCase();
@@ -163,6 +163,10 @@ async function loadEnvFile() {
       // .env is optional; try the next conventional location.
     }
   }
+}
+
+function resolveProjectPath(value) {
+  return path.isAbsolute(value) ? value : path.resolve(projectRoot, value);
 }
 
 function resolveRuntimePath(value) {

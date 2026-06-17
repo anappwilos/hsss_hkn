@@ -190,17 +190,15 @@ app.innerHTML = `
 
     <section id="vista-admin" class="view admin-lotes-view" style="display: none;">
       <header class="mobile-topbar">
-        <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+       
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span>A solas</span>
+          <span>A solas - Panel de administracion</span>
         </button>
         <button class="topbar-text-button" type="button" data-action="admin-logout">Salir</button>
       </header>
 
       <div class="screen-content">
-        <header class="section-heading admin-heading">
-          <h1>Panel de administraci&oacute;n</h1>
-        </header>
+     
 
         <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
           <button class="chip" type="button" data-admin-panel="lotes">Lotes</button>
@@ -253,14 +251,7 @@ app.innerHTML = `
 
       <div class="screen-content user-content">
         <section class="adorador-heading" aria-labelledby="adorador-heading-title">
-          <h1 id="adorador-heading-title">Panel del adorador</h1>
         </section>
-
-        <nav id="usuario-panel-tabs" class="user-panel-tabs" aria-label="Secciones del adorador">
-          <button class="is-active" type="button" data-user-panel="disponibles">Turnos disponibles</button>
-          <button type="button" data-user-panel="asignados">Turnos asignados</button>
-        </nav>
-
         <section class="hero-adoracion" aria-label="Invitacion a la adoracion">
           <div class="hero-copy">
             <h1>Velar una hora juntos</h1>
@@ -268,6 +259,12 @@ app.innerHTML = `
             <span aria-hidden="true"></span>
           </div>
         </section>
+        <nav id="usuario-panel-tabs" class="user-panel-tabs" aria-label="Secciones del adorador">
+          <button class="is-active" type="button" data-user-panel="disponibles">Turnos disponibles</button>
+          <button type="button" data-user-panel="asignados">Turnos asignados</button>
+        </nav>
+
+
 
         <section id="usuario-mis-turnos" class="my-turns-panel" aria-label="Turnos asignados"></section>
 
