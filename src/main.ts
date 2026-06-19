@@ -2897,34 +2897,29 @@ function renderAdminTurnosCubiertos(): void {
             <button class="icon-round" type="button" data-action="admin-period-next" aria-label="Periodo siguiente">›</button>
           </div>
         </div>
+
+
+        
       </header>
-
-      <section class="admin-turns-metrics" aria-label="Resumen de turnos">
-        <article><span class="metric-icon metric-orange" aria-hidden="true"></span><small>${adminVistaTurnos === 'diaria' ? 'Turnos del dia' : 'Turnos hoy'}</small><strong>${adminVistaTurnos === 'diaria' ? turnosPeriodo.length : turnosHoy}</strong></article>
-        <article><span class="metric-icon metric-blue" aria-hidden="true">○</span><small>${adminVistaTurnos === 'diaria' ? 'En este dia' : 'Esta semana'}</small><strong>${turnosPeriodo.length}</strong></article>
-        <article><span class="metric-icon metric-red" aria-hidden="true">!</span><small>Sin asignar</small><strong>${turnosSinAsignar}</strong></article>
-        <article><span class="metric-icon metric-amber" aria-hidden="true">+</span><small>Suplentes</small><strong>${turnosSuplente}</strong></article>
-        <article class="coverage-metric"><span class="metric-icon metric-green" aria-hidden="true">↗</span><small>Cobertura</small><strong>${cobertura}%</strong><span class="coverage-bar"><i style="width: ${cobertura}%"></i></span></article>
-      </section>
-
-      <div class="admin-turns-layout">
-        <section class="admin-turns-main">
-          <div class="admin-turns-card">
+      <div class="">
             <div class="admin-turns-tools">
               <label class="admin-turn-search">
                 <span aria-hidden="true">⌕</span>
                 <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar fecha, hora o adorador" autocomplete="off" />
               </label>
-              <button class="admin-turn-filter-button" type="button" data-action="admin-turno-filter-info">Filtros</button>
-            </div>
 
-            <div class="admin-turn-filters" aria-label="Filtros de turnos">
-              ${renderAdminTurnoFiltroButton('todos', 'Todos', turnosPeriodo.length)}
-              ${renderAdminTurnoFiltroButton('sin-asignar', 'Sin asignar', turnosSinAsignar)}
-              ${renderAdminTurnoFiltroButton('asignados', 'Asignados', turnosAsignados)}
-              ${renderAdminTurnoFiltroButton('suplente', 'Con suplente', turnosSuplente)}
+              <div class="admin-turn-filters" aria-label="Filtros de turnos">
+                ${renderAdminTurnoFiltroButton('todos', 'Todos', turnosPeriodo.length)}
+                ${renderAdminTurnoFiltroButton('sin-asignar', 'Sin asignar', turnosSinAsignar)}
+                ${renderAdminTurnoFiltroButton('asignados', 'Asignados', turnosAsignados)}
+                ${renderAdminTurnoFiltroButton('suplente', 'Con suplente', turnosSuplente)}
+              </div>
             </div>
+          </div>
 
+      <div class="admin-turns-layout">
+        <section class="admin-turns-main">
+          <div class="admin-turns-card">
             ${turnosFiltrados.length > 0
               ? `<div class="admin-assignment-scroll">${renderAdminTurnosCalendario(fechasSemana, franjasSemana, turnosFiltrados)}</div>`
               : `<div class="empty-card compact"><h3>No hay turnos con este filtro</h3><p>Ajusta la busqueda o selecciona otro estado.</p></div>`
@@ -4810,11 +4805,6 @@ document.addEventListener('click', (event) => {
 
     if (action === 'admin-turno-modal-close') {
       cerrarModalAdminTurno();
-      return;
-    }
-
-    if (action === 'admin-turno-filter-info') {
-      mostrarAviso('Filtros activos', 'Usa los chips de estado para acotar los turnos de la semana.', 'info');
       return;
     }
 

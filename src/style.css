@@ -3066,9 +3066,13 @@ button:disabled {
 }
 
 .admin-turns-tools {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 138px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 14px;
+  flex-wrap: nowrap;
+  width: 100%;
+  overflow-x: auto;
 }
 
 .admin-turn-search,
@@ -3076,22 +3080,23 @@ button:disabled {
   grid-template-columns: 34px minmax(0, 1fr);
   min-height: 50px;
   padding: 0 14px;
-}
-
-.admin-turn-filter-button {
-  min-height: 50px;
-  border: 1px solid rgba(255, 255, 255, 0.68);
-  border-radius: 999px;
-  color: #168fa3;
-  background: rgba(244, 251, 253, 0.9);
-  font-weight: 900;
-  cursor: pointer;
+  flex: 1 1 1px;
+  min-width: 220px;
 }
 
 .admin-turn-filters {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 12px;
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.admin-turn-filters button {
+  flex: 0 0 auto;
 }
 
 .admin-turn-filters button {
@@ -5329,10 +5334,6 @@ body,
   gap: 10px;
 }
 
-.admin-turn-filter-button {
-  display: none;
-}
-
 .admin-turns-tabs {
   display: none;
 }
@@ -5721,6 +5722,15 @@ body,
   border-radius: 999px;
   background: rgba(244, 251, 253, 0.9);
   box-shadow: 0 12px 28px rgba(6, 69, 82, 0.05);
+}
+
+.admin-lotes-view .admin-turns-tools .admin-turn-search {
+  flex: 1 1 520px;
+}
+
+.admin-lotes-view .admin-turns-tools .admin-turn-filters {
+  flex: 0 0 auto;
+  margin-bottom: 0;
 }
 
 .admin-lotes-view .admin-turn-filters button,
@@ -6135,7 +6145,9 @@ body,
   }
 
   .admin-turns-tools {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
   }
 
   .admin-turn-filter-button {
@@ -7317,7 +7329,11 @@ body,
   }
 
   .admin-lotes-view .admin-turns-tools {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 
   .admin-lotes-view .admin-turn-filter-button {
@@ -7330,6 +7346,7 @@ body,
     overflow-x: auto;
     margin-bottom: 10px;
     padding-bottom: 4px;
+    white-space: nowrap;
   }
 
   .admin-lotes-view .admin-turn-filters button {
