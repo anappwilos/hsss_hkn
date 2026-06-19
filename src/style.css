@@ -8185,3 +8185,156 @@ body,
     font-size: 0.78rem;
   }
 }
+
+/* =========================================================
+   30. PESTANAS ADMIN MAS DEFINIDAS
+========================================================= */
+
+.admin-lotes-view .admin-panel-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 0;
+  width: 100%;
+  min-height: 54px;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid rgba(95, 177, 197, 0.28);
+  border-radius: 10px;
+  padding: 0;
+  background: rgba(246, 253, 255, 0.64);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 10px 28px rgba(24, 112, 134, 0.04);
+}
+
+.admin-lotes-view .admin-panel-tabs .chip {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-right: 1px solid rgba(95, 177, 197, 0.18);
+  border-radius: 0;
+  padding: 0 18px;
+  color: #072036;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.9rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip:last-child {
+  border-right: 0;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 0;
+  background: #22c1d2;
+  content: "";
+  transition: height 160ms ease;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip:hover {
+  background: rgba(232, 249, 252, 0.64);
+}
+
+.admin-lotes-view .admin-panel-tabs .chip.is-active {
+  color: #007f9b;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(221, 247, 251, 0.72));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(34, 193, 210, 0.18);
+}
+
+.admin-lotes-view .admin-panel-tabs .chip.is-active::after {
+  height: 3px;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip span {
+  color: #079db7;
+  font-size: 0.96rem;
+}
+
+.admin-lotes-view .admin-users-card {
+  padding: 26px 26px 24px;
+}
+
+.admin-lotes-view .admin-users-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.admin-lotes-view .admin-user-subtabs,
+.admin-lotes-view .admin-user-filters:not(.admin-user-subtabs),
+.admin-lotes-view .admin-turn-filters,
+.admin-lotes-view #lote-filtros.chip-row {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 999px;
+  padding: 4px;
+  background: rgba(239, 250, 252, 0.66);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.admin-lotes-view .admin-user-filters:not(.admin-user-subtabs) {
+  margin-bottom: 20px;
+}
+
+.admin-lotes-view .admin-user-subtabs button,
+.admin-lotes-view .admin-user-filters:not(.admin-user-subtabs) button,
+.admin-lotes-view .admin-turn-filters button,
+.admin-lotes-view #lote-filtros.chip-row .chip {
+  min-height: 42px;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.admin-lotes-view .admin-user-subtabs button.is-active,
+.admin-lotes-view .admin-user-filters:not(.admin-user-subtabs) button.is-active,
+.admin-lotes-view .admin-turn-filters button.is-active,
+.admin-lotes-view #lote-filtros.chip-row .chip.is-active {
+  background: linear-gradient(180deg, #43d3dc, #24bdcd);
+  box-shadow: 0 9px 18px rgba(36, 189, 205, 0.22);
+}
+
+@media (max-width: 760px) {
+  .admin-lotes-view .admin-panel-tabs {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .admin-lotes-view .admin-panel-tabs .chip {
+    flex: 0 0 auto;
+    min-width: 158px;
+    min-height: 50px;
+    font-size: 0.78rem;
+  }
+
+  .admin-lotes-view .admin-users-card-head {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-lotes-view .admin-user-subtabs,
+  .admin-lotes-view .admin-user-filters:not(.admin-user-subtabs),
+  .admin-lotes-view .admin-turn-filters,
+  .admin-lotes-view #lote-filtros.chip-row {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+}
