@@ -104,6 +104,8 @@ let adminTurnosBusqueda = '';
 let adminTurnosFiltro: AdminTurnoFiltro = 'todos';
 let adminTurnoSeleccionadoId: string | null = null;
 let adminTurnoAsignacionId: string | null = null;
+let adminTurnosBusquedaTimeout = 0;
+let adminUsuariosBusquedaTimeout = 0;
 const adminTurnosDiasColapsados = new Set<string>();
 let registroStep = 0;
 let turnoModalId: string | null = null;
@@ -5058,13 +5060,16 @@ document.addEventListener('input', (event) => {
     const caret = input.selectionStart ?? input.value.length;
     adminTurnosBusqueda = input.value;
     adminTurnoSeleccionadoId = null;
-    renderAdminTurnosCubiertos();
 
-    window.requestAnimationFrame(() => {
-      const nextInput = document.querySelector<HTMLInputElement>('#admin-turnos-buscar');
-      nextInput?.focus();
-      nextInput?.setSelectionRange(caret, caret);
-    });
+    window.clearTimeout(adminTurnosBusquedaTimeout);
+    adminTurnosBusquedaTimeout = window.setTimeout(() => {
+      renderAdminTurnosCubiertos();
+      window.requestAnimationFrame(() => {
+        const nextInput = document.querySelector<HTMLInputElement>('#admin-turnos-buscar');
+        nextInput?.focus();
+        nextInput?.setSelectionRange(caret, caret);
+      });
+    }, 300);
     return;
   }
 
@@ -5074,13 +5079,16 @@ document.addEventListener('input', (event) => {
 
   const caret = input.selectionStart ?? input.value.length;
   adminUsuariosBusqueda = input.value;
-  renderAdminUsuarios();
 
-  window.requestAnimationFrame(() => {
-    const nextInput = document.querySelector<HTMLInputElement>('#admin-usuarios-buscar');
-    nextInput?.focus();
-    nextInput?.setSelectionRange(caret, caret);
-  });
+  window.clearTimeout(adminUsuariosBusquedaTimeout);
+  adminUsuariosBusquedaTimeout = window.setTimeout(() => {
+    renderAdminUsuarios();
+    window.requestAnimationFrame(() => {
+      const nextInput = document.querySelector<HTMLInputElement>('#admin-usuarios-buscar');
+      nextInput?.focus();
+      nextInput?.setSelectionRange(caret, caret);
+    });
+  }, 300);
 });
 
 document.addEventListener('change', (event) => {
