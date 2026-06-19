@@ -92,7 +92,7 @@ let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let vistaTurnos: VistaTurnos = 'semanal';
 let usuarioPanel: UsuarioPanel = 'disponibles';
 let usuarioOrdenTurnos: UsuarioOrdenTurnos = 'fecha';
-let adminPanel: AdminPanel = 'turnos';
+let adminPanel: AdminPanel = 'lotes';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
 let adminUsuariosSubpanel: AdminUsuariosSubpanel = 'usuarios';
@@ -198,26 +198,47 @@ app.innerHTML = `
 
     <section id="vista-admin" class="view admin-lotes-view" style="display: none;">
       <header class="mobile-topbar">
-       
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span>A solas - Panel de administracion</span>
+          <span>A SOLAS</span>
         </button>
-        <button class="topbar-text-button" type="button" data-action="admin-logout">Salir</button>
+        <button class="topbar-text-button admin-logout-button" type="button" data-action="admin-logout">
+          <span aria-hidden="true">↪</span>
+          <span>Salir</span>
+        </button>
       </header>
 
       <div class="screen-content">
-     
+        <header class="admin-heading">
+          <h1>Panel de administracion</h1>
+          <p>Gestiona lotes, usuarios, catalogos y turnos.</p>
+        </header>
 
         <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
-          <button class="chip" type="button" data-admin-panel="lotes">Lotes</button>
-          <button class="chip" type="button" data-admin-panel="usuarios">Usuarios</button>
-          <button class="chip" type="button" data-admin-panel="catalogos">Catalogos</button>
-          <button class="chip is-active" type="button" data-admin-panel="turnos">Turnos asignados</button>
+          <button class="chip" type="button" data-admin-panel="lotes"><span aria-hidden="true">▧</span>Lotes</button>
+          <button class="chip" type="button" data-admin-panel="usuarios"><span aria-hidden="true">♙</span>Usuarios</button>
+          <button class="chip" type="button" data-admin-panel="catalogos"><span aria-hidden="true">▣</span>Catalogos</button>
+          <button class="chip is-active" type="button" data-admin-panel="turnos"><span aria-hidden="true">◫</span>Turnos asignados</button>
         </nav>
 
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
+          <div class="admin-lotes-panel-head">
+            <h2>Lotes</h2>
+            <div class="admin-lotes-tools">
+              <label class="admin-lote-search" for="lote-buscar">
+                <span aria-hidden="true">⌕</span>
+                <input id="lote-buscar" type="search" placeholder="Buscar lote..." autocomplete="off" />
+              </label>
+              <button id="btn-nuevo-lote-inline" class="button button-primary admin-new-lote-button" type="button" data-action="nuevo-lote">
+                <span aria-hidden="true">+</span>
+                <span>Nuevo lote</span>
+              </button>
+            </div>
+          </div>
           <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
-            <button class="chip is-active" type="button" data-filter="todos">Todos</button>
+            <button class="chip is-active" type="button" data-filter="todos"><span aria-hidden="true">◎</span>Todos</button>
+            <button class="chip" type="button" data-filter="activo"><span aria-hidden="true">▷</span>Activos</button>
+            <button class="chip" type="button" data-filter="programado"><span aria-hidden="true">◷</span>Programados</button>
+            <button class="chip" type="button" data-filter="finalizado"><span aria-hidden="true">✓</span>Finalizados</button>
           </div>
 
           <div id="lotes-lista" class="lotes-list"></div>
@@ -2843,7 +2864,6 @@ function renderAdminTurnosCubiertos(): void {
     return;
   }
 
-  const hoy = fechaToInput(new Date());
   const inicioSemana = adminSemanaTurnosInicio;
   const finSemana = addDays(inicioSemana, 6);
   const inicioSemanaInput = fechaToInput(inicioSemana);
@@ -2853,16 +2873,12 @@ function renderAdminTurnosCubiertos(): void {
     ? turnosSemana.filter((turno) => turno.dia === adminFechaTurnosSeleccionada)
     : turnosSemana;
   const turnosFiltrados = turnosPeriodo.filter((turno) => matchesAdminTurnoFiltro(turno) && matchesAdminTurnoBusqueda(turno));
-  const turnosHoy = turnosSemana.filter((turno) => turno.dia === hoy).length;
   const turnosSinAsignar = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'sin-asignar').length;
   const turnosSuplente = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'suplente').length;
   const turnosAsignados = turnosPeriodo.filter((turno) => {
     const estado = getAdminTurnoEstado(turno);
     return estado === 'asignado' || estado === 'parcial';
   }).length;
-  const plazasTotales = turnosPeriodo.reduce((total, turno) => total + turno.plazasTotales, 0);
-  const plazasCubiertas = turnosPeriodo.reduce((total, turno) => total + Math.max(0, turno.plazasTotales - turno.plazasDisponibles), 0);
-  const cobertura = plazasTotales > 0 ? Math.round((plazasCubiertas / plazasTotales) * 100) : 0;
 
   if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && adminTurnoSeleccionadoId && !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId)) {
     adminTurnoSeleccionadoId = null;
@@ -3748,6 +3764,7 @@ function guardarPerfilDesdeModal(form: HTMLFormElement): void {
 }
 
 function renderLotes(): void {
+  const turnos = StorageDB.getTurnos();
   const lotes = StorageDB.getLotes()
     .map((lote) => ({
       ...lote,
@@ -3777,13 +3794,21 @@ function renderLotes(): void {
 
   lotesLista.innerHTML = filtrados.map((lote) => `
     <article class="lote-card lote-card--${lote.estado}">
-      <div>
+      <div class="lote-date-mark" aria-hidden="true">◫</div>
+      <div class="lote-main">
         <h2>${escapeHtml(lote.nombre)}</h2>
-        <p class="lote-meta">▦ ${escapeHtml(formatFecha(lote.fechaInicio))} - ${escapeHtml(formatFecha(lote.fechaFin))}</p>
-        <p class="lote-meta">◷ ${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</p>
-        ${(lote.interrupciones?.length ?? 0) > 0 ? `<p class="lote-meta">⏸ ${formatPlural(lote.interrupciones.length, 'interrupcion', 'interrupciones')}</p>` : ''}
+        <div class="lote-meta-row">
+          <p class="lote-meta"><span aria-hidden="true">◫</span>${escapeHtml(formatFecha(lote.fechaInicio))} - ${escapeHtml(formatFecha(lote.fechaFin))}</p>
+          <p class="lote-meta"><span aria-hidden="true">◷</span>${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</p>
+        </div>
+        <div class="lote-stat-row">
+          <span class="lote-stat"><span aria-hidden="true">◫</span>${formatPlural(daysBetween(parseFecha(lote.fechaInicio), parseFecha(lote.fechaFin)) + 1, 'dia', 'dias')}</span>
+          ${(lote.interrupciones?.length ?? 0) > 0 ? `<span class="lote-stat"><span aria-hidden="true">⌁</span>${formatPlural(lote.interrupciones.length, 'interrupcion', 'interrupciones')}</span>` : ''}
+          <span class="lote-stat"><span aria-hidden="true">♙</span>${formatPlural(turnos.filter((turno) => turno.loteId === lote.id).length, 'turno', 'turnos')}</span>
+        </div>
       </div>
       <div class="lote-actions">
+        <span class="lote-status lote-status--${lote.estado}">${escapeHtml(formatLoteEstado(lote.estado))}</span>
         <button class="dots-button" type="button" data-action="toggle-lote-menu" data-id="${lote.id}" aria-label="Opciones del lote" aria-expanded="${loteMenuAbiertoId === lote.id}">⋮</button>
         <div class="lote-menu ${loteMenuAbiertoId === lote.id ? 'is-open' : ''}">
           <button type="button" data-action="editar-lote" data-id="${lote.id}">Editar</button>
@@ -3792,9 +3817,25 @@ function renderLotes(): void {
             ${loteEliminarPendienteId === lote.id ? 'Confirmar eliminacion' : 'Eliminar'}
           </button>
         </div>
+        <div class="lote-action-row">
+          <button class="text-link lote-action-button" type="button" data-action="ver-turnos-lote" data-id="${lote.id}"><span aria-hidden="true">⊙</span>Ver turnos</button>
+          <button class="text-link lote-action-button" type="button" data-action="editar-lote" data-id="${lote.id}"><span aria-hidden="true">✎</span>Editar</button>
+          <button class="text-link lote-action-button" type="button" data-action="duplicar-lote-mes" data-id="${lote.id}"><span aria-hidden="true">⧉</span>Duplicar</button>
+        </div>
       </div>
     </article>
   `).join('');
+}
+
+function formatLoteEstado(estado: LoteEstado): string {
+  const labels: Record<LoteEstado, string> = {
+    activo: 'Activo',
+    programado: 'Programado',
+    finalizado: 'Finalizado',
+    borrador: 'Borrador'
+  };
+
+  return labels[estado];
 }
 
 function cancelarConfirmacionEliminarLote(): void {
@@ -4849,7 +4890,7 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  if (target.closest('#btn-nuevo-lote')) {
+  if (target.closest('#btn-nuevo-lote') || target.closest('[data-action="nuevo-lote"]')) {
     abrirConfig();
     return;
   }
@@ -4959,7 +5000,7 @@ document.addEventListener('click', (event) => {
   }
 
   const loteAction = target.closest<HTMLButtonElement>(
-    '[data-action="editar-lote"], [data-action="duplicar-lote-mes"], [data-action="eliminar-lote"]'
+    '[data-action="editar-lote"], [data-action="duplicar-lote-mes"], [data-action="eliminar-lote"], [data-action="ver-turnos-lote"]'
   );
 
   if (loteAction) {
@@ -4982,6 +5023,15 @@ document.addEventListener('click', (event) => {
       loteMenuAbiertoId = null;
       renderLotes();
       abrirDuplicarMes(lote);
+      return;
+    }
+
+    if (loteAction.dataset.action === 'ver-turnos-lote') {
+      cancelarConfirmacionEliminarLote();
+      loteMenuAbiertoId = null;
+      adminPanel = 'turnos';
+      localStorage.setItem(LAST_ADMIN_PANEL_KEY, adminPanel);
+      renderAdminPanel();
       return;
     }
 
@@ -5038,6 +5088,18 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('input', (event) => {
   const input = event.target as HTMLInputElement;
+
+  if (input.id === 'lote-buscar') {
+    const caret = input.selectionStart ?? input.value.length;
+    busquedaLote = input.value;
+    renderLotes();
+    window.requestAnimationFrame(() => {
+      const nextInput = document.querySelector<HTMLInputElement>('#lote-buscar');
+      nextInput?.focus();
+      nextInput?.setSelectionRange(caret, caret);
+    });
+    return;
+  }
 
   if (input.id === 'admin-turnos-buscar') {
     const caret = input.selectionStart ?? input.value.length;
