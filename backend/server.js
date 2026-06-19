@@ -74,7 +74,6 @@ const mimeTypes = new Map([
 ]);
 
 await store.initialize();
-await ensureBaseUsersAvailable();
 logInfo('storage.ready', {
   driver: storageDriver,
   database: isPostgresStorage ? redactDatabaseUrl(databaseUrl) : undefined,
@@ -179,9 +178,9 @@ async function waitForDatabase(retries = 20, delayMs = 1000) {
 
 async function loadEnvFile() {
   const envFiles = [
+    path.join(__dirname, '.env'),
     path.join(runtimeRoot, '.env'),
-    path.join(projectRoot, '.env'),
-    path.join(__dirname, '.env')
+    path.join(projectRoot, '.env')
   ];
 
   for (const envFile of Array.from(new Set(envFiles))) {
@@ -345,11 +344,9 @@ function createPostgresStore() {
     description: 'Datos persistentes en PostgreSQL.',
     async initialize() {
       await initializePostgresStore();
-      await migrateStoredPasswords();
     },
     async readState() {
-      const result = await pool.query('SELECT state FROM app_state WHERE id = $1', ['default']);
-      return normalizeState(result.rows[0]?.state);
+      return readRelationalState();
     },
     async writeState(state) {
       const stateWithBaseUsers = await withBaseUsers(state);
@@ -373,14 +370,6 @@ async function initializePostgresStore() {
   await waitForDatabase();
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS app_state (
-      id text PRIMARY KEY,
-      state jsonb NOT NULL,
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id text PRIMARY KEY,
       nombre_completo text NOT NULL DEFAULT '',
@@ -399,11 +388,6 @@ async function initializePostgresStore() {
   await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_completo text NOT NULL DEFAULT ''");
   await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password text NOT NULL DEFAULT ''");
   await pool.query(`
-    UPDATE usuarios
-    SET nombre_completo = trim(concat_ws(' ', nombre, apellidos))
-    WHERE nombre_completo = ''
-  `);
-  await pool.query(`
     DO $$
     BEGIN
       IF EXISTS (
@@ -415,7 +399,6 @@ async function initializePostgresStore() {
         ALTER TABLE usuarios DROP CONSTRAINT usuarios_rol_check;
       END IF;
 
-      UPDATE usuarios SET rol = 'admin' WHERE rol = 'administrador';
     END $$;
   `);
   await pool.query('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_frecuencia_check');
@@ -456,56 +439,16 @@ async function initializePostgresStore() {
     )
   `);
 
-  await ensurePostgresStateSnapshotAvailable();
-}
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS catalogo_usuario_opciones (
+      tipo text NOT NULL CHECK (tipo IN ('frecuencia', 'rol')),
+      valor text NOT NULL,
+      creado_en timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (tipo, valor)
+    )
+  `);
 
-async function ensurePostgresStateSnapshotAvailable() {
-  const result = await pool.query('SELECT state FROM app_state WHERE id = $1', ['default']);
-  const relationalState = await readRelationalState();
-  const hasRelationalData = hasStoredStateData(relationalState);
-
-  if (!result.rows[0]) {
-    const state = hasRelationalData ? relationalState : emptyState;
-    await writePostgresStateSnapshot(state);
-    logInfo('postgres.app_state_initialized', {
-      source: hasRelationalData ? 'relational_tables' : 'empty_state'
-    });
-    return;
-  }
-
-  const appState = normalizeState(result.rows[0].state);
-
-  if (hasRelationalData && shouldRecoverAppStateFromRelational(appState, relationalState)) {
-    await writePostgresStateSnapshot(relationalState);
-    logInfo('postgres.app_state_recovered', {
-      source: 'relational_tables',
-      usuarios: relationalState.usuarios.length,
-      lotes: relationalState.lotes.length,
-      turnos: relationalState.turnos.length,
-      notificaciones: relationalState.notificaciones.length
-    });
-  }
-}
-
-function hasStoredStateData(state) {
-  const normalized = normalizeState(state);
-  return normalized.usuarios.length > 0
-    || normalized.lotes.length > 0
-    || normalized.turnos.length > 0
-    || normalized.notificaciones.length > 0;
-}
-
-function shouldRecoverAppStateFromRelational(appState, relationalState) {
-  const app = normalizeState(appState);
-  const relational = normalizeState(relationalState);
-
-  return relational.usuarios.length > app.usuarios.length
-    || relational.lotes.length > app.lotes.length
-    || relational.turnos.length > app.turnos.length
-    || relational.notificaciones.length > app.notificaciones.length
-    || (app.lotes.length === 0 && relational.lotes.length > 0)
-    || (app.turnos.length === 0 && relational.turnos.length > 0)
-    || (app.notificaciones.length === 0 && relational.notificaciones.length > 0);
+  logInfo('postgres.schema_ready');
 }
 
 async function handleHealth(url, response) {
@@ -697,39 +640,6 @@ function sanitizeStateForClient(state) {
     ...state,
     usuarios: state.usuarios.map(({ password, ...usuario }) => usuario)
   };
-}
-
-async function ensureBaseUsersAvailable() {
-  if (isPostgresStorage) {
-    await ensurePostgresBaseUsersAvailable();
-    return;
-  }
-
-  await store.writeState(await withBaseUsers(await store.readState()));
-}
-
-async function ensurePostgresBaseUsersAvailable() {
-  const currentState = await store.readState();
-  const nextState = await withBaseUsers(currentState);
-
-  if (JSON.stringify(sanitizeStateForComparison(currentState)) === JSON.stringify(sanitizeStateForComparison(nextState))) {
-    return;
-  }
-
-  await writePostgresStateSnapshot(nextState);
-  await upsertRelationalUsers(nextState.usuarios.filter((usuario) =>
-    getBaseUsers().some((base) => base.email === usuario.email.toLowerCase())
-  ));
-  logInfo('postgres.base_users_ensured', {
-    usuarios: nextState.usuarios.length,
-    lotes: nextState.lotes.length,
-    turnos: nextState.turnos.length,
-    notificaciones: nextState.notificaciones.length
-  });
-}
-
-function sanitizeStateForComparison(state) {
-  return normalizeState(state);
 }
 
 async function withBaseUsers(value) {
@@ -939,51 +849,8 @@ async function verifyPassword(password, storedPassword) {
   return stored.length === candidate.length && timingSafeEqual(stored, candidate);
 }
 
-async function writePostgresStateSnapshot(state) {
-  await pool.query(
-    `INSERT INTO app_state (id, state, updated_at)
-     VALUES ('default', $1::jsonb, now())
-     ON CONFLICT (id)
-     DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
-    [JSON.stringify(normalizeState(state))]
-  );
-}
-
-async function upsertRelationalUsers(usuarios) {
-  for (const usuario of usuarios) {
-    await pool.query(
-      `INSERT INTO usuarios (id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, to_timestamp($10 / 1000.0), to_timestamp($11 / 1000.0))
-       ON CONFLICT (id)
-       DO UPDATE SET
-         nombre_completo = EXCLUDED.nombre_completo,
-         nombre = EXCLUDED.nombre,
-         apellidos = EXCLUDED.apellidos,
-         email = EXCLUDED.email,
-         telefono = EXCLUDED.telefono,
-         frecuencia = EXCLUDED.frecuencia,
-         rol = EXCLUDED.rol,
-         password = EXCLUDED.password,
-         actualizado_en = EXCLUDED.actualizado_en`,
-      [
-        usuario.id,
-        usuario.nombreCompleto,
-        usuario.nombre,
-        usuario.apellidos,
-        usuario.email,
-        usuario.telefono,
-        usuario.frecuencia,
-        usuario.rol,
-        usuario.password ?? '',
-        usuario.creadoEn,
-        usuario.actualizadoEn
-      ]
-    );
-  }
-}
-
 async function readRelationalState() {
-  const [usuariosResult, lotesResult, turnosResult, notificacionesResult] = await Promise.all([
+  const [usuariosResult, lotesResult, turnosResult, notificacionesResult, catalogoResult] = await Promise.all([
     pool.query(
       `SELECT id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
        FROM usuarios
@@ -995,8 +862,17 @@ async function readRelationalState() {
       `SELECT id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en
        FROM notificaciones
        ORDER BY creado_en DESC, id`
-    )
+    ),
+    pool.query('SELECT tipo, valor FROM catalogo_usuario_opciones ORDER BY tipo, valor')
   ]);
+  const catalogoUsuarios = {
+    frecuencias: catalogoResult.rows
+      .filter((row) => row.tipo === 'frecuencia')
+      .map((row) => row.valor),
+    roles: catalogoResult.rows
+      .filter((row) => row.tipo === 'rol')
+      .map((row) => row.valor)
+  };
 
   return normalizeState({
     usuarios: usuariosResult.rows.map(mapDbUser).filter(Boolean),
@@ -1012,7 +888,7 @@ async function readRelationalState() {
       creadoEn: row.creado_en ? new Date(row.creado_en).getTime() : Date.now(),
       leidoEn: row.leido_en ? new Date(row.leido_en).getTime() : undefined
     })),
-    catalogoUsuarios: emptyState.catalogoUsuarios,
+    catalogoUsuarios,
     updatedAt: Date.now()
   });
 }
@@ -1022,15 +898,7 @@ async function writeRelationalState(state) {
 
   try {
     await client.query('BEGIN');
-    await client.query(
-      `INSERT INTO app_state (id, state, updated_at)
-       VALUES ('default', $1::jsonb, now())
-       ON CONFLICT (id)
-       DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
-      [JSON.stringify(state)]
-    );
-
-    await client.query('TRUNCATE notificaciones, turnos, lotes, usuarios');
+    await client.query('TRUNCATE catalogo_usuario_opciones, notificaciones, turnos, lotes, usuarios');
 
     for (const usuario of state.usuarios) {
       await client.query(
@@ -1082,6 +950,26 @@ async function writeRelationalState(state) {
         `INSERT INTO notificaciones (id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en)
          VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7 / 1000.0), CASE WHEN $8::double precision IS NULL THEN NULL ELSE to_timestamp($8 / 1000.0) END)`,
         [notificacion.id, state.usuarios.some((usuario) => usuario.id === notificacion.usuarioId) ? notificacion.usuarioId : null, notificacion.titulo, notificacion.mensaje, notificacion.tipo, notificacion.estado, notificacion.creadoEn, notificacion.leidoEn ?? null]
+      );
+    }
+
+    const catalogoUsuarios = normalizeCatalogoUsuarios(state.catalogoUsuarios);
+
+    for (const frecuencia of catalogoUsuarios.frecuencias) {
+      await client.query(
+        `INSERT INTO catalogo_usuario_opciones (tipo, valor)
+         VALUES ('frecuencia', $1)
+         ON CONFLICT (tipo, valor) DO NOTHING`,
+        [frecuencia]
+      );
+    }
+
+    for (const rol of catalogoUsuarios.roles) {
+      await client.query(
+        `INSERT INTO catalogo_usuario_opciones (tipo, valor)
+         VALUES ('rol', $1)
+         ON CONFLICT (tipo, valor) DO NOTHING`,
+        [rol]
       );
     }
 

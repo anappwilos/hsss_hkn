@@ -19,8 +19,10 @@ services:
       - key: VITE_SUPERADMIN_PASSWORD
         sync: false
       - key: STORAGE_DRIVER
-        value: json
-      - key: JSON_DATA_FILE
-        value: /tmp/a-solas-state.json
+        value: postgres
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: "true"
       - key: CORS_ORIGIN
         sync: false

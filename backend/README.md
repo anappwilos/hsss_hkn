@@ -18,9 +18,13 @@ Endpoints:
 
 ## Variables
 
+Copia `backend/.env.example` a `backend/.env` para la configuracion propia de la API.
+El backend carga primero `backend/.env` y despues el `.env` de la raiz, asi que las variables de backend tienen prioridad en esta carpeta.
+
 ```env
-STORAGE_DRIVER=json
-JSON_DATA_FILE=./data/a-solas-state.json
+STORAGE_DRIVER=postgres
+DATABASE_URL=postgresql://a_solas:a_solas_dev@localhost:5432/a_solas
+DATABASE_SSL=false
 CORS_ORIGIN=http://localhost:5173
 ```
 

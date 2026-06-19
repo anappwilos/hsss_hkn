@@ -24,3 +24,4 @@ data/
 *.sln
 *.sw?
 /.env
+/backend/.env
