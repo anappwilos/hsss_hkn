@@ -80,11 +80,16 @@ const diasSemana = [
   { label: 'Sa', value: 6 },
   { label: 'Do', value: 7 }
 ];
+const mesesAnuales = Array.from({ length: 12 }, (_, index) => ({
+  label: new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(2026, index, 1)),
+  value: index + 1
+}));
 
 let filtroLote: FiltroLote = 'todos';
 let busquedaLote = '';
 let loteEditandoId: string | null = null;
 let diasConfig = new Set<number>([1, 2, 3, 4, 5]);
+let mesesLoteSeleccionados = new Set<string>();
 let interrupcionesConfig: InterrupcionLote[] = [];
 let interrupcionDiasConfig = new Set<number>([1, 2, 3, 4, 5]);
 let fechaUsuarioSeleccionada = fechaToInput(new Date());
@@ -637,14 +642,14 @@ app.innerHTML = `
               <h2>Fechas</h2>
               <div class="config-card">
             <label class="field month-picker-field">
-              <span>Mes inicial</span>
+              <span>A&ntilde;o de planificacion</span>
               <input id="lote-mes-completo" type="month" />
             </label>
-            <label class="field month-count-field">
+            <section class="field month-select-field">
               <span>Meses a crear</span>
-              <input id="lote-meses-cantidad" type="number" min="1" max="36" step="1" value="1" />
-            </label>
-            <p class="form-note">Selecciona un mes inicial y cuantos meses consecutivos quieres crear, o ajusta el rango manualmente para un solo lote.</p>
+              <div id="lote-meses-selector" class="month-chip-grid" aria-label="Meses a crear"></div>
+            </section>
+            <p class="form-note">Selecciona el a&ntilde;o con el campo superior y marca los meses concretos que quieres crear, por ejemplo junio y septiembre. Si ajustas fechas manualmente se creara un solo lote.</p>
             <div class="date-grid">
               <label class="field">
                 <span>Inicio</span>
@@ -824,7 +829,7 @@ const registroStepLabel = getElement<HTMLElement>('#registro-step-label');
 const formLote = getElement<HTMLFormElement>('#form-lote');
 const loteNombre = getElement<HTMLInputElement>('#lote-nombre');
 const loteMesCompleto = getElement<HTMLInputElement>('#lote-mes-completo');
-const loteMesesCantidad = getElement<HTMLInputElement>('#lote-meses-cantidad');
+const loteMesesSelector = getElement<HTMLDivElement>('#lote-meses-selector');
 const loteFechaInicio = getElement<HTMLInputElement>('#lote-fecha-inicio');
 const loteFechaFin = getElement<HTMLInputElement>('#lote-fecha-fin');
 const loteHoraInicio = getElement<HTMLInputElement>('#lote-hora-inicio');
@@ -974,6 +979,10 @@ function canManageUsers(): boolean {
 }
 
 function canAssignAdminRoles(): boolean {
+  return getAdminSessionRole() === 'root' || getAdminSessionRole() === 'admin';
+}
+
+function canAssignRootRole(): boolean {
   return getAdminSessionRole() === 'root';
 }
 
@@ -1159,8 +1168,18 @@ function usuarioTieneFrecuencia(usuario: Usuario): boolean {
 function getRolesEditables(usuario: Usuario): UsuarioRol[] {
   const roles = StorageDB.getCatalogoUsuarios().roles as UsuarioRol[];
 
-  if (canAssignAdminRoles()) {
+  if (canAssignRootRole()) {
     return roles;
+  }
+
+  if (getAdminSessionRole() === 'admin') {
+    const allowed = new Set<UsuarioRol>(['usuario', 'sacerdote', 'admin']);
+
+    if (usuario.rol === 'root') {
+      return ['root'];
+    }
+
+    return roles.filter((rol) => allowed.has(rol));
   }
 
   return isAdminRol(usuario.rol) ? [usuario.rol] : ['usuario', 'sacerdote'];
@@ -1378,23 +1397,6 @@ function getMonthBounds(monthValue: string): { inicio: string; fin: string } {
     inicio: fechaToInput(inicio),
     fin: fechaToInput(fin)
   };
-}
-
-function getMesesConsecutivos(monthValue: string, cantidad: number): string[] {
-  if (!monthValue || !Number.isInteger(cantidad) || cantidad < 1) {
-    return [];
-  }
-
-  const [yearRaw, monthRaw] = monthValue.split('-');
-  const cursor = new Date(Number(yearRaw), Number(monthRaw) - 1, 1);
-  const meses: string[] = [];
-
-  for (let index = 0; index < cantidad; index += 1) {
-    meses.push(fechaToMonthInput(cursor));
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-
-  return meses;
 }
 
 function getMesesEnRango(fechaInicio: string, fechaFin: string): string[] {
@@ -1943,16 +1945,6 @@ function crearLoteDesdeFormulario(esBorrador: boolean): LoteExposicion {
   };
 }
 
-function getCantidadMesesLote(): number {
-  const cantidad = Number(loteMesesCantidad.value || '1');
-
-  if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 36) {
-    throw new Error('La cantidad de meses debe estar entre 1 y 36.');
-  }
-
-  return cantidad;
-}
-
 function getNombreLoteMensual(nombreBase: string, monthValue: string, totalMeses: number): string {
   const nombreMes = formatMonthName(monthValue);
   const esNombreAutogenerado = !nombreBase || nombreBase === ultimoNombreMesAutogenerado || nombreBase === formatMonthName(loteMesCompleto.value);
@@ -1964,15 +1956,62 @@ function getNombreLoteMensual(nombreBase: string, monthValue: string, totalMeses
   return `${nombreBase} - ${nombreMes}`;
 }
 
-function crearLotesDesdeFormulario(esBorrador: boolean): LoteExposicion[] {
-  const loteBase = crearLoteDesdeFormulario(esBorrador);
-  const cantidadMeses = getCantidadMesesLote();
-
-  if (loteEditandoId || !loteMesCompleto.value || cantidadMeses === 1) {
-    return [loteBase];
+function getAnioPlanificacionLote(): number {
+  if (loteMesCompleto.value) {
+    return Number(loteMesCompleto.value.split('-')[0]);
   }
 
-  const meses = getMesesConsecutivos(loteMesCompleto.value, cantidadMeses);
+  if (loteFechaInicio.value) {
+    return parseFecha(loteFechaInicio.value).getFullYear();
+  }
+
+  return new Date().getFullYear();
+}
+
+function toMonthValue(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+function getMesesLoteSeleccionados(): string[] {
+  return [...mesesLoteSeleccionados].toSorted();
+}
+
+function syncFechasConMesesSeleccionados(): void {
+  const meses = getMesesLoteSeleccionados();
+
+  if (meses.length === 0) {
+    return;
+  }
+
+  const firstBounds = getMonthBounds(meses[0]);
+  const lastBounds = getMonthBounds(meses[meses.length - 1]);
+  loteFechaInicio.value = firstBounds.inicio;
+  loteFechaFin.value = lastBounds.fin;
+}
+
+function renderMesesLoteSelector(): void {
+  const year = getAnioPlanificacionLote();
+  const disabled = Boolean(loteEditandoId);
+
+  loteMesesSelector.innerHTML = mesesAnuales.map((mes) => {
+    const monthValue = toMonthValue(year, mes.value);
+    const isSelected = mesesLoteSeleccionados.has(monthValue);
+
+    return `
+      <button class="month-chip ${isSelected ? 'is-active' : ''}" type="button" data-lote-month="${monthValue}" aria-pressed="${isSelected}" ${disabled ? 'disabled' : ''}>
+        ${escapeHtml(capitalize(mes.label))}
+      </button>
+    `;
+  }).join('');
+}
+
+function crearLotesDesdeFormulario(esBorrador: boolean): LoteExposicion[] {
+  const loteBase = crearLoteDesdeFormulario(esBorrador);
+  const meses = getMesesLoteSeleccionados();
+
+  if (loteEditandoId || meses.length === 0) {
+    return [loteBase];
+  }
 
   return meses.map((monthValue, index) => {
     const bounds = getMonthBounds(monthValue);
@@ -2068,8 +2107,7 @@ function resetConfig(): void {
   loteEditandoId = null;
   formLote.reset();
   loteMesCompleto.value = '';
-  loteMesesCantidad.value = '1';
-  loteMesesCantidad.disabled = false;
+  mesesLoteSeleccionados = new Set<string>();
   loteHoraInicio.value = '08:00';
   loteHoraFin.value = '20:00';
   loteTurnoMinutos.value = '60';
@@ -2078,6 +2116,7 @@ function resetConfig(): void {
   interrupcionDiasConfig = new Set(diasConfig);
   interrupcionesConfig = [];
   renderDiasConfig();
+  renderMesesLoteSelector();
   renderInterrupciones();
   actualizarResumenLote();
 }
@@ -2093,8 +2132,7 @@ function abrirConfig(lote?: LoteExposicion): void {
     const loteMonth = fechaToMonthInput(parseFecha(lote.fechaInicio));
     const monthBounds = getMonthBounds(loteMonth);
     loteMesCompleto.value = monthBounds.inicio === lote.fechaInicio && monthBounds.fin === lote.fechaFin ? loteMonth : '';
-    loteMesesCantidad.value = '1';
-    loteMesesCantidad.disabled = true;
+    mesesLoteSeleccionados = loteMesCompleto.value ? new Set([loteMesCompleto.value]) : new Set<string>();
     loteHoraInicio.value = lote.horaInicio;
     loteHoraFin.value = lote.horaFin;
     loteTurnoMinutos.value = String(lote.turnoMinutos);
@@ -2103,6 +2141,7 @@ function abrirConfig(lote?: LoteExposicion): void {
     interrupcionDiasConfig = new Set(diasConfig);
     interrupcionesConfig = [...(lote.interrupciones ?? [])];
     renderDiasConfig();
+    renderMesesLoteSelector();
     renderInterrupciones();
   }
 
@@ -2249,9 +2288,8 @@ function actualizarResumenLote(): void {
   const horas = loteHoraInicio.value && loteHoraFin.value ? calcularHoras(loteHoraInicio.value, loteHoraFin.value) : 0;
   const inicio = loteFechaInicio.value ? formatFecha(loteFechaInicio.value) : 'la fecha inicial';
   const fin = loteFechaFin.value ? formatFecha(loteFechaFin.value) : 'la fecha final';
-  const cantidadMeses = Number(loteMesesCantidad.value || '1');
-  const meses = !loteEditandoId && loteMesCompleto.value && Number.isInteger(cantidadMeses) && cantidadMeses > 1
-    ? getMesesConsecutivos(loteMesCompleto.value, cantidadMeses).map(formatMonthName)
+  const meses = !loteEditandoId && mesesLoteSeleccionados.size > 1
+    ? getMesesLoteSeleccionados().map(formatMonthName)
     : [];
   const dias = diasSemana
     .filter((dia) => diasConfig.has(dia.value))
@@ -2546,7 +2584,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
   const isNew = !StorageDB.getUsuarios().some((item) => item.id === usuario.id);
   const turnosAsignados = isNew ? [] : getTurnosUsuario(usuario);
   const rolesEditables = getRolesEditables(usuario);
-  const mostrarFrecuencia = isNew || usuarioTieneFrecuencia(usuario);
+  const mostrarFrecuencia = rolTieneFrecuencia(usuario.rol);
   const readOnlyEnv = esUsuarioEnv(usuario);
   const disabledEnv = readOnlyEnv ? 'disabled' : '';
 
@@ -2567,7 +2605,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
         </div>
       </section>
 
-      <form class="admin-user-edit-form" data-admin-user-form="${usuario.id}">
+      <form class="admin-user-edit-form" data-admin-user-form="${usuario.id}" data-admin-user-readonly="${readOnlyEnv}">
         <label>
           <span>Nombre completo</span>
           <input id="admin-user-edit-name" type="text" value="${escapeHtml(usuario.nombreCompleto)}" required ${disabledEnv} />
@@ -2580,12 +2618,12 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
           <span>Telefono</span>
           <input id="admin-user-edit-phone" type="tel" value="${escapeHtml(usuario.telefono)}" ${disabledEnv} />
         </label>
-        <label ${mostrarFrecuencia ? '' : 'hidden'}>
+        <label data-admin-frequency-field ${mostrarFrecuencia ? '' : 'hidden'}>
           <span>Frecuencia</span>
           <select id="admin-user-edit-frequency" ${mostrarFrecuencia && !readOnlyEnv ? '' : 'disabled'}>
             ${getFrecuenciasEditables().map((value) => `<option value="${value}" ${usuario.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
           </select>
-          ${mostrarFrecuencia ? '' : '<small>Admin, Root y Sacerdotes no tienen frecuencia asociada.</small>'}
+          <small data-admin-frequency-note ${mostrarFrecuencia ? 'hidden' : ''}>Admin, Root y Sacerdotes no tienen frecuencia asociada.</small>
         </label>
         <label>
           <span>Rol</span>
@@ -2644,6 +2682,7 @@ function abrirModalAdminUsuario(id: string | null): void {
 
   adminUsuarioEditandoId = usuario.id;
   modalAdminUsuarioCard.innerHTML = renderAdminUsuarioModal(usuario);
+  syncAdminUsuarioFrecuenciaField(modalAdminUsuarioCard.querySelector<HTMLFormElement>('.admin-user-edit-form'));
   modalAdminUsuario.showModal();
   renderAdminUsuarios();
 }
@@ -2676,7 +2715,7 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   const requestedFrecuencia = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency')?.value as UsuarioFrecuencia | undefined;
   const requestedRol = form.querySelector<HTMLSelectElement>('#admin-user-edit-role')?.value as UsuarioRol;
   const rol = getRolPermitidoParaGuardar(usuario, requestedRol);
-  const frecuencia = rolTieneFrecuencia(rol) ? (requestedFrecuencia ?? usuario.frecuencia ?? 'puntual') : usuario.frecuencia;
+  const frecuencia = rolTieneFrecuencia(rol) ? (requestedFrecuencia ?? usuario.frecuencia ?? 'puntual') : '';
 
   if (!nombreCompleto || !esEmailValido(email) || (telefono && !esTelefonoValido(telefono))) {
     mostrarAviso('Revisa el usuario', 'Nombre, email y telefono deben ser validos. El telefono puede quedar vacio.', 'error');
@@ -2704,6 +2743,32 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
     renderAdminUsuarios();
   }
   mostrarAviso(isNew ? 'Usuario creado' : 'Usuario actualizado', isNew ? 'El nuevo perfil se ha guardado correctamente.' : 'Los cambios del perfil se guardaron correctamente.', 'success');
+}
+
+function syncAdminUsuarioFrecuenciaField(form: HTMLFormElement | null): void {
+  if (!form) {
+    return;
+  }
+
+  const roleSelect = form.querySelector<HTMLSelectElement>('#admin-user-edit-role');
+  const frequencyField = form.querySelector<HTMLElement>('[data-admin-frequency-field]');
+  const frequencySelect = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency');
+  const frequencyNote = form.querySelector<HTMLElement>('[data-admin-frequency-note]');
+  const rol = (roleSelect?.value ?? 'usuario') as UsuarioRol;
+  const tieneFrecuencia = rolTieneFrecuencia(rol);
+  const readOnly = form.dataset.adminUserReadonly === 'true';
+
+  if (frequencyField) {
+    frequencyField.hidden = !tieneFrecuencia;
+  }
+
+  if (frequencySelect) {
+    frequencySelect.disabled = !tieneFrecuencia || readOnly;
+  }
+
+  if (frequencyNote) {
+    frequencyNote.hidden = tieneFrecuencia;
+  }
 }
 
 function renderAdminCatalogos(): void {
