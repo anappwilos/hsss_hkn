@@ -637,10 +637,14 @@ app.innerHTML = `
               <h2>Fechas</h2>
               <div class="config-card">
             <label class="field month-picker-field">
-              <span>Mes completo</span>
+              <span>Mes inicial</span>
               <input id="lote-mes-completo" type="month" />
             </label>
-            <p class="form-note">Selecciona un mes para rellenar automaticamente el primer y ultimo dia, o ajusta el rango manualmente.</p>
+            <label class="field month-count-field">
+              <span>Meses a crear</span>
+              <input id="lote-meses-cantidad" type="number" min="1" max="36" step="1" value="1" />
+            </label>
+            <p class="form-note">Selecciona un mes inicial y cuantos meses consecutivos quieres crear, o ajusta el rango manualmente para un solo lote.</p>
             <div class="date-grid">
               <label class="field">
                 <span>Inicio</span>
@@ -820,6 +824,7 @@ const registroStepLabel = getElement<HTMLElement>('#registro-step-label');
 const formLote = getElement<HTMLFormElement>('#form-lote');
 const loteNombre = getElement<HTMLInputElement>('#lote-nombre');
 const loteMesCompleto = getElement<HTMLInputElement>('#lote-mes-completo');
+const loteMesesCantidad = getElement<HTMLInputElement>('#lote-meses-cantidad');
 const loteFechaInicio = getElement<HTMLInputElement>('#lote-fecha-inicio');
 const loteFechaFin = getElement<HTMLInputElement>('#lote-fecha-fin');
 const loteHoraInicio = getElement<HTMLInputElement>('#lote-hora-inicio');
@@ -1375,6 +1380,23 @@ function getMonthBounds(monthValue: string): { inicio: string; fin: string } {
   };
 }
 
+function getMesesConsecutivos(monthValue: string, cantidad: number): string[] {
+  if (!monthValue || !Number.isInteger(cantidad) || cantidad < 1) {
+    return [];
+  }
+
+  const [yearRaw, monthRaw] = monthValue.split('-');
+  const cursor = new Date(Number(yearRaw), Number(monthRaw) - 1, 1);
+  const meses: string[] = [];
+
+  for (let index = 0; index < cantidad; index += 1) {
+    meses.push(fechaToMonthInput(cursor));
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return meses;
+}
+
 function getMesesEnRango(fechaInicio: string, fechaFin: string): string[] {
   const inicio = parseFecha(fechaInicio);
   const fin = parseFecha(fechaFin);
@@ -1921,34 +1943,119 @@ function crearLoteDesdeFormulario(esBorrador: boolean): LoteExposicion {
   };
 }
 
+function getCantidadMesesLote(): number {
+  const cantidad = Number(loteMesesCantidad.value || '1');
+
+  if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 36) {
+    throw new Error('La cantidad de meses debe estar entre 1 y 36.');
+  }
+
+  return cantidad;
+}
+
+function getNombreLoteMensual(nombreBase: string, monthValue: string, totalMeses: number): string {
+  const nombreMes = formatMonthName(monthValue);
+  const esNombreAutogenerado = !nombreBase || nombreBase === ultimoNombreMesAutogenerado || nombreBase === formatMonthName(loteMesCompleto.value);
+
+  if (totalMeses === 1 || esNombreAutogenerado) {
+    return nombreMes;
+  }
+
+  return `${nombreBase} - ${nombreMes}`;
+}
+
+function crearLotesDesdeFormulario(esBorrador: boolean): LoteExposicion[] {
+  const loteBase = crearLoteDesdeFormulario(esBorrador);
+  const cantidadMeses = getCantidadMesesLote();
+
+  if (loteEditandoId || !loteMesCompleto.value || cantidadMeses === 1) {
+    return [loteBase];
+  }
+
+  const meses = getMesesConsecutivos(loteMesCompleto.value, cantidadMeses);
+
+  return meses.map((monthValue, index) => {
+    const bounds = getMonthBounds(monthValue);
+
+    return {
+      ...loteBase,
+      id: index === 0 ? loteBase.id : crearId(),
+      nombre: getNombreLoteMensual(loteNombre.value.trim(), monthValue, meses.length),
+      fechaInicio: bounds.inicio,
+      fechaFin: bounds.fin,
+      estado: esBorrador ? 'borrador' : calcularEstado(bounds.inicio, bounds.fin),
+      interrupciones: [...interrupcionesConfig],
+      creadoEn: index === 0 ? loteBase.creadoEn : Date.now()
+    };
+  });
+}
+
+function assertLotesDisponibles(lotes: LoteExposicion[], ignoreId?: string): void {
+  const mesesVistos = new Map<string, string>();
+
+  for (const lote of lotes) {
+    for (const mes of getMesesEnRango(lote.fechaInicio, lote.fechaFin)) {
+      const existente = mesesVistos.get(mes);
+
+      if (existente) {
+        throw new Error(`La configuracion crea mas de un lote para ${formatMonthName(mes)}: "${existente}" y "${lote.nombre}".`);
+      }
+
+      mesesVistos.set(mes, lote.nombre);
+    }
+
+    assertMesDisponible(lote, ignoreId);
+  }
+}
+
 function guardarLote(esBorrador: boolean): void {
-  const lote = crearLoteDesdeFormulario(esBorrador);
+  const lotes = crearLotesDesdeFormulario(esBorrador);
+  const lote = lotes[0];
   const loteAnterior = loteEditandoId
     ? StorageDB.getLotes().find((item) => item.id === loteEditandoId)
     : undefined;
-  assertMesDisponible(lote, loteEditandoId ?? undefined);
+  assertLotesDisponibles(lotes, loteEditandoId ?? undefined);
   let turnosCreados = 0;
+  let turnosNuevos: Turno[] = [];
 
   if (!esBorrador) {
-    turnosCreados = regenerarTurnosDeLote(lote, loteAnterior);
+    if (loteEditandoId) {
+      turnosCreados = regenerarTurnosDeLote(lote, loteAnterior);
+    } else {
+      turnosNuevos = lotes.flatMap(crearTurnosDesdeLote);
+
+      if (turnosNuevos.length === 0) {
+        throw new Error('La configuracion no genera turnos. Revisa fechas, horas y dias.');
+      }
+
+      turnosCreados = turnosNuevos.length;
+    }
   }
 
   if (loteEditandoId) {
     StorageDB.actualizarLote(lote);
   } else {
-    StorageDB.agregarLote(lote);
+    StorageDB.saveLotes([...StorageDB.getLotes(), ...lotes]);
+
+    if (turnosNuevos.length > 0) {
+      StorageDB.saveTurnos([...StorageDB.getTurnos(), ...turnosNuevos]);
+    }
   }
 
   if (!esBorrador) {
     NotificationService.notify({
       title: loteEditandoId ? 'Lote actualizado' : 'Exposicion confirmada',
-      message: loteEditandoId ? `Se actualizaron ${formatPlural(turnosCreados, 'turno', 'turnos')}.` : `Se crearon ${formatPlural(turnosCreados, 'turno', 'turnos')}.`,
+      message: loteEditandoId
+        ? `Se actualizaron ${formatPlural(turnosCreados, 'turno', 'turnos')}.`
+        : `Se crearon ${formatPlural(lotes.length, 'lote', 'lotes')} y ${formatPlural(turnosCreados, 'turno', 'turnos')}.`,
       tone: 'success'
     });
   } else {
     NotificationService.notify({
-      title: 'Borrador guardado',
-      message: 'El lote queda disponible para completarlo mas tarde.',
+      title: lotes.length > 1 ? 'Borradores guardados' : 'Borrador guardado',
+      message: lotes.length > 1
+        ? `Se guardaron ${formatPlural(lotes.length, 'lote mensual', 'lotes mensuales')} como borrador.`
+        : 'El lote queda disponible para completarlo mas tarde.',
       tone: 'success'
     });
   }
@@ -1961,6 +2068,8 @@ function resetConfig(): void {
   loteEditandoId = null;
   formLote.reset();
   loteMesCompleto.value = '';
+  loteMesesCantidad.value = '1';
+  loteMesesCantidad.disabled = false;
   loteHoraInicio.value = '08:00';
   loteHoraFin.value = '20:00';
   loteTurnoMinutos.value = '60';
@@ -1984,6 +2093,8 @@ function abrirConfig(lote?: LoteExposicion): void {
     const loteMonth = fechaToMonthInput(parseFecha(lote.fechaInicio));
     const monthBounds = getMonthBounds(loteMonth);
     loteMesCompleto.value = monthBounds.inicio === lote.fechaInicio && monthBounds.fin === lote.fechaFin ? loteMonth : '';
+    loteMesesCantidad.value = '1';
+    loteMesesCantidad.disabled = true;
     loteHoraInicio.value = lote.horaInicio;
     loteHoraFin.value = lote.horaFin;
     loteTurnoMinutos.value = String(lote.turnoMinutos);
@@ -2138,6 +2249,10 @@ function actualizarResumenLote(): void {
   const horas = loteHoraInicio.value && loteHoraFin.value ? calcularHoras(loteHoraInicio.value, loteHoraFin.value) : 0;
   const inicio = loteFechaInicio.value ? formatFecha(loteFechaInicio.value) : 'la fecha inicial';
   const fin = loteFechaFin.value ? formatFecha(loteFechaFin.value) : 'la fecha final';
+  const cantidadMeses = Number(loteMesesCantidad.value || '1');
+  const meses = !loteEditandoId && loteMesCompleto.value && Number.isInteger(cantidadMeses) && cantidadMeses > 1
+    ? getMesesConsecutivos(loteMesCompleto.value, cantidadMeses).map(formatMonthName)
+    : [];
   const dias = diasSemana
     .filter((dia) => diasConfig.has(dia.value))
     .map((dia) => dia.label)
@@ -2147,7 +2262,10 @@ function actualizarResumenLote(): void {
   const interrupciones = interrupcionesConfig.length > 0
     ? ` Se ${interrupcionesConfig.length === 1 ? 'excluira' : 'excluiran'} ${formatPlural(interrupcionesConfig.length, 'interrupcion', 'interrupciones')}.`
     : '';
-  resumenLote.textContent = `Se habilitaran turnos desde ${inicio} hasta ${fin}, de ${loteHoraInicio.value || '--:--'} a ${loteHoraFin.value || '--:--'}, los dias ${dias || 'seleccionados'}.${interrupciones}`;
+  const alcance = meses.length > 1
+    ? `Se crearan ${formatPlural(meses.length, 'lote mensual', 'lotes mensuales')} desde ${meses[0]} hasta ${meses.at(-1)}`
+    : `Se habilitaran turnos desde ${inicio} hasta ${fin}`;
+  resumenLote.textContent = `${alcance}, de ${loteHoraInicio.value || '--:--'} a ${loteHoraFin.value || '--:--'}, los dias ${dias || 'seleccionados'}.${interrupciones}`;
 }
 
 function getUsuarioByNombre(nombreCompleto: string): PerfilAdorador | undefined {
@@ -3777,6 +3895,19 @@ function renderLotes(): void {
     const coincideBusqueda = lote.nombre.toLowerCase().includes(busquedaLote.toLowerCase());
     return coincideFiltro && coincideBusqueda;
   });
+  const conteos = {
+    todos: lotes.length,
+    activo: lotes.filter((lote) => lote.estado === 'activo').length,
+    programado: lotes.filter((lote) => lote.estado === 'programado').length,
+    finalizado: lotes.filter((lote) => lote.estado === 'finalizado').length
+  };
+
+  loteFiltros.innerHTML = `
+    ${renderLoteFiltroButton('todos', 'Todos', conteos.todos)}
+    ${renderLoteFiltroButton('activo', 'Activos', conteos.activo)}
+    ${renderLoteFiltroButton('programado', 'Programados', conteos.programado)}
+    ${renderLoteFiltroButton('finalizado', 'Finalizados', conteos.finalizado)}
+  `;
 
   loteFiltros.querySelectorAll<HTMLButtonElement>('[data-filter]').forEach((button) => {
     button.classList.toggle('is-active', button.dataset.filter === filtroLote);
@@ -3825,6 +3956,15 @@ function renderLotes(): void {
       </div>
     </article>
   `).join('');
+}
+
+function renderLoteFiltroButton(filter: FiltroLote, label: string, count: number): string {
+  return `
+    <button class="chip ${filtroLote === filter ? 'is-active' : ''}" type="button" data-filter="${filter}">
+      ${escapeHtml(label)}
+      <span>${count}</span>
+    </button>
+  `;
 }
 
 function formatLoteEstado(estado: LoteEstado): string {
@@ -5422,7 +5562,7 @@ diasConfigEl.addEventListener('click', (event) => {
   actualizarResumenLote();
 });
 
-[loteFechaInicio, loteFechaFin, loteHoraInicio, loteHoraFin, loteTurnoMinutos, lotePlazas].forEach((input) => {
+[loteFechaInicio, loteFechaFin, loteHoraInicio, loteHoraFin, loteTurnoMinutos, lotePlazas, loteMesesCantidad].forEach((input) => {
   input.addEventListener('input', actualizarResumenLote);
 });
 
@@ -5432,6 +5572,7 @@ interrupcionFechasConcretas.addEventListener('change', actualizarVisibilidadFech
 
 loteMesCompleto.addEventListener('input', () => {
   if (!loteMesCompleto.value) {
+    loteMesesCantidad.value = '1';
     actualizarResumenLote();
     return;
   }
@@ -5449,16 +5590,40 @@ loteMesCompleto.addEventListener('input', () => {
   actualizarResumenLote();
 });
 
+loteMesesCantidad.addEventListener('input', () => {
+  if (!loteMesCompleto.value || loteEditandoId) {
+    loteMesesCantidad.value = '1';
+    actualizarResumenLote();
+    return;
+  }
+
+  const cantidad = Number(loteMesesCantidad.value || '1');
+
+  if (!Number.isInteger(cantidad) || cantidad < 1) {
+    actualizarResumenLote();
+    return;
+  }
+
+  const meses = getMesesConsecutivos(loteMesCompleto.value, Math.min(cantidad, 36));
+  const firstBounds = getMonthBounds(meses[0]);
+  const lastBounds = getMonthBounds(meses[meses.length - 1]);
+  loteFechaInicio.value = firstBounds.inicio;
+  loteFechaFin.value = lastBounds.fin;
+  actualizarResumenLote();
+});
+
 [loteFechaInicio, loteFechaFin].forEach((input) => {
   input.addEventListener('input', () => {
     if (!loteFechaInicio.value || !loteFechaFin.value) {
       loteMesCompleto.value = '';
+      loteMesesCantidad.value = '1';
       return;
     }
 
     const monthValue = fechaToMonthInput(parseFecha(loteFechaInicio.value));
     const bounds = getMonthBounds(monthValue);
     loteMesCompleto.value = bounds.inicio === loteFechaInicio.value && bounds.fin === loteFechaFin.value ? monthValue : '';
+    loteMesesCantidad.value = '1';
   });
 });
 
