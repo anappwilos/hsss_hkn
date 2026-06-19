@@ -43,6 +43,9 @@ const app = document.querySelector<HTMLDivElement>('#app');
 const ADMIN_SESSION_KEY = 'hsss_admin_session';
 const ADMIN_SESSION_ROLE_KEY = 'hsss_admin_role';
 const REMEMBERED_EMAIL_KEY = 'hsss_remembered_email';
+const LAST_VIEW_KEY = 'hsss_last_view';
+const LAST_ADMIN_PANEL_KEY = 'hsss_last_admin_panel';
+const LAST_USER_PANEL_KEY = 'hsss_last_user_panel';
 const ADMIN_TURNO_DETAIL_CLOSED = '__closed__';
 const ROLES_PROTEGIDOS = new Set<UsuarioRol>(['root', 'admin']);
 const ROLES_ADMINISTRATIVOS = new Set<UsuarioRol>(['root', 'admin']);
@@ -211,11 +214,6 @@ app.innerHTML = `
         </nav>
 
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
-          <label class="search-box">
-            <span aria-hidden="true">⌕</span>
-            <input id="buscar-lote" type="search" placeholder="Buscar lote..." autocomplete="off" />
-          </label>
-
           <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
             <button class="chip is-active" type="button" data-filter="todos">Todos</button>
           </div>
@@ -224,7 +222,7 @@ app.innerHTML = `
         </section>
 
         <section id="admin-panel-usuarios" class="admin-panel-section" aria-label="Panel de usuarios" hidden>
-          <div id="admin-usuarios-lista" class="admin-users-list"></div>
+          <div id="admin-usuarios-lista" class="admin-users-list">ajksdakjd</div>
         </section>
 
         <section id="admin-panel-catalogos" class="admin-panel-section" aria-label="Panel de catalogos" hidden>
@@ -738,7 +736,6 @@ const adminEmail = getElement<HTMLInputElement>('#admin-email');
 const adminPassword = getElement<HTMLInputElement>('#admin-password');
 const adminRemember = getElement<HTMLInputElement>('#admin-remember');
 const adminLoginMensaje = getElement<HTMLParagraphElement>('#admin-login-mensaje');
-const buscarLote = getElement<HTMLInputElement>('#buscar-lote');
 const loteFiltros = getElement<HTMLDivElement>('#lote-filtros');
 const lotesLista = getElement<HTMLDivElement>('#lotes-lista');
 const btnNuevoLote = getElement<HTMLButtonElement>('#btn-nuevo-lote');
@@ -959,12 +956,67 @@ function canAssignAdminRoles(): boolean {
   return getAdminSessionRole() === 'root';
 }
 
+function getStoredLastView(): Vista | null {
+  const raw = localStorage.getItem(LAST_VIEW_KEY);
+
+  if (!raw) {
+    return null;
+  }
+
+  const validViews: Vista[] = ['inicio', 'admin-login', 'admin', 'configuracion', 'registro-adorador', 'usuario'];
+  return validViews.includes(raw as Vista) ? (raw as Vista) : null;
+}
+
+function getStoredAdminPanel(): AdminPanel | null {
+  const raw = localStorage.getItem(LAST_ADMIN_PANEL_KEY);
+  const validPanels: AdminPanel[] = ['lotes', 'usuarios', 'catalogos', 'turnos'];
+  return raw && validPanels.includes(raw as AdminPanel) ? (raw as AdminPanel) : null;
+}
+
+function getStoredUsuarioPanel(): UsuarioPanel | null {
+  const raw = localStorage.getItem(LAST_USER_PANEL_KEY);
+  const validPanels: UsuarioPanel[] = ['disponibles', 'asignados'];
+  return raw && validPanels.includes(raw as UsuarioPanel) ? (raw as UsuarioPanel) : null;
+}
+
+function capitalize(value: string): string {
+  return value ? `${value[0].toUpperCase()}${value.slice(1)}` : '';
+}
+
 function getVistaInicial(): Vista {
-  if (isAdminAuthenticated()) {
+  const hasAdminSession = isAdminAuthenticated();
+  const hasUserSession = Boolean(StorageDB.getPerfilAdorador());
+  const savedView = getStoredLastView();
+
+  if (savedView) {
+    if (savedView === 'admin' || savedView === 'configuracion') {
+      if (hasAdminSession) {
+        return savedView;
+      }
+    }
+
+    if (savedView === 'usuario' && hasUserSession) {
+      return 'usuario';
+    }
+
+    if (savedView === 'admin-login') {
+      return 'admin-login';
+    }
+
+    if (savedView === 'registro-adorador') {
+      return 'registro-adorador';
+    }
+
+    if (savedView === 'inicio') {
+      return 'inicio';
+    }
+  }
+
+  if (hasAdminSession) {
     return 'admin';
   }
 
-  if (StorageDB.getPerfilAdorador()) {
+  if (hasUserSession) {
     return 'usuario';
   }
 
@@ -1149,6 +1201,7 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean; bypassSe
   }
 
   vistaActual = nextView;
+  localStorage.setItem(LAST_VIEW_KEY, nextView);
   cancelarConfirmacionEliminarLote();
   vistaInicio.style.display = nextView === 'inicio' ? 'grid' : 'none';
   vistaAdminLogin.style.display = nextView === 'admin-login' ? 'block' : 'none';
@@ -2239,7 +2292,7 @@ function renderAdminUsuarios(): void {
       <section class="admin-users-main">
         <header class="admin-users-hero">
           <div>
-            <h2>${adminUsuariosSubpanel === 'env' ? 'Pringados (.env)' : 'Usuarios'}</h2>
+            <h2>${adminUsuariosSubpanel === 'env' ? 'Pringados' : 'Usuarios'}</h2>
             ${adminUsuariosSubpanel === 'usuarios' ? '<button id="btn-admin-user-create" class="button button-primary button-small" type="button">Crear usuario</button>' : ''}
           </div>
           <div class="admin-month-pill" aria-label="Periodo visible">${escapeHtml(new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()))}</div>
@@ -2262,7 +2315,7 @@ function renderAdminUsuarios(): void {
 
           <div class="admin-user-filters admin-user-subtabs" aria-label="Origen de usuarios">
             ${renderAdminUsuariosSubtab('usuarios', 'Usuarios', usuariosNormales.length)}
-            ${renderAdminUsuariosSubtab('env', 'Pringados (.env)', usuariosEnv.length)}
+            ${renderAdminUsuariosSubtab('env', 'Pringados', usuariosEnv.length)}
           </div>
 
           <div class="admin-user-filters" aria-label="Filtros de usuarios">
@@ -2538,8 +2591,7 @@ function renderAdminCatalogos(): void {
     <div class="admin-catalog-screen">
       <header class="admin-users-hero">
         <div>
-          <h2>Catalogos</h2>
-          <p>Opciones maestras para clasificar usuarios y permisos.</p>
+          <h4>Opciones maestras para clasificar usuarios y permisos.</h4>
         </div>
       </header>
 
@@ -2861,7 +2913,6 @@ function renderAdminTurnosCubiertos(): void {
         <div>
           <p class="section-kicker">Panel administrador</p>
           <h2>Turnos asignados</h2>
-          <p>Supervisa cobertura, huecos sin asignar y compromisos del ${adminVistaTurnos === 'diaria' ? 'dia' : 'periodo'}.</p>
         </div>
         <div class="admin-turns-period-controls" aria-label="Vista de turnos">
           <div class="view-toggle admin-view-toggle" role="group" aria-label="Cambiar vista de administracion">
@@ -3829,11 +3880,12 @@ function getRangoDuplicadoMes(lote: LoteExposicion, mesDestino: string): { inici
 
 function crearCopiaMensual(lote: LoteExposicion, mesDestino: string): LoteExposicion {
   const rango = getRangoDuplicadoMes(lote, mesDestino);
+  const baseNombre = lote.nombre.replace(/\s*-\s*(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\d{4}-\d{2})$/i, '').trim();
 
   return {
     ...lote,
     id: crearId(),
-    nombre: `${lote.nombre} - ${mesDestino}`,
+    nombre: `${baseNombre} - ${mesDestino}`,
     fechaInicio: rango.inicio,
     fechaFin: rango.fin,
     estado: 'borrador',
@@ -4198,7 +4250,10 @@ function renderUsuario(): void {
     `;
   }).join('');
 
-  usuarioSemanaLabel.textContent = formatRangoSemana(semanaUsuarioInicio);
+  const mesesSemana = Array.from(new Set(fechas.map((date) => new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(date))));
+  usuarioSemanaLabel.textContent = mesesSemana.length === 1
+    ? `${formatRangoSemana(semanaUsuarioInicio)} · ${capitalize(mesesSemana[0])}`
+    : formatRangoSemana(semanaUsuarioInicio);
   usuarioDiaLabel.textContent = vistaTurnos === 'diaria' ? 'Vista diaria' : 'Vista semanal';
 
   if (turnosSemana.length === 0 && bloqueosSemana.length === 0) {
@@ -4609,6 +4664,7 @@ document.addEventListener('click', (event) => {
 
   if (userPanelButton?.dataset.userPanel) {
     usuarioPanel = userPanelButton.dataset.userPanel as UsuarioPanel;
+    localStorage.setItem(LAST_USER_PANEL_KEY, usuarioPanel);
     renderMisTurnos();
     renderUsuarioPanel();
     return;
@@ -4682,6 +4738,7 @@ document.addEventListener('click', (event) => {
 
   if (adminPanelButton?.dataset.adminPanel) {
     adminPanel = adminPanelButton.dataset.adminPanel as AdminPanel;
+    localStorage.setItem(LAST_ADMIN_PANEL_KEY, adminPanel);
     adminUsuarioEditandoId = null;
     if (modalAdminUsuario.open) {
       cerrarModalAdminUsuario();
@@ -5310,11 +5367,6 @@ formDuplicarMes.addEventListener('submit', (event) => {
   confirmarDuplicarMes();
 });
 
-buscarLote.addEventListener('input', () => {
-  busquedaLote = buscarLote.value.trim();
-  renderLotes();
-});
-
 loteFiltros.addEventListener('click', (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-filter]');
 
@@ -5417,6 +5469,16 @@ StorageDB.startRemotePolling(3000);
 window.addEventListener('focus', () => {
   void StorageDB.loadRemote().catch(() => undefined);
 });
+
+const storedAdminPanel = getStoredAdminPanel();
+if (storedAdminPanel) {
+  adminPanel = storedAdminPanel;
+}
+
+const storedUsuarioPanel = getStoredUsuarioPanel();
+if (storedUsuarioPanel) {
+  usuarioPanel = storedUsuarioPanel;
+}
 
 resetConfig();
 cargarEmailRecordado();
