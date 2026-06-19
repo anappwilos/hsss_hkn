@@ -271,26 +271,19 @@ app.innerHTML = `
 
         <section id="usuario-disponibles-controles" class="booking-controls" aria-label="Controles de reserva">
           <div class="booking-heading">
-            <div>
-              <h1>Turnos disponibles</h1> 
-              <p id="usuario-semana-label" class="week-range">Semana actual</p>
-            </div>
-            <div class="booking-actions">
+
+            <div class="booking-view-toggle">
               <span id="usuario-dia-label" class="sr-only">Vista semanal</span>
-              <label class="user-sort-control" aria-label="Ordenar turnos disponibles">
-                <span>Orden</span>
-                <select id="usuario-orden-turnos">
-                  <option value="fecha">Fecha</option>
-                  <option value="hora">Hora</option>
-                  <option value="plazas">Plazas libres</option>
-                </select>
-              </label>
               <div class="view-toggle" role="group" aria-label="Cambiar vista de turnos">
                 <button class="is-active" type="button" data-action="vista-turnos" data-mode="diaria" aria-pressed="true">D&iacute;a</button>
                 <button type="button" data-action="vista-turnos" data-mode="semanal" aria-pressed="false">Semana</button>
               </div>
+            </div>
+
+            <div class="booking-actions">
               <div class="week-actions" aria-label="Navegacion semanal">
                 <button class="icon-round" type="button" data-action="semana-prev" aria-label="Semana anterior">‹</button>
+                <p id="usuario-semana-label" class="week-range">Semana actual</p>
                 <button class="icon-round" type="button" data-action="semana-next" aria-label="Semana siguiente">›</button>
               </div>
             </div>
@@ -2282,9 +2275,6 @@ function renderAdminUsuarios(): void {
   const usuariosVisibles = usuarios.filter(matchesAdminUsuariosSubpanel);
   const filtrados = usuariosVisibles.filter((usuario) => matchesAdminUsuarioFiltro(usuario) && matchesAdminUsuarioBusqueda(usuario));
   const usuariosConFrecuencia = usuariosVisibles.filter(usuarioTieneFrecuencia);
-  const totalFijos = usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === 'fijo').length;
-  const totalSuplentes = usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === 'suplente').length;
-  const totalPuntuales = usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === 'puntual').length;
   const selectedId = adminUsuarioEditandoId;
 
   adminUsuariosLista.innerHTML = `
@@ -2295,7 +2285,7 @@ function renderAdminUsuarios(): void {
             ${adminUsuariosSubpanel === 'usuarios' ? '<button id="btn-admin-user-create" class="button button-primary button-small" type="button">Crear usuario</button>' : ''}
           </div>
         </header>
-        
+
         <section class="admin-users-card">
           <div class="admin-users-card-head">
             <label class="admin-user-search">
@@ -2576,8 +2566,6 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
 }
 
 function renderAdminCatalogos(): void {
-  const catalogo = StorageDB.getCatalogoUsuarios();
-
   adminCatalogosLista.innerHTML = `
     <div class="admin-catalog-screen">
       <header class="admin-users-hero">
@@ -2585,11 +2573,6 @@ function renderAdminCatalogos(): void {
           <h4>Opciones maestras para clasificar usuarios y permisos.</h4>
         </div>
       </header>
-
-      <section class="admin-user-metrics" aria-label="Resumen de catalogos">
-        <article><span>Frecuencias</span><strong>${catalogo.frecuencias.length}</strong><small>tipos disponibles</small></article>
-        <article><span>Roles</span><strong>${catalogo.roles.length}</strong><small>niveles de acceso</small></article>
-      </section>
 
       ${canAssignAdminRoles()
         ? renderAdminCatalogoUsuarios()
@@ -2901,8 +2884,6 @@ function renderAdminTurnosCubiertos(): void {
   adminTurnosCubiertos.innerHTML = `
     <div class="admin-turns-dashboard">
       <header class="admin-turns-hero">
-        <div>
-        </div>
         <div class="admin-turns-period-controls" aria-label="Vista de turnos">
           <div class="view-toggle admin-view-toggle" role="group" aria-label="Cambiar vista de administracion">
             <button class="${adminVistaTurnos === 'diaria' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="diaria" aria-pressed="${adminVistaTurnos === 'diaria'}">D&iacute;a</button>
