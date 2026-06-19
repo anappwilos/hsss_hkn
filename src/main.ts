@@ -213,10 +213,6 @@ app.innerHTML = `
       </header>
 
       <div class="screen-content">
-        <header class="admin-heading">
-          <h1>Panel de administracion</h1>
-          <p>Gestiona lotes, usuarios, catalogos y turnos.</p>
-        </header>
 
         <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
           <button class="chip" type="button" data-admin-panel="lotes"><span aria-hidden="true">▧</span>Lotes</button>
@@ -227,7 +223,7 @@ app.innerHTML = `
 
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
           <div class="admin-lotes-panel-head">
-            <h2>Lotes</h2>
+            <h2></h2>
             <div class="admin-lotes-tools">
               <label class="admin-lote-search" for="lote-buscar">
                 <span aria-hidden="true">⌕</span>
@@ -3700,7 +3696,7 @@ function renderMisTurnos(): void {
   usuarioMisTurnos.innerHTML = `
     <header class="my-turns-header">
       <div>
-        <p class="section-kicker">Compromisos</p>
+        <p class="section-kicker"></p>        
         <h2>Turnos asignados</h2>
         <p>${siguienteTurno ? `Siguiente turno: ${escapeHtml(formatFecha(siguienteTurno.dia))} · ${escapeHtml(siguienteTurno.horaInicio)} - ${escapeHtml(siguienteTurno.horaFin)}` : 'Todavia no tienes turnos asignados.'}</p>
       </div>
