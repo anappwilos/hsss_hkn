@@ -29,6 +29,18 @@ CREATE TABLE IF NOT EXISTS lotes (
   actualizado_en timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS turnos (
+  id text PRIMARY KEY,
+  lote_id text,
+  dia date NOT NULL,
+  hora_inicio text NOT NULL,
+  hora_fin text NOT NULL,
+  plazas_totales integer NOT NULL,
+  plazas_disponibles integer NOT NULL,
+  data jsonb NOT NULL,
+  actualizado_en timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS notificaciones (
   id text PRIMARY KEY,
   usuario_id text REFERENCES usuarios(id) ON DELETE SET NULL,

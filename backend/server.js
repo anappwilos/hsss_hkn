@@ -37,6 +37,13 @@ const pool = isPostgresStorage
     ssl: shouldUseDatabaseSsl(databaseUrl) ? { rejectUnauthorized: false } : undefined
   })
   : null;
+
+if (pool) {
+  pool.on('error', (error) => {
+    logError('postgres.pool', error, getDatabaseDiagnostics(error));
+  });
+}
+
 const store = createStore();
 
 const emptyState = {
@@ -68,6 +75,11 @@ const mimeTypes = new Map([
 
 await store.initialize();
 await ensureBaseUsersAvailable();
+logInfo('storage.ready', {
+  driver: storageDriver,
+  database: isPostgresStorage ? redactDatabaseUrl(databaseUrl) : undefined,
+  jsonDataFile: isPostgresStorage ? undefined : jsonDataFile
+});
 
 const server = createServer(async (request, response) => {
   try {
@@ -82,7 +94,7 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
 
     if (url.pathname === '/api/health') {
-      sendJson(response, 200, { ok: true });
+      await handleHealth(url, response);
       return;
     }
 
@@ -99,13 +111,30 @@ const server = createServer(async (request, response) => {
     await serveStatic(url.pathname, response);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected server error';
+    logError('request.failed', error, {
+      method: request.method,
+      url: request.url,
+      ...getDatabaseDiagnostics(error)
+    });
     sendJson(response, 500, { error: message });
   }
 });
 
+server.on('error', (error) => {
+  logError('server.listen_failed', error, {
+    port,
+    hint: error?.code === 'EADDRINUSE'
+      ? `El puerto ${port} ya esta ocupado. Cierra el proceso anterior o define PORT con otro valor.`
+      : undefined
+  });
+  process.exit(1);
+});
+
 server.listen(port, () => {
-  console.log(`A solas escuchando en http://localhost:${port}`);
-  console.log(store.description);
+  logInfo('server.listening', {
+    url: `http://localhost:${port}`,
+    storage: store.description
+  });
 });
 
 async function waitForDatabase(retries = 20, delayMs = 1000) {
@@ -113,16 +142,36 @@ async function waitForDatabase(retries = 20, delayMs = 1000) {
     return;
   }
 
+  logInfo('postgres.connecting', {
+    database: redactDatabaseUrl(databaseUrl),
+    ssl: shouldUseDatabaseSsl(databaseUrl)
+  });
+
   for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {
       await pool.query('SELECT 1');
+      logInfo('postgres.connected', {
+        attempt,
+        database: redactDatabaseUrl(databaseUrl)
+      });
       return;
     } catch (error) {
       if (attempt === retries) {
+        logError('postgres.connection_failed', error, {
+          attempt,
+          retries,
+          database: redactDatabaseUrl(databaseUrl),
+          ...getDatabaseDiagnostics(error)
+        });
         throw error;
       }
 
-      console.log(`Esperando PostgreSQL (${attempt}/${retries})...`);
+      logError('postgres.connection_retry', error, {
+        attempt,
+        retries,
+        nextRetryMs: delayMs,
+        ...getDatabaseDiagnostics(error)
+      });
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
@@ -186,6 +235,71 @@ function shouldUseDatabaseSsl(connectionString) {
   }
 }
 
+function redactDatabaseUrl(connectionString) {
+  if (!connectionString) {
+    return '';
+  }
+
+  try {
+    const url = new URL(connectionString);
+    if (url.password) {
+      url.password = '***';
+    }
+    return url.toString();
+  } catch {
+    return connectionString.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:***@');
+  }
+}
+
+function logInfo(event, details = {}) {
+  console.log(JSON.stringify({
+    level: 'info',
+    event,
+    time: new Date().toISOString(),
+    ...details
+  }));
+}
+
+function logError(event, error, details = {}) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(JSON.stringify({
+    level: 'error',
+    event,
+    time: new Date().toISOString(),
+    message,
+    code: error?.code,
+    errno: error?.errno,
+    syscall: error?.syscall,
+    address: error?.address,
+    port: error?.port,
+    ...details
+  }));
+}
+
+function getDatabaseDiagnostics(error) {
+  if (!isPostgresStorage) {
+    return {};
+  }
+
+  const message = error instanceof Error ? error.message : String(error || '');
+  const lowerMessage = message.toLowerCase();
+  let hint = '';
+
+  if (lowerMessage.includes('terminated unexpectedly')) {
+    hint = 'La red llega al host, pero PostgreSQL cerro la sesion. En Render revisa External Database URL, credenciales, SSL y PostgreSQL Inbound IP Rules.';
+  } else if (lowerMessage.includes('password authentication failed')) {
+    hint = 'Credenciales rechazadas. Regenera o copia de nuevo la External Database URL.';
+  } else if (lowerMessage.includes('no pg_hba.conf entry') || lowerMessage.includes('ssl')) {
+    hint = 'La conexion requiere una regla de acceso o SSL compatible. En Render usa DATABASE_SSL=true y permite la IP publica del cliente.';
+  } else if (error?.code === 'ENOTFOUND' || error?.code === 'EAI_AGAIN') {
+    hint = 'No se pudo resolver el hostname de PostgreSQL.';
+  } else if (error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
+    hint = 'No se pudo abrir TCP contra PostgreSQL. Revisa hostname, puerto, firewall o allowlist.';
+  }
+
+  return hint ? { databaseHint: hint } : {};
+}
+
 function createStore() {
   if (isPostgresStorage) {
     return createPostgresStore();
@@ -239,13 +353,6 @@ function createPostgresStore() {
     },
     async writeState(state) {
       const stateWithBaseUsers = await withBaseUsers(state);
-      await pool.query(
-        `INSERT INTO app_state (id, state, updated_at)
-         VALUES ('default', $1::jsonb, now())
-         ON CONFLICT (id)
-         DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
-        [JSON.stringify(stateWithBaseUsers)]
-      );
       await writeRelationalState(stateWithBaseUsers);
     },
     async findUserByEmail(email) {
@@ -323,6 +430,20 @@ async function initializePostgresStore() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS turnos (
+      id text PRIMARY KEY,
+      lote_id text,
+      dia date NOT NULL,
+      hora_inicio text NOT NULL,
+      hora_fin text NOT NULL,
+      plazas_totales integer NOT NULL,
+      plazas_disponibles integer NOT NULL,
+      data jsonb NOT NULL,
+      actualizado_en timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS notificaciones (
       id text PRIMARY KEY,
       usuario_id text REFERENCES usuarios(id) ON DELETE SET NULL,
@@ -335,12 +456,95 @@ async function initializePostgresStore() {
     )
   `);
 
-  await pool.query(
-    `INSERT INTO app_state (id, state)
-     VALUES ('default', $1::jsonb)
-     ON CONFLICT (id) DO NOTHING`,
-    [JSON.stringify(emptyState)]
-  );
+  await ensurePostgresStateSnapshotAvailable();
+}
+
+async function ensurePostgresStateSnapshotAvailable() {
+  const result = await pool.query('SELECT state FROM app_state WHERE id = $1', ['default']);
+  const relationalState = await readRelationalState();
+  const hasRelationalData = hasStoredStateData(relationalState);
+
+  if (!result.rows[0]) {
+    const state = hasRelationalData ? relationalState : emptyState;
+    await writePostgresStateSnapshot(state);
+    logInfo('postgres.app_state_initialized', {
+      source: hasRelationalData ? 'relational_tables' : 'empty_state'
+    });
+    return;
+  }
+
+  const appState = normalizeState(result.rows[0].state);
+
+  if (hasRelationalData && shouldRecoverAppStateFromRelational(appState, relationalState)) {
+    await writePostgresStateSnapshot(relationalState);
+    logInfo('postgres.app_state_recovered', {
+      source: 'relational_tables',
+      usuarios: relationalState.usuarios.length,
+      lotes: relationalState.lotes.length,
+      turnos: relationalState.turnos.length,
+      notificaciones: relationalState.notificaciones.length
+    });
+  }
+}
+
+function hasStoredStateData(state) {
+  const normalized = normalizeState(state);
+  return normalized.usuarios.length > 0
+    || normalized.lotes.length > 0
+    || normalized.turnos.length > 0
+    || normalized.notificaciones.length > 0;
+}
+
+function shouldRecoverAppStateFromRelational(appState, relationalState) {
+  const app = normalizeState(appState);
+  const relational = normalizeState(relationalState);
+
+  return relational.usuarios.length > app.usuarios.length
+    || relational.lotes.length > app.lotes.length
+    || relational.turnos.length > app.turnos.length
+    || relational.notificaciones.length > app.notificaciones.length
+    || (app.lotes.length === 0 && relational.lotes.length > 0)
+    || (app.turnos.length === 0 && relational.turnos.length > 0)
+    || (app.notificaciones.length === 0 && relational.notificaciones.length > 0);
+}
+
+async function handleHealth(url, response) {
+  const includeDetails = url.searchParams.get('details') === '1';
+  const payload = {
+    ok: true,
+    storage: storageDriver
+  };
+
+  if (!includeDetails || !pool) {
+    sendJson(response, 200, payload);
+    return;
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT current_database() AS database, current_user AS "user", version() AS version`
+    );
+    sendJson(response, 200, {
+      ...payload,
+      database: {
+        ok: true,
+        name: result.rows[0]?.database,
+        user: result.rows[0]?.user,
+        version: result.rows[0]?.version
+      }
+    });
+  } catch (error) {
+    logError('health.database_failed', error, getDatabaseDiagnostics(error));
+    sendJson(response, 503, {
+      ...payload,
+      ok: false,
+      database: {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Database healthcheck failed',
+        ...getDatabaseDiagnostics(error)
+      }
+    });
+  }
 }
 
 async function migrateStoredPasswords() {
@@ -496,7 +700,36 @@ function sanitizeStateForClient(state) {
 }
 
 async function ensureBaseUsersAvailable() {
+  if (isPostgresStorage) {
+    await ensurePostgresBaseUsersAvailable();
+    return;
+  }
+
   await store.writeState(await withBaseUsers(await store.readState()));
+}
+
+async function ensurePostgresBaseUsersAvailable() {
+  const currentState = await store.readState();
+  const nextState = await withBaseUsers(currentState);
+
+  if (JSON.stringify(sanitizeStateForComparison(currentState)) === JSON.stringify(sanitizeStateForComparison(nextState))) {
+    return;
+  }
+
+  await writePostgresStateSnapshot(nextState);
+  await upsertRelationalUsers(nextState.usuarios.filter((usuario) =>
+    getBaseUsers().some((base) => base.email === usuario.email.toLowerCase())
+  ));
+  logInfo('postgres.base_users_ensured', {
+    usuarios: nextState.usuarios.length,
+    lotes: nextState.lotes.length,
+    turnos: nextState.turnos.length,
+    notificaciones: nextState.notificaciones.length
+  });
+}
+
+function sanitizeStateForComparison(state) {
+  return normalizeState(state);
 }
 
 async function withBaseUsers(value) {
@@ -521,10 +754,11 @@ async function withBaseUsers(value) {
       rol: base.rol,
       password,
       creadoEn: existing?.creadoEn || now,
-      actualizadoEn: now
+      actualizadoEn: existing?.actualizadoEn || now
     };
 
     if (existing) {
+      usuario.actualizadoEn = hasUserMeaningfulChanges(existing, usuario) ? now : existing.actualizadoEn;
       const index = state.usuarios.findIndex((item) => item.email.toLowerCase() === base.email);
       state.usuarios[index] = usuario;
     } else {
@@ -533,6 +767,18 @@ async function withBaseUsers(value) {
   }
 
   return normalizeState(state);
+}
+
+function hasUserMeaningfulChanges(current, next) {
+  return current.id !== next.id
+    || current.nombreCompleto !== next.nombreCompleto
+    || current.nombre !== next.nombre
+    || current.apellidos !== next.apellidos
+    || current.email !== next.email
+    || current.telefono !== next.telefono
+    || current.frecuencia !== next.frecuencia
+    || current.rol !== next.rol
+    || current.password !== next.password;
 }
 
 function dedupeUsersByEmail(usuarios) {
@@ -693,12 +939,98 @@ async function verifyPassword(password, storedPassword) {
   return stored.length === candidate.length && timingSafeEqual(stored, candidate);
 }
 
+async function writePostgresStateSnapshot(state) {
+  await pool.query(
+    `INSERT INTO app_state (id, state, updated_at)
+     VALUES ('default', $1::jsonb, now())
+     ON CONFLICT (id)
+     DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
+    [JSON.stringify(normalizeState(state))]
+  );
+}
+
+async function upsertRelationalUsers(usuarios) {
+  for (const usuario of usuarios) {
+    await pool.query(
+      `INSERT INTO usuarios (id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, to_timestamp($10 / 1000.0), to_timestamp($11 / 1000.0))
+       ON CONFLICT (id)
+       DO UPDATE SET
+         nombre_completo = EXCLUDED.nombre_completo,
+         nombre = EXCLUDED.nombre,
+         apellidos = EXCLUDED.apellidos,
+         email = EXCLUDED.email,
+         telefono = EXCLUDED.telefono,
+         frecuencia = EXCLUDED.frecuencia,
+         rol = EXCLUDED.rol,
+         password = EXCLUDED.password,
+         actualizado_en = EXCLUDED.actualizado_en`,
+      [
+        usuario.id,
+        usuario.nombreCompleto,
+        usuario.nombre,
+        usuario.apellidos,
+        usuario.email,
+        usuario.telefono,
+        usuario.frecuencia,
+        usuario.rol,
+        usuario.password ?? '',
+        usuario.creadoEn,
+        usuario.actualizadoEn
+      ]
+    );
+  }
+}
+
+async function readRelationalState() {
+  const [usuariosResult, lotesResult, turnosResult, notificacionesResult] = await Promise.all([
+    pool.query(
+      `SELECT id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
+       FROM usuarios
+       ORDER BY creado_en, id`
+    ),
+    pool.query('SELECT data FROM lotes ORDER BY creado_en, id'),
+    pool.query('SELECT data FROM turnos ORDER BY dia, hora_inicio, id'),
+    pool.query(
+      `SELECT id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en
+       FROM notificaciones
+       ORDER BY creado_en DESC, id`
+    )
+  ]);
+
+  return normalizeState({
+    usuarios: usuariosResult.rows.map(mapDbUser).filter(Boolean),
+    lotes: lotesResult.rows.map((row) => row.data).filter(Boolean),
+    turnos: turnosResult.rows.map((row) => row.data).filter(Boolean),
+    notificaciones: notificacionesResult.rows.map((row) => ({
+      id: row.id,
+      usuarioId: row.usuario_id || undefined,
+      titulo: row.titulo,
+      mensaje: row.mensaje,
+      tipo: row.tipo,
+      estado: row.estado,
+      creadoEn: row.creado_en ? new Date(row.creado_en).getTime() : Date.now(),
+      leidoEn: row.leido_en ? new Date(row.leido_en).getTime() : undefined
+    })),
+    catalogoUsuarios: emptyState.catalogoUsuarios,
+    updatedAt: Date.now()
+  });
+}
+
 async function writeRelationalState(state) {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
-    await client.query('TRUNCATE notificaciones, lotes, usuarios');
+    await client.query(
+      `INSERT INTO app_state (id, state, updated_at)
+       VALUES ('default', $1::jsonb, now())
+       ON CONFLICT (id)
+       DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
+      [JSON.stringify(state)]
+    );
+
+    await client.query('TRUNCATE notificaciones, turnos, lotes, usuarios');
 
     for (const usuario of state.usuarios) {
       await client.query(
@@ -728,6 +1060,23 @@ async function writeRelationalState(state) {
       );
     }
 
+    for (const turno of state.turnos) {
+      await client.query(
+        `INSERT INTO turnos (id, lote_id, dia, hora_inicio, hora_fin, plazas_totales, plazas_disponibles, data, actualizado_en)
+         VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8::jsonb, now())`,
+        [
+          turno.id,
+          turno.loteId ?? null,
+          turno.dia,
+          turno.horaInicio,
+          turno.horaFin,
+          turno.plazasTotales,
+          turno.plazasDisponibles,
+          JSON.stringify(turno)
+        ]
+      );
+    }
+
     for (const notificacion of state.notificaciones) {
       await client.query(
         `INSERT INTO notificaciones (id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en)
@@ -737,8 +1086,15 @@ async function writeRelationalState(state) {
     }
 
     await client.query('COMMIT');
+    logInfo('postgres.state_written', {
+      usuarios: state.usuarios.length,
+      lotes: state.lotes.length,
+      turnos: state.turnos.length,
+      notificaciones: state.notificaciones.length
+    });
   } catch (error) {
     await client.query('ROLLBACK');
+    logError('postgres.state_write_failed', error, getDatabaseDiagnostics(error));
     throw error;
   } finally {
     client.release();
