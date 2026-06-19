@@ -170,6 +170,15 @@ button:disabled {
     border-color 160ms ease;
 }
 
+.button-small {
+  min-height: 40px !important;
+  width: 40px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  font-size: 1.5rem !important;
+  line-height: 1 !important;
+}
+
 .button:hover {
   transform: translateY(-1px);
 }

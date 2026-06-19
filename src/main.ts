@@ -2305,7 +2305,7 @@ function renderAdminUsuarios(): void {
       <section class="admin-users-main">
         <header class="admin-users-hero">
           <div>
-            ${adminUsuariosSubpanel === 'usuarios' ? '<button id="btn-admin-user-create" class="button button-primary button-small" type="button">Crear usuario</button>' : ''}
+            ${adminUsuariosSubpanel === 'usuarios' ? '<button id="btn-admin-user-create" class="button button-primary button-small" type="button" aria-label="Crear usuario">+</button>' : ''}
           </div>
         </header>
 
