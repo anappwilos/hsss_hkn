@@ -2292,19 +2292,10 @@ function renderAdminUsuarios(): void {
       <section class="admin-users-main">
         <header class="admin-users-hero">
           <div>
-            <h2>${adminUsuariosSubpanel === 'env' ? 'Pringados' : 'Usuarios'}</h2>
             ${adminUsuariosSubpanel === 'usuarios' ? '<button id="btn-admin-user-create" class="button button-primary button-small" type="button">Crear usuario</button>' : ''}
           </div>
-          <div class="admin-month-pill" aria-label="Periodo visible">${escapeHtml(new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()))}</div>
         </header>
-
-        <section class="admin-user-metrics" aria-label="Resumen de usuarios">
-          <article><span>Total ${adminUsuariosSubpanel === 'env' ? '.env' : 'usuarios'}</span><strong>${usuariosVisibles.length}</strong><small>${adminUsuariosSubpanel === 'env' ? 'definidos en backend/.env' : 'perfiles registrados'}</small></article>
-          <article><span>Fijos</span><strong>${totalFijos}</strong></article>
-          <article><span>Puntuales</span><strong>${totalPuntuales}</strong></article>
-          <article><span>Suplentes</span><strong>${totalSuplentes}</strong></article>
-        </section>
-
+        
         <section class="admin-users-card">
           <div class="admin-users-card-head">
             <label class="admin-user-search">
@@ -2911,8 +2902,6 @@ function renderAdminTurnosCubiertos(): void {
     <div class="admin-turns-dashboard">
       <header class="admin-turns-hero">
         <div>
-          <p class="section-kicker">Panel administrador</p>
-          <h2>Turnos asignados</h2>
         </div>
         <div class="admin-turns-period-controls" aria-label="Vista de turnos">
           <div class="view-toggle admin-view-toggle" role="group" aria-label="Cambiar vista de administracion">
