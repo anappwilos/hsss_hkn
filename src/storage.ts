@@ -523,7 +523,7 @@ export class StorageDB {
   private static getDefaultCatalogoUsuarios(): CatalogoUsuarios {
     return {
       frecuencias: ['fijo', 'suplente', 'puntual'],
-      roles: ['usuario', 'sacerdote', 'admin', 'root']
+      roles: ['usuario', 'sacerdote']
     };
   }
 

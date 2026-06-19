@@ -4,7 +4,6 @@
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id text PRIMARY KEY,
-  nombre_completo text NOT NULL DEFAULT '',
   nombre text NOT NULL,
   apellidos text NOT NULL,
   email text NOT NULL UNIQUE,

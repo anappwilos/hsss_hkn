@@ -24,5 +24,21 @@ services:
         sync: false
       - key: DATABASE_SSL
         value: "true"
+      - key: SEED_USER_1_NOMBRE
+        value: Gabi
+      - key: SEED_USER_1_APELLIDOS
+        value: Aguilera Fernandez
+      - key: SEED_USER_1_EMAIL
+        value: gabi.aguilera.fernandez@example.com
+      - key: SEED_USER_1_FRECUENCIA
+        value: fijo
+      - key: SEED_USER_2_NOMBRE
+        value: Nicolas
+      - key: SEED_USER_2_APELLIDOS
+        value: Alarcon Rapela
+      - key: SEED_USER_2_EMAIL
+        value: nicolas.alarcon.rapela@example.com
+      - key: SEED_USER_2_FRECUENCIA
+        value: suplente
       - key: CORS_ORIGIN
         sync: false

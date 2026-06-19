@@ -22,6 +22,7 @@ const adminEmail = String(process.env.VITE_ADMIN_EMAIL || 'admin@admin.com').tri
 const adminPassword = String(process.env.VITE_ADMIN_PASSWORD || 'admin');
 const superadminEmail = String(process.env.VITE_SUPERADMIN_EMAIL || 'root@root.com').trim().toLowerCase();
 const superadminPassword = String(process.env.VITE_SUPERADMIN_PASSWORD || 'root');
+const seedUsers = getSeedUsersFromEnv();
 const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const passwordHashPrefix = 'scrypt';
@@ -53,7 +54,7 @@ const emptyState = {
   notificaciones: [],
   catalogoUsuarios: {
     frecuencias: ['fijo', 'suplente', 'puntual'],
-    roles: ['usuario', 'sacerdote', 'admin', 'root']
+    roles: ['usuario', 'sacerdote']
   },
   updatedAt: 0
 };
@@ -74,6 +75,7 @@ const mimeTypes = new Map([
 ]);
 
 await store.initialize();
+await store.ensureSeedUsers();
 logInfo('storage.ready', {
   driver: storageDriver,
   database: isPostgresStorage ? redactDatabaseUrl(databaseUrl) : undefined,
@@ -330,11 +332,18 @@ function createJsonStore() {
       }
     },
     async writeState(state) {
-      await writeJsonState(await withBaseUsers(state));
+      await writeJsonState(state);
     },
     async findUserByEmail(email) {
       const state = await this.readState();
       return state.usuarios.find((item) => item.email.toLowerCase() === email);
+    },
+    async ensureSeedUsers() {
+      if (seedUsers.length === 0) {
+        return;
+      }
+
+      await writeJsonState(await withSeedUsers(await this.readState()));
     }
   };
 }
@@ -349,12 +358,11 @@ function createPostgresStore() {
       return readRelationalState();
     },
     async writeState(state) {
-      const stateWithBaseUsers = await withBaseUsers(state);
-      await writeRelationalState(stateWithBaseUsers);
+      await writeRelationalState(state);
     },
     async findUserByEmail(email) {
       const result = await pool.query(
-        `SELECT id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
+        `SELECT id, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
          FROM usuarios
          WHERE lower(email) = $1
          LIMIT 1`,
@@ -362,6 +370,9 @@ function createPostgresStore() {
       );
 
       return mapDbUser(result.rows[0]);
+    },
+    async ensureSeedUsers() {
+      await ensureSeedUsersAvailable();
     }
   };
 }
@@ -372,7 +383,6 @@ async function initializePostgresStore() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id text PRIMARY KEY,
-      nombre_completo text NOT NULL DEFAULT '',
       nombre text NOT NULL,
       apellidos text NOT NULL,
       email text NOT NULL UNIQUE,
@@ -385,7 +395,6 @@ async function initializePostgresStore() {
     )
   `);
 
-  await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_completo text NOT NULL DEFAULT ''");
   await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password text NOT NULL DEFAULT ''");
   await pool.query(`
     DO $$
@@ -521,9 +530,9 @@ async function handleState(request, response) {
     const body = await readJsonBody(request);
     const currentState = await store.readState();
     const state = await normalizeIncomingState(body, currentState);
-    const stateWithBaseUsers = await withBaseUsers(state);
-    await store.writeState(stateWithBaseUsers);
-    sendJson(response, 200, sanitizeStateForClient(stateWithBaseUsers));
+    const stateWithSeeds = await withSeedUsers(state);
+    await store.writeState(stateWithSeeds);
+    sendJson(response, 200, sanitizeStateForClient(stateWithSeeds));
     return;
   }
 
@@ -545,6 +554,13 @@ async function handleLogin(request, response) {
     return;
   }
 
+  const envUser = getEnvAccessUser(email, password);
+
+  if (envUser) {
+    sendJson(response, 200, { usuario: sanitizeUserForClient(envUser) });
+    return;
+  }
+
   const usuario = await store.findUserByEmail(email);
 
   if (!usuario || !(await verifyPassword(password, usuario.password))) {
@@ -553,19 +569,63 @@ async function handleLogin(request, response) {
   }
 
   sendJson(response, 200, {
-    usuario: {
-      id: usuario.id,
-      nombreCompleto: usuario.nombreCompleto || `${usuario.nombre} ${usuario.apellidos}`.trim(),
-      nombre: usuario.nombre,
-      apellidos: usuario.apellidos,
-      email: usuario.email,
-      telefono: usuario.telefono,
-      frecuencia: usuario.frecuencia,
-      rol: usuario.rol,
-      creadoEn: usuario.creadoEn || Date.now(),
-      actualizadoEn: usuario.actualizadoEn || Date.now()
-    }
+    usuario: sanitizeUserForClient(usuario)
   });
+}
+
+function sanitizeUserForClient(usuario) {
+  return {
+    id: usuario.id,
+    nombreCompleto: usuario.nombreCompleto || `${usuario.nombre} ${usuario.apellidos}`.trim(),
+    nombre: usuario.nombre,
+    apellidos: usuario.apellidos,
+    email: usuario.email,
+    telefono: usuario.telefono,
+    frecuencia: usuario.frecuencia,
+    rol: usuario.rol,
+    creadoEn: usuario.creadoEn || Date.now(),
+    actualizadoEn: usuario.actualizadoEn || Date.now()
+  };
+}
+
+function getEnvAccessUser(email, password) {
+  if (email === superadminEmail && password === superadminPassword) {
+    return createEnvAccessUser('env-root-user', 'Root', superadminEmail, 'root');
+  }
+
+  if (email === adminEmail && password === adminPassword) {
+    return createEnvAccessUser('env-admin-user', 'Admin', adminEmail, 'admin');
+  }
+
+  return undefined;
+}
+
+function createEnvAccessUser(id, nombre, email, rol) {
+  const now = Date.now();
+  return {
+    id,
+    nombreCompleto: nombre,
+    nombre,
+    apellidos: '',
+    email,
+    telefono: '',
+    frecuencia: 'puntual',
+    rol,
+    creadoEn: now,
+    actualizadoEn: now
+  };
+}
+
+function isEnvAccessUserLike(usuario) {
+  const email = String(usuario.email || '').trim().toLowerCase();
+  const id = String(usuario.id || '').trim();
+
+  return id === 'root-user'
+    || id === 'admin-user'
+    || id === 'env-root-user'
+    || id === 'env-admin-user'
+    || email === superadminEmail
+    || email === adminEmail;
 }
 
 async function writeJsonState(state) {
@@ -580,7 +640,6 @@ function mapDbUser(row) {
 
   return normalizeUsuarios([{
     id: row.id,
-    nombreCompleto: row.nombre_completo || `${row.nombre} ${row.apellidos}`.trim(),
     nombre: row.nombre,
     apellidos: row.apellidos,
     email: row.email,
@@ -642,26 +701,28 @@ function sanitizeStateForClient(state) {
   };
 }
 
-async function withBaseUsers(value) {
+async function withSeedUsers(value) {
   const state = normalizeState(value);
   state.usuarios = dedupeUsersByEmail(state.usuarios);
   const usersByEmail = new Map(state.usuarios.map((usuario) => [usuario.email.toLowerCase(), usuario]));
   const now = Date.now();
 
-  for (const base of getBaseUsers()) {
+  for (const base of seedUsers) {
     const existing = usersByEmail.get(base.email);
-    const password = existing?.password && await verifyPassword(base.password, existing.password)
-      ? existing.password
-      : await hashPassword(base.password);
+    const password = base.password
+      ? existing?.password && await verifyPassword(base.password, existing.password)
+        ? existing.password
+        : await hashPassword(base.password)
+      : existing?.password || '';
     const usuario = {
       id: existing?.id || base.id,
-      nombreCompleto: existing?.nombreCompleto || base.nombre,
+      nombreCompleto: existing?.nombreCompleto || `${base.nombre} ${base.apellidos || ''}`.trim(),
       nombre: existing?.nombre || base.nombre,
-      apellidos: existing?.apellidos || '',
+      apellidos: existing?.apellidos || base.apellidos || '',
       email: base.email,
-      telefono: existing?.telefono || '000000000',
-      frecuencia: existing?.frecuencia || 'puntual',
-      rol: base.rol,
+      telefono: existing?.telefono || base.telefono || '',
+      frecuencia: existing?.frecuencia || base.frecuencia || 'puntual',
+      rol: existing?.rol || base.rol || 'usuario',
       password,
       creadoEn: existing?.creadoEn || now,
       actualizadoEn: existing?.actualizadoEn || now
@@ -677,6 +738,54 @@ async function withBaseUsers(value) {
   }
 
   return normalizeState(state);
+}
+
+async function ensureSeedUsersAvailable() {
+  if (seedUsers.length === 0) {
+    return;
+  }
+
+  const state = await readRelationalState();
+  const stateWithSeeds = await withSeedUsers(state);
+
+  if (JSON.stringify(state.usuarios) === JSON.stringify(stateWithSeeds.usuarios)) {
+    return;
+  }
+
+  await upsertSeedUsers(stateWithSeeds.usuarios.filter((usuario) =>
+    seedUsers.some((seed) => seed.email === usuario.email.toLowerCase())
+  ));
+  logInfo('postgres.seed_users_ensured', { usuarios: seedUsers.length });
+}
+
+async function upsertSeedUsers(usuarios) {
+  for (const usuario of usuarios) {
+    await pool.query(
+      `INSERT INTO usuarios (id, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))
+       ON CONFLICT (email)
+       DO UPDATE SET
+         nombre = EXCLUDED.nombre,
+         apellidos = EXCLUDED.apellidos,
+         telefono = EXCLUDED.telefono,
+         frecuencia = EXCLUDED.frecuencia,
+         rol = EXCLUDED.rol,
+         password = CASE WHEN usuarios.password = '' THEN EXCLUDED.password ELSE usuarios.password END,
+         actualizado_en = EXCLUDED.actualizado_en`,
+      [
+        usuario.id,
+        usuario.nombre,
+        usuario.apellidos,
+        usuario.email,
+        usuario.telefono,
+        usuario.frecuencia,
+        usuario.rol,
+        usuario.password ?? '',
+        usuario.creadoEn,
+        usuario.actualizadoEn
+      ]
+    );
+  }
 }
 
 function hasUserMeaningfulChanges(current, next) {
@@ -718,15 +827,35 @@ function dedupeUsersByEmail(usuarios) {
   return deduped;
 }
 
-function getBaseUsers() {
+function getSeedUsersFromEnv() {
   const users = [
-    { id: 'root-user', email: superadminEmail, password: superadminPassword, rol: 'root', nombre: 'Root' },
-    { id: 'admin-user', email: adminEmail, password: adminPassword, rol: 'admin', nombre: 'Admin' }
+    {
+      id: process.env.SEED_USER_1_ID || 'seed-gabi-aguilera-fernandez',
+      nombre: process.env.SEED_USER_1_NOMBRE || 'Gabi',
+      apellidos: process.env.SEED_USER_1_APELLIDOS || 'Aguilera Fernandez',
+      email: process.env.SEED_USER_1_EMAIL || 'gabi.aguilera.fernandez@example.com',
+      telefono: process.env.SEED_USER_1_TELEFONO || '',
+      frecuencia: process.env.SEED_USER_1_FRECUENCIA || 'fijo',
+      password: process.env.SEED_USER_1_PASSWORD || '',
+      rol: 'usuario'
+    },
+    {
+      id: process.env.SEED_USER_2_ID || 'seed-nicolas-alarcon-rapela',
+      nombre: process.env.SEED_USER_2_NOMBRE || 'Nicolas',
+      apellidos: process.env.SEED_USER_2_APELLIDOS || 'Alarcon Rapela',
+      email: process.env.SEED_USER_2_EMAIL || 'nicolas.alarcon.rapela@example.com',
+      telefono: process.env.SEED_USER_2_TELEFONO || '',
+      frecuencia: process.env.SEED_USER_2_FRECUENCIA || 'suplente',
+      password: process.env.SEED_USER_2_PASSWORD || '',
+      rol: 'usuario'
+    }
   ];
   const seen = new Set();
 
   return users.filter((usuario) => {
-    if (!usuario.email || !usuario.password || seen.has(usuario.email)) {
+    usuario.email = String(usuario.email || '').trim().toLowerCase();
+
+    if (!usuario.email || !usuario.nombre || seen.has(usuario.email)) {
       return false;
     }
 
@@ -762,7 +891,7 @@ function normalizeUsuarios(value) {
         actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn
       };
     })
-    .filter((usuario) => usuario.id && (usuario.nombre || usuario.nombreCompleto) && usuario.email);
+    .filter((usuario) => usuario.id && (usuario.nombre || usuario.nombreCompleto) && usuario.email && !isEnvAccessUserLike(usuario));
 }
 
 function normalizeRol(rol) {
@@ -778,7 +907,7 @@ function normalizeCatalogoUsuarios(value) {
   const source = value && typeof value === 'object' ? value : {};
   const defaults = {
     frecuencias: ['fijo', 'suplente', 'puntual'],
-    roles: ['usuario', 'sacerdote', 'admin', 'root']
+    roles: ['usuario', 'sacerdote']
   };
 
   return {
@@ -852,7 +981,7 @@ async function verifyPassword(password, storedPassword) {
 async function readRelationalState() {
   const [usuariosResult, lotesResult, turnosResult, notificacionesResult, catalogoResult] = await Promise.all([
     pool.query(
-      `SELECT id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
+      `SELECT id, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
        FROM usuarios
        ORDER BY creado_en, id`
     ),
@@ -902,11 +1031,10 @@ async function writeRelationalState(state) {
 
     for (const usuario of state.usuarios) {
       await client.query(
-        `INSERT INTO usuarios (id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, to_timestamp($10 / 1000.0), to_timestamp($11 / 1000.0))`,
+        `INSERT INTO usuarios (id, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))`,
         [
           usuario.id,
-          usuario.nombreCompleto,
           usuario.nombre,
           usuario.apellidos,
           usuario.email,

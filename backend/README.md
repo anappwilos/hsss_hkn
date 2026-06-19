@@ -28,4 +28,10 @@ DATABASE_SSL=false
 CORS_ORIGIN=http://localhost:5173
 ```
 
+`VITE_ADMIN_EMAIL`, `VITE_ADMIN_PASSWORD`, `VITE_SUPERADMIN_EMAIL` y `VITE_SUPERADMIN_PASSWORD`
+son credenciales virtuales de acceso administrativo. No se insertan en `usuarios`.
+
+Los usuarios semilla se definen con `SEED_USER_1_*` y `SEED_USER_2_*`; por defecto son:
+Gabi Aguilera Fernandez (`fijo`) y Nicolas Alarcon Rapela (`suplente`).
+
 Si el frontend se despliega en otro dominio, define `CORS_ORIGIN` con ese origen.
