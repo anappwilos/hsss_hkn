@@ -8,7 +8,7 @@ type FiltroLote = 'todos' | 'activo' | 'programado' | 'finalizado';
 type ModalInscripcionPaso = 'tipo' | 'periodica' | 'confirmacion';
 type TipoAnotacion = 'puntual' | 'periodica';
 type VistaTurnos = 'diaria' | 'semanal';
-type AdminPanel = 'escritorio' | 'lotes' | 'usuarios' | 'turnos' | 'catalogos';
+type AdminPanel = 'lotes' | 'usuarios' | 'turnos' | 'catalogos';
 type AdminUsuarioFiltro = 'todos' | 'administrador' | (string & {});
 type AdminUsuariosSubpanel = 'usuarios' | 'env';
 type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
@@ -92,7 +92,7 @@ let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let vistaTurnos: VistaTurnos = 'semanal';
 let usuarioPanel: UsuarioPanel = 'disponibles';
 let usuarioOrdenTurnos: UsuarioOrdenTurnos = 'fecha';
-let adminPanel: AdminPanel = 'escritorio';
+let adminPanel: AdminPanel = 'lotes';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
 let adminUsuariosSubpanel: AdminUsuariosSubpanel = 'usuarios';
@@ -196,94 +196,55 @@ app.innerHTML = `
       </form>
     </section>
 
-    <section id="vista-admin" class="view admin-layout-view" style="display: none;">
-      <aside class="admin-sidebar">
-        <div class="sidebar-brand">
-          <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-            <span class="brand-symbol">✚</span>
-            <span class="brand-name">A solas</span>
-          </button>
-        </div>
+    <section id="vista-admin" class="view admin-lotes-view" style="display: none;">
+      <header class="mobile-topbar admin-topbar">
+        <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
+          <span>A solas - Administracion</span>
+        </button>
+        <button class="topbar-text-button" type="button" data-action="admin-logout">Salir</button>
+      </header>
 
-        <nav id="admin-sidebar-nav" class="sidebar-nav" aria-label="Navegacion de administracion">
-          <button class="nav-item is-active" type="button" data-admin-panel="escritorio">
-            <span class="nav-icon">⊞</span>
-            <span>Escritorio</span>
-          </button>
-          <button class="nav-item" type="button" data-admin-panel="lotes">
+      <div class="screen-content">
+        <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
+          <button class="chip is-active" type="button" data-admin-panel="lotes">
             <span class="nav-icon">📅</span>
             <span>Lotes</span>
           </button>
-          <button class="nav-item" type="button" data-admin-panel="usuarios">
+          <button class="chip" type="button" data-admin-panel="usuarios">
             <span class="nav-icon">👤</span>
-            <span>Adoradores</span>
+            <span>Usuarios</span>
           </button>
-          <button class="nav-item" type="button" data-admin-panel="turnos">
-            <span class="nav-icon">✓</span>
-            <span>Turnos</span>
+          <button class="chip" type="button" data-admin-panel="catalogos">
+            <span class="nav-icon">📂</span>
+            <span>Catalogos</span>
           </button>
-          <button class="nav-item" type="button" data-admin-panel="catalogos">
-            <span class="nav-icon">⚙</span>
-            <span>Ajustes</span>
+          <button class="chip" type="button" data-admin-panel="turnos">
+            <span class="nav-icon">📋</span>
+            <span>Turnos asignados</span>
           </button>
         </nav>
 
-        <div class="sidebar-footer">
-          <button class="logout-button" type="button" data-action="admin-logout">
-            <span class="nav-icon">⎋</span>
-            <span>Cerrar sesion</span>
-          </button>
-        </div>
-      </aside>
-
-      <main class="admin-main">
-        <header class="admin-main-header">
-          <div class="header-left">
-            <h1 id="admin-section-title">Escritorio</h1>
-            <p id="admin-section-subtitle">Panel de control de la capilla</p>
+        <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
+          <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
+            <button class="chip is-active" type="button" data-filter="todos">Todos</button>
           </div>
-          <div class="header-actions">
-            <button id="btn-nuevo-lote-header" class="button button-primary" type="button" data-action="crear-lote">
-              <span>Crear lote</span>
-            </button>
-          </div>
-        </header>
+          <div id="lotes-lista" class="lotes-list"></div>
+        </section>
 
-        <div class="admin-content-scroll">
-          <section id="admin-panel-escritorio" class="admin-panel-section" aria-label="Resumen de escritorio">
-            <div id="admin-dashboard-metrics" class="dashboard-metrics-grid">
-              <!-- Se rellena dinamicamente -->
-            </div>
+        <section id="admin-panel-usuarios" class="admin-panel-section" aria-label="Panel de usuarios" hidden>
+          <div id="admin-usuarios-lista" class="admin-users-list"></div>
+        </section>
 
-            <div class="dashboard-charts-layout">
-              <div id="admin-dashboard-recent-activity" class="activity-panel">
-                <!-- Se rellena dinamicamente -->
-              </div>
-            </div>
-          </section>
+        <section id="admin-panel-catalogos" class="admin-panel-section" aria-label="Panel de catalogos" hidden>
+          <div id="admin-catalogos-lista" class="admin-users-list"></div>
+        </section>
 
-          <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes" hidden>
-            <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
-              <button class="chip is-active" type="button" data-filter="todos">Todos</button>
-            </div>
-            <div id="lotes-lista" class="lotes-list"></div>
-          </section>
+        <section id="admin-panel-turnos" class="admin-panel-section" aria-label="Panel de turnos asignados" hidden>
+          <div id="admin-turnos-cubiertos" class="admin-covered-panel" aria-label="Turnos cubiertos y perfiles inscritos"></div>
+        </section>
+      </div>
 
-          <section id="admin-panel-usuarios" class="admin-panel-section" aria-label="Panel de usuarios" hidden>
-            <div id="admin-usuarios-lista" class="admin-users-list"></div>
-          </section>
-
-          <section id="admin-panel-catalogos" class="admin-panel-section" aria-label="Panel de catalogos" hidden>
-            <div id="admin-catalogos-lista" class="admin-users-list"></div>
-          </section>
-
-          <section id="admin-panel-turnos" class="admin-panel-section" aria-label="Panel de turnos asignados" hidden>
-            <div id="admin-turnos-cubiertos" class="admin-covered-panel" aria-label="Turnos cubiertos y perfiles inscritos"></div>
-          </section>
-        </div>
-      </main>
-
-      <button id="btn-nuevo-lote" class="fab mobile-only" type="button" aria-label="Crear lote">+</button>
+      <button id="btn-nuevo-lote" class="fab" type="button" aria-label="Crear lote">+</button>
     </section>
 
     <section id="vista-usuario" class="view user-view" style="display: none;">
@@ -781,11 +742,7 @@ const adminLoginMensaje = getElement<HTMLParagraphElement>('#admin-login-mensaje
 const loteFiltros = getElement<HTMLDivElement>('#lote-filtros');
 const lotesLista = getElement<HTMLDivElement>('#lotes-lista');
 const btnNuevoLote = getElement<HTMLButtonElement>('#btn-nuevo-lote');
-const adminPanelTabs = getElement<HTMLElement>('#admin-sidebar-nav');
-const adminSectionTitle = getElement<HTMLElement>('#admin-section-title');
-const adminSectionSubtitle = getElement<HTMLElement>('#admin-section-subtitle');
-const adminPanelEscritorio = getElement<HTMLElement>('#admin-panel-escritorio');
-const adminDashboardMetrics = getElement<HTMLElement>('#admin-dashboard-metrics');
+const adminPanelTabs = getElement<HTMLElement>('#admin-panel-tabs');
 const adminPanelLotes = getElement<HTMLElement>('#admin-panel-lotes');
 const adminPanelUsuarios = getElement<HTMLElement>('#admin-panel-usuarios');
 const adminPanelCatalogos = getElement<HTMLElement>('#admin-panel-catalogos');
@@ -2197,34 +2154,17 @@ function renderAdminPanel(): void {
     return;
   }
 
-  const sections: Record<AdminPanel, { title: string; subtitle: string }> = {
-    escritorio: { title: 'Escritorio', subtitle: 'Panel de control de la capilla' },
-    lotes: { title: 'Lotes de exposicion', subtitle: 'Gestiona los periodos y horarios de adoracion' },
-    usuarios: { title: 'Adoradores', subtitle: 'Listado y gestion de perfiles inscritos' },
-    turnos: { title: 'Turnos asignados', subtitle: 'Revision de la cobertura de la capilla' },
-    catalogos: { title: 'Ajustes', subtitle: 'Configuracion del sistema y catalogos' }
-  };
-
-  const currentSection = sections[adminPanel];
-  if (adminSectionTitle) adminSectionTitle.textContent = currentSection.title;
-  if (adminSectionSubtitle) adminSectionSubtitle.textContent = currentSection.subtitle;
-
   adminPanelTabs.querySelectorAll<HTMLButtonElement>('[data-admin-panel]').forEach((button) => {
     const isActive = button.dataset.adminPanel === adminPanel;
     button.classList.toggle('is-active', isActive);
     button.setAttribute('aria-pressed', String(isActive));
   });
 
-  adminPanelEscritorio.hidden = adminPanel !== 'escritorio';
   adminPanelLotes.hidden = adminPanel !== 'lotes';
   adminPanelUsuarios.hidden = adminPanel !== 'usuarios';
   adminPanelCatalogos.hidden = adminPanel !== 'catalogos';
   adminPanelTurnos.hidden = adminPanel !== 'turnos';
-  btnNuevoLote.hidden = adminPanel !== 'lotes' && adminPanel !== 'escritorio';
-
-  if (adminPanel === 'escritorio') {
-    renderAdminDashboard();
-  }
+  btnNuevoLote.hidden = adminPanel !== 'lotes';
 
   if (adminPanel === 'lotes') {
     renderLotes();
@@ -2240,55 +2180,6 @@ function renderAdminPanel(): void {
 
   if (adminPanel === 'turnos') {
     renderAdminTurnosCubiertos();
-  }
-}
-
-function renderAdminDashboard(): void {
-  const usuarios = StorageDB.getUsuarios();
-  const lotes = StorageDB.getLotes();
-  const turnos = StorageDB.getTurnos();
-
-  const totalAdoradores = usuarios.length;
-  const lotesActivos = lotes.length;
-  const totalTurnos = turnos.length;
-  const turnosCubiertos = turnos.filter(t => t.inscritos.length > 0).length;
-  const cobertura = totalTurnos > 0 ? Math.round((turnosCubiertos / totalTurnos) * 100) : 0;
-
-  if (adminDashboardMetrics) {
-    adminDashboardMetrics.innerHTML = `
-      <div class="metric-card">
-        <div class="metric-card-header">
-          <div class="metric-icon-wrap" style="background: #e0f2fe; color: #0ea5e9;">👤</div>
-          <div class="metric-label">Adoradores</div>
-        </div>
-        <strong class="metric-value">${totalAdoradores}</strong>
-        <div class="metric-trend trend-up">↑ Activos ahora</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-card-header">
-          <div class="metric-icon-wrap" style="background: #fef3c7; color: #d97706;">📅</div>
-          <div class="metric-label">Lotes</div>
-        </div>
-        <strong class="metric-value">${lotesActivos}</strong>
-        <div class="metric-trend">Configurados</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-card-header">
-          <div class="metric-icon-wrap" style="background: #dcfce7; color: #16a34a;">📊</div>
-          <div class="metric-label">Cobertura</div>
-        </div>
-        <strong class="metric-value">${cobertura}%</strong>
-        <div class="metric-trend trend-up">↑ ${turnosCubiertos} turnos</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-card-header">
-          <div class="metric-icon-wrap" style="background: #f3f4f6; color: #4b5563;">🔔</div>
-          <div class="metric-label">Alertas</div>
-        </div>
-        <strong class="metric-value">0</strong>
-        <div class="metric-trend">Sin incidencias</div>
-      </div>
-    `;
   }
 }
 

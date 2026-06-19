@@ -1,6 +1,6 @@
-Learnings:
-1. The admin panel was restructured from a top-tab layout to a sidebar-based dashboard layout.
-2. New 'escritorio' view was added as the default admin panel.
-3. Dashboard metrics (Adoradores, Lotes, Cobertura) are calculated dynamically from StorageDB.
-4. CSS uses a dark sidebar with a light main content area for a modern look.
-5. Desktop-first design with a responsive sidebar that collapses/hides on smaller screens.
+Learnings (Updated):
+1. User specifically requested a tabbed navigation interface matching a reference image.
+2. The admin panel now uses horizontal tabs (chips) with icons for Lotes, Usuarios, Catalogos, and Turnos.
+3. Design features a light cyan active state (#e0f7fa) and dark cyan text (#00838f), consistent with high-density administrative UIs.
+4. Cleaned up redundant sidebar and dashboard code to keep the bundle lean.
+5. Fixed minor constant duplication during the transition back to tabs.
