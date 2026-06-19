@@ -3180,8 +3180,8 @@ function renderAdminTurnosCalendario(fechas: Date[], franjas: string[], turnos: 
             const turnosCelda = turnos.filter((turno) => turno.dia === key && turno.horaInicio === horaInicio && turno.horaFin === horaFin);
 
             return `
-              <div class="admin-calendar-cell">
-                ${renderNowLine(key, horaInicio, horaFin, 'admin-now-line')}
+              <div class="admin-calendar-cell ${key === adminFechaTurnosSeleccionada ? 'is-selected-day' : ''}">
+                ${key === adminFechaTurnosSeleccionada ? renderNowLine(key, horaInicio, horaFin, 'admin-now-line') : ''}
                 ${turnosCelda.length > 0
                   ? turnosCelda.map(renderAdminTurnoCalendarCard).join('')
                   : '<span class="admin-calendar-empty">Sin turnos</span>'
@@ -4454,11 +4454,10 @@ function renderListaTurnosDia(
 function renderUsuario(): void {
   const hoy = fechaToInput(new Date());
   const perfil = StorageDB.getPerfilAdorador();
-  const fechasRango = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index))
-    .filter((date) => fechaToInput(date) >= hoy);
+  const fechasRango = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index));
   const fechasRangoSet = new Set(fechasRango.map((date) => fechaToInput(date)));
   const turnosBaseSemana = StorageDB.getTurnos()
-    .filter((turno) => fechasRangoSet.has(turno.dia) && turno.dia >= hoy);
+    .filter((turno) => fechasRangoSet.has(turno.dia));
   const fechas = Array.from(new Set(turnosBaseSemana.map((turno) => turno.dia)))
     .toSorted()
     .map(parseFecha);
@@ -4574,7 +4573,7 @@ function renderUsuario(): void {
 
             return `
               <div class="calendar-cell ${key === fechaUsuarioSeleccionada ? 'is-selected-day' : ''}">
-                ${renderNowLine(key, horaInicio, horaFin)}
+                ${key === fechaUsuarioSeleccionada ? renderNowLine(key, horaInicio, horaFin) : ''}
                 ${bloqueos.map(renderBloqueoCalendario).join('')}
                 ${turnos.map((turno) => renderTurnoCalendario(turno, perfil)).join('')}
               </div>

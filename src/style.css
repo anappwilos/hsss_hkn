@@ -2363,6 +2363,14 @@ button:disabled {
   background: rgba(244, 251, 253, 0.58);
 }
 
+.calendar-cell .now-line {
+  display: none;
+}
+
+.calendar-cell.is-selected-day .now-line {
+  display: block;
+}
+
 .calendar-cell.is-selected-day {
   background: rgba(219, 234, 240, 0.72);
 }
@@ -2448,6 +2456,21 @@ button:disabled {
   background: var(--color-accent-soft);
   box-shadow: inset 4px 0 0 var(--color-accent), 0 8px 18px rgba(22, 143, 163, 0.08);
   outline: 0;
+}
+
+.calendar-event.is-past {
+  border-color: rgba(123, 138, 153, 0.18);
+  color: #6b7f87;
+  background-color: rgba(225, 232, 235, 0.86);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.8) 0,
+    rgba(255, 255, 255, 0.8) 6px,
+    rgba(225, 232, 235, 0.86) 6px,
+    rgba(225, 232, 235, 0.86) 12px
+  );
+  box-shadow: none;
+  opacity: 0.78;
 }
 
 .calendar-event--blocked {
@@ -6041,6 +6064,14 @@ body,
   padding: 10px;
 }
 
+.admin-calendar-cell .admin-now-line {
+  display: none;
+}
+
+.admin-calendar-cell.is-selected-day .admin-now-line {
+  display: block;
+}
+
 .now-line,
 .admin-now-line {
   position: absolute;
@@ -7057,7 +7088,14 @@ body,
 .admin-calendar-turn.is-past {
   border-color: rgba(123, 138, 153, 0.18);
   color: #6b7f87;
-  background: rgba(241, 245, 247, 0.82);
+  background-color: rgba(225, 232, 235, 0.86);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.8) 0,
+    rgba(255, 255, 255, 0.8) 6px,
+    rgba(225, 232, 235, 0.86) 6px,
+    rgba(225, 232, 235, 0.86) 12px
+  );
   box-shadow: none;
   opacity: 0.78;
 }
