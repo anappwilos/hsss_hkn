@@ -99,6 +99,7 @@ export interface RemoteStatePayload {
 
 type SyncListener = (status: SyncStatus, message: string) => void;
 type StateChangeListener = () => void;
+type RemoteResource = 'usuarios' | 'lotes' | 'turnos' | 'notificaciones' | 'catalogoUsuarios';
 const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '')).replace(/\/$/, '');
 
 export class StorageDB {
@@ -110,6 +111,7 @@ export class StorageDB {
   private static lastRemoteStateHash: string | null = null;
   private static remotePollHandle: number | null = null;
   private static syncQueue: Promise<void> = Promise.resolve();
+  private static pendingRemoteResources = new Set<RemoteResource>();
   private static syncListeners = new Set<SyncListener>();
   private static stateChangeListeners = new Set<StateChangeListener>();
   private static usuarios: Usuario[] = StorageDB.readPerfilAdoradorCacheArray();
@@ -195,16 +197,25 @@ export class StorageDB {
     }
   }
 
-  public static queueRemoteSync(): void {
+  public static queueRemoteSync(resource?: RemoteResource): void {
     if (!StorageDB.REMOTE_ENABLED || StorageDB.applyingRemoteState) {
       return;
     }
 
-    const remoteState = StorageDB.getRemoteState();
+    if (resource) {
+      StorageDB.pendingRemoteResources.add(resource);
+    } else {
+      StorageDB.pendingRemoteResources = new Set(['usuarios', 'lotes', 'turnos', 'notificaciones', 'catalogoUsuarios']);
+    }
+
     StorageDB.emitSync('syncing', 'Guardando cambios en PostgreSQL...');
     StorageDB.syncQueue = StorageDB.syncQueue
       .catch(() => undefined)
-      .then(() => StorageDB.saveRemote(remoteState));
+      .then(() => {
+        const resources = [...StorageDB.pendingRemoteResources];
+        StorageDB.pendingRemoteResources.clear();
+        return StorageDB.saveRemoteResources(resources);
+      });
     void StorageDB.syncQueue.catch(() => undefined);
   }
 
@@ -312,25 +323,54 @@ export class StorageDB {
     }
   }
 
-  private static async saveRemote(remoteState: RemoteStatePayload): Promise<void> {
+  private static async saveRemoteResources(resources: RemoteResource[]): Promise<void> {
+    if (resources.length === 0) {
+      return;
+    }
+
+    const resourceOrder: RemoteResource[] = ['usuarios', 'lotes', 'turnos', 'notificaciones', 'catalogoUsuarios'];
+    const uniqueResources = resourceOrder.filter((resource) => resources.includes(resource));
+
     try {
-      const response = await fetch(StorageDB.apiUrl('/api/state'), {
+      for (const resource of uniqueResources) {
+        await StorageDB.putRemoteResource(resource);
+      }
+
+      StorageDB.lastRemoteStateHash = null;
+      StorageDB.emitSync('online', 'Cambios guardados en PostgreSQL.');
+    } catch {
+      StorageDB.emitSync('offline', 'No se pudieron guardar los cambios. Revisa que el servidor este activo.');
+      throw new Error('PostgreSQL sync failed');
+    }
+  }
+
+  private static async putRemoteResource(resource: RemoteResource): Promise<void> {
+    const endpoints: Record<RemoteResource, string> = {
+      usuarios: '/api/usuarios',
+      lotes: '/api/lotes',
+      turnos: '/api/turnos',
+      notificaciones: '/api/notificaciones',
+      catalogoUsuarios: '/api/catalogo-usuarios'
+    };
+    const payloads: Record<RemoteResource, unknown> = {
+      usuarios: { usuarios: StorageDB.getUsuarios() },
+      lotes: { lotes: StorageDB.getLotes() },
+      turnos: { turnos: StorageDB.getTurnos() },
+      notificaciones: { notificaciones: StorageDB.getNotificaciones() },
+      catalogoUsuarios: { catalogoUsuarios: StorageDB.getCatalogoUsuarios() }
+    };
+
+    const response = await fetch(StorageDB.apiUrl(endpoints[resource]), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json'
         },
-        body: JSON.stringify(remoteState)
-      });
+      body: JSON.stringify(payloads[resource])
+    });
 
-      if (!response.ok) {
-        throw new Error(`Servidor no disponible (${response.status})`);
-      }
-
-      StorageDB.emitSync('online', 'Cambios guardados en PostgreSQL.');
-    } catch {
-      StorageDB.emitSync('offline', 'No se pudieron guardar los cambios. Revisa que el servidor este activo.');
-      throw new Error('PostgreSQL sync failed');
+    if (!response.ok) {
+      throw new Error(`Servidor no disponible (${response.status})`);
     }
   }
 
@@ -371,7 +411,7 @@ export class StorageDB {
 
   public static saveTurnos(turnos: Turno[]): void {
     StorageDB.turnos = [...turnos];
-    StorageDB.queueRemoteSync();
+    StorageDB.queueRemoteSync('turnos');
   }
 
   public static getLotes(): LoteExposicion[] {
@@ -380,7 +420,7 @@ export class StorageDB {
 
   public static saveLotes(lotes: LoteExposicion[]): void {
     StorageDB.lotes = [...lotes];
-    StorageDB.queueRemoteSync();
+    StorageDB.queueRemoteSync('lotes');
   }
 
   public static getPerfilAdorador(): PerfilAdorador | null {
@@ -443,7 +483,7 @@ export class StorageDB {
       StorageDB.clearPerfilAdorador();
     }
 
-    StorageDB.queueRemoteSync();
+    StorageDB.queueRemoteSync('usuarios');
   }
 
   public static upsertUsuario(usuario: Usuario): void {
@@ -472,7 +512,7 @@ export class StorageDB {
 
   public static saveNotificaciones(notificaciones: NotificacionRegistro[]): void {
     StorageDB.notificaciones = StorageDB.normalizeNotificaciones(notificaciones);
-    StorageDB.queueRemoteSync();
+    StorageDB.queueRemoteSync('notificaciones');
   }
 
   public static agregarNotificacion(notificacion: NotificacionRegistro): void {
@@ -556,7 +596,7 @@ export class StorageDB {
 
   public static saveCatalogoUsuarios(catalogo: CatalogoUsuarios): void {
     StorageDB.catalogoUsuarios = StorageDB.normalizeCatalogoUsuarios(catalogo);
-    StorageDB.queueRemoteSync();
+    StorageDB.queueRemoteSync('catalogoUsuarios');
   }
 
   public static agregarFrecuenciaUsuario(frecuencia: string): void {

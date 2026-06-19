@@ -99,8 +99,33 @@ const server = createServer(async (request, response) => {
       return;
     }
 
-    if (url.pathname === '/api/state') {
+    if (url.pathname === '/api/state' || url.pathname === '/api/state/revisar') {
       await handleState(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/usuarios') {
+      await handleUsuarios(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/lotes') {
+      await handleLotes(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/turnos') {
+      await handleTurnos(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/notificaciones') {
+      await handleNotificaciones(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/catalogo-usuarios') {
+      await handleCatalogoUsuarios(request, response);
       return;
     }
 
@@ -358,7 +383,11 @@ function createPostgresStore() {
       return readRelationalState();
     },
     async writeState(state) {
-      await writeRelationalState(state);
+      await writeUsuariosResource(state.usuarios);
+      await writeLotesResource(state.lotes);
+      await writeTurnosResource(state.turnos);
+      await writeNotificacionesResource(state.notificaciones);
+      await writeCatalogoUsuariosResource(state.catalogoUsuarios);
     },
     async findUserByEmail(email) {
       const result = await pool.query(
@@ -516,7 +545,7 @@ async function migrateStoredPasswords() {
   }));
 
   if (changed) {
-    await store.writeState(state);
+    await writeUsuariosResource(state.usuarios);
   }
 }
 
@@ -531,8 +560,109 @@ async function handleState(request, response) {
     const currentState = await store.readState();
     const state = await normalizeIncomingState(body, currentState);
     const stateWithSeeds = await withSeedUsers(state);
-    await store.writeState(stateWithSeeds);
+    await writeUsuariosResource(stateWithSeeds.usuarios);
+    await writeLotesResource(stateWithSeeds.lotes);
+    await writeTurnosResource(stateWithSeeds.turnos);
+    await writeNotificacionesResource(stateWithSeeds.notificaciones);
+    await writeCatalogoUsuariosResource(stateWithSeeds.catalogoUsuarios);
     sendJson(response, 200, sanitizeStateForClient(stateWithSeeds));
+    return;
+  }
+
+  sendJson(response, 405, { error: 'Method not allowed' });
+}
+
+async function handleUsuarios(request, response) {
+  const currentState = await store.readState();
+
+  if (request.method === 'GET') {
+    sendJson(response, 200, { usuarios: sanitizeStateForClient(currentState).usuarios });
+    return;
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    const usuarios = Array.isArray(body) ? body : body.usuarios;
+    const state = await normalizeIncomingState({ ...currentState, usuarios }, currentState);
+    const stateWithSeeds = await withSeedUsers(state);
+    await writeUsuariosResource(stateWithSeeds.usuarios);
+    sendJson(response, 200, { usuarios: sanitizeStateForClient(stateWithSeeds).usuarios });
+    return;
+  }
+
+  sendJson(response, 405, { error: 'Method not allowed' });
+}
+
+async function handleLotes(request, response) {
+  const currentState = await store.readState();
+
+  if (request.method === 'GET') {
+    sendJson(response, 200, { lotes: currentState.lotes });
+    return;
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    const state = normalizeState({ ...currentState, lotes: Array.isArray(body) ? body : body.lotes });
+    await writeLotesResource(state.lotes);
+    sendJson(response, 200, { lotes: state.lotes });
+    return;
+  }
+
+  sendJson(response, 405, { error: 'Method not allowed' });
+}
+
+async function handleTurnos(request, response) {
+  const currentState = await store.readState();
+
+  if (request.method === 'GET') {
+    sendJson(response, 200, { turnos: currentState.turnos });
+    return;
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    const state = normalizeState({ ...currentState, turnos: Array.isArray(body) ? body : body.turnos });
+    await writeTurnosResource(state.turnos);
+    sendJson(response, 200, { turnos: state.turnos });
+    return;
+  }
+
+  sendJson(response, 405, { error: 'Method not allowed' });
+}
+
+async function handleNotificaciones(request, response) {
+  const currentState = await store.readState();
+
+  if (request.method === 'GET') {
+    sendJson(response, 200, { notificaciones: currentState.notificaciones });
+    return;
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    const state = normalizeState({ ...currentState, notificaciones: Array.isArray(body) ? body : body.notificaciones });
+    await writeNotificacionesResource(state.notificaciones);
+    sendJson(response, 200, { notificaciones: state.notificaciones });
+    return;
+  }
+
+  sendJson(response, 405, { error: 'Method not allowed' });
+}
+
+async function handleCatalogoUsuarios(request, response) {
+  const currentState = await store.readState();
+
+  if (request.method === 'GET') {
+    sendJson(response, 200, { catalogoUsuarios: currentState.catalogoUsuarios });
+    return;
+  }
+
+  if (request.method === 'PUT') {
+    const body = await readJsonBody(request);
+    const catalogoUsuarios = normalizeCatalogoUsuarios(body.catalogoUsuarios || body);
+    await writeCatalogoUsuariosResource(catalogoUsuarios);
+    sendJson(response, 200, { catalogoUsuarios });
     return;
   }
 
@@ -1064,17 +1194,34 @@ async function readRelationalState() {
   return state;
 }
 
-async function writeRelationalState(state) {
+async function writeUsuariosResource(usuarios) {
+  if (!pool) {
+    const state = await store.readState();
+    await store.writeState({ ...state, usuarios });
+    return;
+  }
+
+  const normalized = normalizeState({ usuarios }).usuarios;
+  const ids = normalized.map((usuario) => usuario.id);
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
-    await client.query('TRUNCATE catalogo_usuario_opciones, notificaciones, turnos, lotes, usuarios');
 
-    for (const usuario of state.usuarios) {
+    for (const usuario of normalized) {
       await client.query(
         `INSERT INTO usuarios (id, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))
+         ON CONFLICT (id)
+         DO UPDATE SET
+           nombre = EXCLUDED.nombre,
+           apellidos = EXCLUDED.apellidos,
+           email = EXCLUDED.email,
+           telefono = EXCLUDED.telefono,
+           frecuencia = EXCLUDED.frecuencia,
+           rol = EXCLUDED.rol,
+           password = EXCLUDED.password,
+           actualizado_en = EXCLUDED.actualizado_en`,
         [
           usuario.id,
           usuario.nombre,
@@ -1090,18 +1237,85 @@ async function writeRelationalState(state) {
       );
     }
 
-    for (const lote of state.lotes) {
+    await client.query('UPDATE notificaciones SET usuario_id = NULL WHERE NOT (usuario_id = ANY($1::text[]))', [ids]);
+    await client.query('DELETE FROM usuarios WHERE NOT (id = ANY($1::text[]))', [ids]);
+    await client.query('COMMIT');
+    logInfo('postgres.usuarios_written', { usuarios: normalized.length });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logError('postgres.usuarios_write_failed', error, getDatabaseDiagnostics(error));
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function writeLotesResource(lotes) {
+  if (!pool) {
+    const state = await store.readState();
+    await store.writeState({ ...state, lotes });
+    return;
+  }
+
+  const normalized = normalizeState({ lotes }).lotes.filter((lote) => lote?.id);
+  const ids = normalized.map((lote) => lote.id);
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    for (const lote of normalized) {
       await client.query(
         `INSERT INTO lotes (id, data, creado_en, actualizado_en)
-         VALUES ($1, $2::jsonb, to_timestamp($3 / 1000.0), now())`,
+         VALUES ($1, $2::jsonb, to_timestamp($3 / 1000.0), now())
+         ON CONFLICT (id)
+         DO UPDATE SET
+           data = EXCLUDED.data,
+           actualizado_en = now()`,
         [lote.id, JSON.stringify(lote), typeof lote.creadoEn === 'number' ? lote.creadoEn : Date.now()]
       );
     }
 
-    for (const turno of state.turnos) {
+    await client.query('DELETE FROM lotes WHERE NOT (id = ANY($1::text[]))', [ids]);
+    await client.query('COMMIT');
+    logInfo('postgres.lotes_written', { lotes: normalized.length });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logError('postgres.lotes_write_failed', error, getDatabaseDiagnostics(error));
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function writeTurnosResource(turnos) {
+  if (!pool) {
+    const state = await store.readState();
+    await store.writeState({ ...state, turnos });
+    return;
+  }
+
+  const normalized = normalizeState({ turnos }).turnos.filter((turno) => turno?.id);
+  const ids = normalized.map((turno) => turno.id);
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    for (const turno of normalized) {
       await client.query(
         `INSERT INTO turnos (id, lote_id, dia, hora_inicio, hora_fin, plazas_totales, plazas_disponibles, data, actualizado_en)
-         VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8::jsonb, now())`,
+         VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8::jsonb, now())
+         ON CONFLICT (id)
+         DO UPDATE SET
+           lote_id = EXCLUDED.lote_id,
+           dia = EXCLUDED.dia,
+           hora_inicio = EXCLUDED.hora_inicio,
+           hora_fin = EXCLUDED.hora_fin,
+           plazas_totales = EXCLUDED.plazas_totales,
+           plazas_disponibles = EXCLUDED.plazas_disponibles,
+           data = EXCLUDED.data,
+           actualizado_en = now()`,
         [
           turno.id,
           turno.loteId ?? null,
@@ -1115,17 +1329,86 @@ async function writeRelationalState(state) {
       );
     }
 
-    for (const notificacion of state.notificaciones) {
+    await client.query('DELETE FROM turnos WHERE NOT (id = ANY($1::text[]))', [ids]);
+    await client.query('COMMIT');
+    logInfo('postgres.turnos_written', { turnos: normalized.length });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logError('postgres.turnos_write_failed', error, getDatabaseDiagnostics(error));
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function writeNotificacionesResource(notificaciones) {
+  if (!pool) {
+    const state = await store.readState();
+    await store.writeState({ ...state, notificaciones });
+    return;
+  }
+
+  const state = await readRelationalState();
+  const userIds = new Set(state.usuarios.map((usuario) => usuario.id));
+  const normalized = normalizeState({ notificaciones }).notificaciones;
+  const ids = normalized.map((notificacion) => notificacion.id);
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    for (const notificacion of normalized) {
       await client.query(
         `INSERT INTO notificaciones (id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en)
-         VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7 / 1000.0), CASE WHEN $8::double precision IS NULL THEN NULL ELSE to_timestamp($8 / 1000.0) END)`,
-        [notificacion.id, state.usuarios.some((usuario) => usuario.id === notificacion.usuarioId) ? notificacion.usuarioId : null, notificacion.titulo, notificacion.mensaje, notificacion.tipo, notificacion.estado, notificacion.creadoEn, notificacion.leidoEn ?? null]
+         VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7 / 1000.0), CASE WHEN $8::double precision IS NULL THEN NULL ELSE to_timestamp($8 / 1000.0) END)
+         ON CONFLICT (id)
+         DO UPDATE SET
+           usuario_id = EXCLUDED.usuario_id,
+           titulo = EXCLUDED.titulo,
+           mensaje = EXCLUDED.mensaje,
+           tipo = EXCLUDED.tipo,
+           estado = EXCLUDED.estado,
+           leido_en = EXCLUDED.leido_en`,
+        [
+          notificacion.id,
+          userIds.has(notificacion.usuarioId) ? notificacion.usuarioId : null,
+          notificacion.titulo,
+          notificacion.mensaje,
+          notificacion.tipo,
+          notificacion.estado,
+          notificacion.creadoEn,
+          notificacion.leidoEn ?? null
+        ]
       );
     }
 
-    const catalogoUsuarios = normalizeCatalogoUsuarios(state.catalogoUsuarios);
+    await client.query('DELETE FROM notificaciones WHERE NOT (id = ANY($1::text[]))', [ids]);
+    await client.query('COMMIT');
+    logInfo('postgres.notificaciones_written', { notificaciones: normalized.length });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logError('postgres.notificaciones_write_failed', error, getDatabaseDiagnostics(error));
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
-    for (const frecuencia of catalogoUsuarios.frecuencias) {
+async function writeCatalogoUsuariosResource(catalogoUsuarios) {
+  if (!pool) {
+    const state = await store.readState();
+    await store.writeState({ ...state, catalogoUsuarios });
+    return;
+  }
+
+  const normalized = normalizeCatalogoUsuarios(catalogoUsuarios);
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM catalogo_usuario_opciones');
+
+    for (const frecuencia of normalized.frecuencias) {
       await client.query(
         `INSERT INTO catalogo_usuario_opciones (tipo, valor)
          VALUES ('frecuencia', $1)
@@ -1134,7 +1417,7 @@ async function writeRelationalState(state) {
       );
     }
 
-    for (const rol of catalogoUsuarios.roles) {
+    for (const rol of normalized.roles) {
       await client.query(
         `INSERT INTO catalogo_usuario_opciones (tipo, valor)
          VALUES ('rol', $1)
@@ -1144,15 +1427,13 @@ async function writeRelationalState(state) {
     }
 
     await client.query('COMMIT');
-    logInfo('postgres.state_written', {
-      usuarios: state.usuarios.length,
-      lotes: state.lotes.length,
-      turnos: state.turnos.length,
-      notificaciones: state.notificaciones.length
+    logInfo('postgres.catalogo_usuarios_written', {
+      frecuencias: normalized.frecuencias.length,
+      roles: normalized.roles.length
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    logError('postgres.state_write_failed', error, getDatabaseDiagnostics(error));
+    logError('postgres.catalogo_usuarios_write_failed', error, getDatabaseDiagnostics(error));
     throw error;
   } finally {
     client.release();
