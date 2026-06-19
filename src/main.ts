@@ -11,7 +11,7 @@ type VistaTurnos = 'diaria' | 'semanal';
 type AdminPanel = 'lotes' | 'usuarios' | 'turnos' | 'catalogos';
 type AdminUsuarioFiltro = 'todos' | 'administrador' | (string & {});
 type AdminUsuariosSubpanel = 'usuarios' | 'env';
-type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
+type AdminTurnoFiltro = 'todos' | 'libres' | 'parciales' | 'completos' | 'con-suplente' | 'sin-turno';
 type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'parcial';
 type UsuarioPanel = 'disponibles' | 'asignados';
 type UsuarioOrdenTurnos = 'fecha' | 'hora' | 'plazas';
@@ -80,11 +80,16 @@ const diasSemana = [
   { label: 'Sa', value: 6 },
   { label: 'Do', value: 7 }
 ];
+const mesesAnuales = Array.from({ length: 12 }, (_, index) => ({
+  label: new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(2026, index, 1)),
+  value: index + 1
+}));
 
 let filtroLote: FiltroLote = 'todos';
 let busquedaLote = '';
 let loteEditandoId: string | null = null;
 let diasConfig = new Set<number>([1, 2, 3, 4, 5]);
+let mesesLoteSeleccionados = new Set<string>();
 let interrupcionesConfig: InterrupcionLote[] = [];
 let interrupcionDiasConfig = new Set<number>([1, 2, 3, 4, 5]);
 let fechaUsuarioSeleccionada = fechaToInput(new Date());
@@ -208,10 +213,6 @@ app.innerHTML = `
       </header>
 
       <div class="screen-content">
-        <header class="admin-heading">
-          <h1>Panel de administracion</h1>
-          <p>Gestiona lotes, usuarios, catalogos y turnos.</p>
-        </header>
 
         <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
           <button class="chip" type="button" data-admin-panel="lotes"><span aria-hidden="true">▧</span>Lotes</button>
@@ -222,7 +223,7 @@ app.innerHTML = `
 
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
           <div class="admin-lotes-panel-head">
-            <h2>Lotes</h2>
+            <h2></h2>
             <div class="admin-lotes-tools">
               <label class="admin-lote-search" for="lote-buscar">
                 <span aria-hidden="true">⌕</span>
@@ -637,10 +638,14 @@ app.innerHTML = `
               <h2>Fechas</h2>
               <div class="config-card">
             <label class="field month-picker-field">
-              <span>Mes completo</span>
+              <span>A&ntilde;o de planificacion</span>
               <input id="lote-mes-completo" type="month" />
             </label>
-            <p class="form-note">Selecciona un mes para rellenar automaticamente el primer y ultimo dia, o ajusta el rango manualmente.</p>
+            <section class="field month-select-field">
+              <span>Meses a crear</span>
+              <div id="lote-meses-selector" class="month-chip-grid" aria-label="Meses a crear"></div>
+            </section>
+            <p class="form-note">Selecciona el a&ntilde;o con el campo superior y marca los meses concretos que quieres crear, por ejemplo junio y septiembre. Si ajustas fechas manualmente se creara un solo lote.</p>
             <div class="date-grid">
               <label class="field">
                 <span>Inicio</span>
@@ -820,6 +825,7 @@ const registroStepLabel = getElement<HTMLElement>('#registro-step-label');
 const formLote = getElement<HTMLFormElement>('#form-lote');
 const loteNombre = getElement<HTMLInputElement>('#lote-nombre');
 const loteMesCompleto = getElement<HTMLInputElement>('#lote-mes-completo');
+const loteMesesSelector = getElement<HTMLDivElement>('#lote-meses-selector');
 const loteFechaInicio = getElement<HTMLInputElement>('#lote-fecha-inicio');
 const loteFechaFin = getElement<HTMLInputElement>('#lote-fecha-fin');
 const loteHoraInicio = getElement<HTMLInputElement>('#lote-hora-inicio');
@@ -969,6 +975,10 @@ function canManageUsers(): boolean {
 }
 
 function canAssignAdminRoles(): boolean {
+  return getAdminSessionRole() === 'root' || getAdminSessionRole() === 'admin';
+}
+
+function canAssignRootRole(): boolean {
   return getAdminSessionRole() === 'root';
 }
 
@@ -1154,8 +1164,18 @@ function usuarioTieneFrecuencia(usuario: Usuario): boolean {
 function getRolesEditables(usuario: Usuario): UsuarioRol[] {
   const roles = StorageDB.getCatalogoUsuarios().roles as UsuarioRol[];
 
-  if (canAssignAdminRoles()) {
+  if (canAssignRootRole()) {
     return roles;
+  }
+
+  if (getAdminSessionRole() === 'admin') {
+    const allowed = new Set<UsuarioRol>(['usuario', 'sacerdote', 'admin']);
+
+    if (usuario.rol === 'root') {
+      return ['root'];
+    }
+
+    return roles.filter((rol) => allowed.has(rol));
   }
 
   return isAdminRol(usuario.rol) ? [usuario.rol] : ['usuario', 'sacerdote'];
@@ -1617,10 +1637,6 @@ function getTurnoAsignacionTipo(turno: Turno, nombreCompleto?: string): TurnoAsi
   return normalizarTipoAsignacion(usuario?.frecuencia);
 }
 
-function getTurnoAsignacionLabel(turno: Turno, nombreCompleto?: string): string {
-  return formatFrecuencia(getTurnoAsignacionTipo(turno, nombreCompleto));
-}
-
 function getTurnoAsignacionRepeticion(turno: Turno, nombreCompleto?: string): string {
   const asignacion = (turno.asignaciones ?? []).find((item) =>
     !nombreCompleto || normalizarNombre(item.nombreCompleto) === normalizarNombre(nombreCompleto)
@@ -1921,34 +1937,156 @@ function crearLoteDesdeFormulario(esBorrador: boolean): LoteExposicion {
   };
 }
 
+function getNombreLoteMensual(nombreBase: string, monthValue: string, totalMeses: number): string {
+  const nombreMes = formatMonthName(monthValue);
+  const esNombreAutogenerado = !nombreBase || nombreBase === ultimoNombreMesAutogenerado || nombreBase === formatMonthName(loteMesCompleto.value);
+
+  if (totalMeses === 1 || esNombreAutogenerado) {
+    return nombreMes;
+  }
+
+  return `${nombreBase} - ${nombreMes}`;
+}
+
+function getAnioPlanificacionLote(): number {
+  if (loteMesCompleto.value) {
+    return Number(loteMesCompleto.value.split('-')[0]);
+  }
+
+  if (loteFechaInicio.value) {
+    return parseFecha(loteFechaInicio.value).getFullYear();
+  }
+
+  return new Date().getFullYear();
+}
+
+function toMonthValue(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+function getMesesLoteSeleccionados(): string[] {
+  return [...mesesLoteSeleccionados].toSorted();
+}
+
+function syncFechasConMesesSeleccionados(): void {
+  const meses = getMesesLoteSeleccionados();
+
+  if (meses.length === 0) {
+    return;
+  }
+
+  const firstBounds = getMonthBounds(meses[0]);
+  const lastBounds = getMonthBounds(meses[meses.length - 1]);
+  loteFechaInicio.value = firstBounds.inicio;
+  loteFechaFin.value = lastBounds.fin;
+}
+
+function renderMesesLoteSelector(): void {
+  const year = getAnioPlanificacionLote();
+  const disabled = Boolean(loteEditandoId);
+
+  loteMesesSelector.innerHTML = mesesAnuales.map((mes) => {
+    const monthValue = toMonthValue(year, mes.value);
+    const isSelected = mesesLoteSeleccionados.has(monthValue);
+
+    return `
+      <button class="month-chip ${isSelected ? 'is-active' : ''}" type="button" data-lote-month="${monthValue}" aria-pressed="${isSelected}" ${disabled ? 'disabled' : ''}>
+        ${escapeHtml(capitalize(mes.label))}
+      </button>
+    `;
+  }).join('');
+}
+
+function crearLotesDesdeFormulario(esBorrador: boolean): LoteExposicion[] {
+  const loteBase = crearLoteDesdeFormulario(esBorrador);
+  const meses = getMesesLoteSeleccionados();
+
+  if (loteEditandoId || meses.length === 0) {
+    return [loteBase];
+  }
+
+  return meses.map((monthValue, index) => {
+    const bounds = getMonthBounds(monthValue);
+
+    return {
+      ...loteBase,
+      id: index === 0 ? loteBase.id : crearId(),
+      nombre: getNombreLoteMensual(loteNombre.value.trim(), monthValue, meses.length),
+      fechaInicio: bounds.inicio,
+      fechaFin: bounds.fin,
+      estado: esBorrador ? 'borrador' : calcularEstado(bounds.inicio, bounds.fin),
+      interrupciones: [...interrupcionesConfig],
+      creadoEn: index === 0 ? loteBase.creadoEn : Date.now()
+    };
+  });
+}
+
+function assertLotesDisponibles(lotes: LoteExposicion[], ignoreId?: string): void {
+  const mesesVistos = new Map<string, string>();
+
+  for (const lote of lotes) {
+    for (const mes of getMesesEnRango(lote.fechaInicio, lote.fechaFin)) {
+      const existente = mesesVistos.get(mes);
+
+      if (existente) {
+        throw new Error(`La configuracion crea mas de un lote para ${formatMonthName(mes)}: "${existente}" y "${lote.nombre}".`);
+      }
+
+      mesesVistos.set(mes, lote.nombre);
+    }
+
+    assertMesDisponible(lote, ignoreId);
+  }
+}
+
 function guardarLote(esBorrador: boolean): void {
-  const lote = crearLoteDesdeFormulario(esBorrador);
+  const lotes = crearLotesDesdeFormulario(esBorrador);
+  const lote = lotes[0];
   const loteAnterior = loteEditandoId
     ? StorageDB.getLotes().find((item) => item.id === loteEditandoId)
     : undefined;
-  assertMesDisponible(lote, loteEditandoId ?? undefined);
+  assertLotesDisponibles(lotes, loteEditandoId ?? undefined);
   let turnosCreados = 0;
+  let turnosNuevos: Turno[] = [];
 
   if (!esBorrador) {
-    turnosCreados = regenerarTurnosDeLote(lote, loteAnterior);
+    if (loteEditandoId) {
+      turnosCreados = regenerarTurnosDeLote(lote, loteAnterior);
+    } else {
+      turnosNuevos = lotes.flatMap(crearTurnosDesdeLote);
+
+      if (turnosNuevos.length === 0) {
+        throw new Error('La configuracion no genera turnos. Revisa fechas, horas y dias.');
+      }
+
+      turnosCreados = turnosNuevos.length;
+    }
   }
 
   if (loteEditandoId) {
     StorageDB.actualizarLote(lote);
   } else {
-    StorageDB.agregarLote(lote);
+    StorageDB.saveLotes([...StorageDB.getLotes(), ...lotes]);
+
+    if (turnosNuevos.length > 0) {
+      StorageDB.saveTurnos([...StorageDB.getTurnos(), ...turnosNuevos]);
+    }
   }
 
   if (!esBorrador) {
     NotificationService.notify({
       title: loteEditandoId ? 'Lote actualizado' : 'Exposicion confirmada',
-      message: loteEditandoId ? `Se actualizaron ${formatPlural(turnosCreados, 'turno', 'turnos')}.` : `Se crearon ${formatPlural(turnosCreados, 'turno', 'turnos')}.`,
+      message: loteEditandoId
+        ? `Se actualizaron ${formatPlural(turnosCreados, 'turno', 'turnos')}.`
+        : `Se crearon ${formatPlural(lotes.length, 'lote', 'lotes')} y ${formatPlural(turnosCreados, 'turno', 'turnos')}.`,
       tone: 'success'
     });
   } else {
     NotificationService.notify({
-      title: 'Borrador guardado',
-      message: 'El lote queda disponible para completarlo mas tarde.',
+      title: lotes.length > 1 ? 'Borradores guardados' : 'Borrador guardado',
+      message: lotes.length > 1
+        ? `Se guardaron ${formatPlural(lotes.length, 'lote mensual', 'lotes mensuales')} como borrador.`
+        : 'El lote queda disponible para completarlo mas tarde.',
       tone: 'success'
     });
   }
@@ -1961,6 +2099,7 @@ function resetConfig(): void {
   loteEditandoId = null;
   formLote.reset();
   loteMesCompleto.value = '';
+  mesesLoteSeleccionados = new Set<string>();
   loteHoraInicio.value = '08:00';
   loteHoraFin.value = '20:00';
   loteTurnoMinutos.value = '60';
@@ -1969,6 +2108,7 @@ function resetConfig(): void {
   interrupcionDiasConfig = new Set(diasConfig);
   interrupcionesConfig = [];
   renderDiasConfig();
+  renderMesesLoteSelector();
   renderInterrupciones();
   actualizarResumenLote();
 }
@@ -1984,6 +2124,7 @@ function abrirConfig(lote?: LoteExposicion): void {
     const loteMonth = fechaToMonthInput(parseFecha(lote.fechaInicio));
     const monthBounds = getMonthBounds(loteMonth);
     loteMesCompleto.value = monthBounds.inicio === lote.fechaInicio && monthBounds.fin === lote.fechaFin ? loteMonth : '';
+    mesesLoteSeleccionados = loteMesCompleto.value ? new Set([loteMesCompleto.value]) : new Set<string>();
     loteHoraInicio.value = lote.horaInicio;
     loteHoraFin.value = lote.horaFin;
     loteTurnoMinutos.value = String(lote.turnoMinutos);
@@ -1992,6 +2133,7 @@ function abrirConfig(lote?: LoteExposicion): void {
     interrupcionDiasConfig = new Set(diasConfig);
     interrupcionesConfig = [...(lote.interrupciones ?? [])];
     renderDiasConfig();
+    renderMesesLoteSelector();
     renderInterrupciones();
   }
 
@@ -2138,6 +2280,9 @@ function actualizarResumenLote(): void {
   const horas = loteHoraInicio.value && loteHoraFin.value ? calcularHoras(loteHoraInicio.value, loteHoraFin.value) : 0;
   const inicio = loteFechaInicio.value ? formatFecha(loteFechaInicio.value) : 'la fecha inicial';
   const fin = loteFechaFin.value ? formatFecha(loteFechaFin.value) : 'la fecha final';
+  const meses = !loteEditandoId && mesesLoteSeleccionados.size > 1
+    ? getMesesLoteSeleccionados().map(formatMonthName)
+    : [];
   const dias = diasSemana
     .filter((dia) => diasConfig.has(dia.value))
     .map((dia) => dia.label)
@@ -2147,7 +2292,10 @@ function actualizarResumenLote(): void {
   const interrupciones = interrupcionesConfig.length > 0
     ? ` Se ${interrupcionesConfig.length === 1 ? 'excluira' : 'excluiran'} ${formatPlural(interrupcionesConfig.length, 'interrupcion', 'interrupciones')}.`
     : '';
-  resumenLote.textContent = `Se habilitaran turnos desde ${inicio} hasta ${fin}, de ${loteHoraInicio.value || '--:--'} a ${loteHoraFin.value || '--:--'}, los dias ${dias || 'seleccionados'}.${interrupciones}`;
+  const alcance = meses.length > 1
+    ? `Se crearan ${formatPlural(meses.length, 'lote mensual', 'lotes mensuales')} desde ${meses[0]} hasta ${meses.at(-1)}`
+    : `Se habilitaran turnos desde ${inicio} hasta ${fin}`;
+  resumenLote.textContent = `${alcance}, de ${loteHoraInicio.value || '--:--'} a ${loteHoraFin.value || '--:--'}, los dias ${dias || 'seleccionados'}.${interrupciones}`;
 }
 
 function getUsuarioByNombre(nombreCompleto: string): PerfilAdorador | undefined {
@@ -2428,7 +2576,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
   const isNew = !StorageDB.getUsuarios().some((item) => item.id === usuario.id);
   const turnosAsignados = isNew ? [] : getTurnosUsuario(usuario);
   const rolesEditables = getRolesEditables(usuario);
-  const mostrarFrecuencia = isNew || usuarioTieneFrecuencia(usuario);
+  const mostrarFrecuencia = rolTieneFrecuencia(usuario.rol);
   const readOnlyEnv = esUsuarioEnv(usuario);
   const disabledEnv = readOnlyEnv ? 'disabled' : '';
 
@@ -2449,7 +2597,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
         </div>
       </section>
 
-      <form class="admin-user-edit-form" data-admin-user-form="${usuario.id}">
+      <form class="admin-user-edit-form" data-admin-user-form="${usuario.id}" data-admin-user-readonly="${readOnlyEnv}">
         <label>
           <span>Nombre completo</span>
           <input id="admin-user-edit-name" type="text" value="${escapeHtml(usuario.nombreCompleto)}" required ${disabledEnv} />
@@ -2462,12 +2610,12 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
           <span>Telefono</span>
           <input id="admin-user-edit-phone" type="tel" value="${escapeHtml(usuario.telefono)}" ${disabledEnv} />
         </label>
-        <label ${mostrarFrecuencia ? '' : 'hidden'}>
+        <label data-admin-frequency-field ${mostrarFrecuencia ? '' : 'hidden'}>
           <span>Frecuencia</span>
           <select id="admin-user-edit-frequency" ${mostrarFrecuencia && !readOnlyEnv ? '' : 'disabled'}>
             ${getFrecuenciasEditables().map((value) => `<option value="${value}" ${usuario.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
           </select>
-          ${mostrarFrecuencia ? '' : '<small>Admin, Root y Sacerdotes no tienen frecuencia asociada.</small>'}
+          <small data-admin-frequency-note ${mostrarFrecuencia ? 'hidden' : ''}>Admin, Root y Sacerdotes no tienen frecuencia asociada.</small>
         </label>
         <label>
           <span>Rol</span>
@@ -2526,6 +2674,7 @@ function abrirModalAdminUsuario(id: string | null): void {
 
   adminUsuarioEditandoId = usuario.id;
   modalAdminUsuarioCard.innerHTML = renderAdminUsuarioModal(usuario);
+  syncAdminUsuarioFrecuenciaField(modalAdminUsuarioCard.querySelector<HTMLFormElement>('.admin-user-edit-form'));
   modalAdminUsuario.showModal();
   renderAdminUsuarios();
 }
@@ -2558,7 +2707,7 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   const requestedFrecuencia = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency')?.value as UsuarioFrecuencia | undefined;
   const requestedRol = form.querySelector<HTMLSelectElement>('#admin-user-edit-role')?.value as UsuarioRol;
   const rol = getRolPermitidoParaGuardar(usuario, requestedRol);
-  const frecuencia = rolTieneFrecuencia(rol) ? (requestedFrecuencia ?? usuario.frecuencia ?? 'puntual') : usuario.frecuencia;
+  const frecuencia = rolTieneFrecuencia(rol) ? (requestedFrecuencia ?? usuario.frecuencia ?? 'puntual') : '';
 
   if (!nombreCompleto || !esEmailValido(email) || (telefono && !esTelefonoValido(telefono))) {
     mostrarAviso('Revisa el usuario', 'Nombre, email y telefono deben ser validos. El telefono puede quedar vacio.', 'error');
@@ -2588,13 +2737,39 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   mostrarAviso(isNew ? 'Usuario creado' : 'Usuario actualizado', isNew ? 'El nuevo perfil se ha guardado correctamente.' : 'Los cambios del perfil se guardaron correctamente.', 'success');
 }
 
+function syncAdminUsuarioFrecuenciaField(form: HTMLFormElement | null): void {
+  if (!form) {
+    return;
+  }
+
+  const roleSelect = form.querySelector<HTMLSelectElement>('#admin-user-edit-role');
+  const frequencyField = form.querySelector<HTMLElement>('[data-admin-frequency-field]');
+  const frequencySelect = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency');
+  const frequencyNote = form.querySelector<HTMLElement>('[data-admin-frequency-note]');
+  const rol = (roleSelect?.value ?? 'usuario') as UsuarioRol;
+  const tieneFrecuencia = rolTieneFrecuencia(rol);
+  const readOnly = form.dataset.adminUserReadonly === 'true';
+
+  if (frequencyField) {
+    frequencyField.hidden = !tieneFrecuencia;
+  }
+
+  if (frequencySelect) {
+    frequencySelect.disabled = !tieneFrecuencia || readOnly;
+  }
+
+  if (frequencyNote) {
+    frequencyNote.hidden = tieneFrecuencia;
+  }
+}
+
 function renderAdminCatalogos(): void {
   adminCatalogosLista.innerHTML = `
     <div class="admin-catalog-screen">
       <header class="admin-users-hero">
       </header>
 
-      ${canAssignAdminRoles()
+      ${canAssignRootRole()
         ? renderAdminCatalogoUsuarios()
         : `<section class="admin-user-catalog admin-catalog-empty"><h3>Solo Root puede editar catalogos</h3><p>Los administradores pueden consultar usuarios y turnos, pero la creacion de roles y frecuencias queda reservada a Root.</p></section>`
       }
@@ -2647,7 +2822,7 @@ function renderAdminCatalogoUsuarios(): string {
 }
 
 function guardarAdminCatalogo(form: HTMLFormElement): void {
-  if (!canAssignAdminRoles()) {
+  if (!canAssignRootRole()) {
     mostrarAviso('Sin permisos', 'Solo Root puede crear frecuencias y roles.', 'error');
     return;
   }
@@ -2825,12 +3000,20 @@ function matchesAdminTurnoFiltro(turno: Turno): boolean {
     return true;
   }
 
-  if (adminTurnosFiltro === 'sin-asignar') {
+  if (adminTurnosFiltro === 'libres') {
     return estado === 'sin-asignar';
   }
 
-  if (adminTurnosFiltro === 'asignados') {
-    return estado === 'asignado' || estado === 'parcial';
+  if (adminTurnosFiltro === 'parciales') {
+    return estado === 'parcial';
+  }
+
+  if (adminTurnosFiltro === 'completos') {
+    return estado === 'asignado';
+  }
+
+  if (adminTurnosFiltro === 'sin-turno') {
+    return false;
   }
 
   return estado === 'suplente';
@@ -2858,6 +3041,20 @@ function renderAdminTurnoFiltroButton(filter: AdminTurnoFiltro, label: string, c
   `;
 }
 
+function renderAdminTurnoMetricCard(label: string, value: string, detail: string, icon: string, tone: string, className = '', progress?: number): string {
+  return `
+    <article class="${className}">
+      <span class="metric-icon ${tone}" aria-hidden="true">${icon}</span>
+      <div class="metric-copy">
+        <small>${escapeHtml(label)}</small>
+        <strong>${escapeHtml(value)}</strong>
+        <span>${escapeHtml(detail)}</span>
+        ${typeof progress === 'number' ? `<div class="coverage-bar" aria-hidden="true"><i style="width: ${Math.max(0, Math.min(100, progress))}%"></i></div>` : ''}
+      </div>
+    </article>
+  `;
+}
+
 function renderAdminTurnosCubiertos(): void {
   if (!isAdminAuthenticated()) {
     adminTurnosCubiertos.innerHTML = '';
@@ -2875,10 +3072,10 @@ function renderAdminTurnosCubiertos(): void {
   const turnosFiltrados = turnosPeriodo.filter((turno) => matchesAdminTurnoFiltro(turno) && matchesAdminTurnoBusqueda(turno));
   const turnosSinAsignar = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'sin-asignar').length;
   const turnosSuplente = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'suplente').length;
-  const turnosAsignados = turnosPeriodo.filter((turno) => {
-    const estado = getAdminTurnoEstado(turno);
-    return estado === 'asignado' || estado === 'parcial';
-  }).length;
+  const turnosParciales = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'parcial').length;
+  const turnosCompletos = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'asignado').length;
+  const turnosConAsignacion = turnosPeriodo.length - turnosSinAsignar;
+  const cobertura = turnosPeriodo.length > 0 ? Math.round((turnosConAsignacion / turnosPeriodo.length) * 100) : 0;
 
   if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && adminTurnoSeleccionadoId && !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId)) {
     adminTurnoSeleccionadoId = null;
@@ -2887,19 +3084,16 @@ function renderAdminTurnosCubiertos(): void {
   const selectedTurno = adminTurnoSeleccionadoId && adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED
     ? turnosPeriodo.find((turno) => turno.id === adminTurnoSeleccionadoId) ?? null
     : null;
-  const diasConTurnos = Array.from(new Set(turnosFiltrados.map((turno) => turno.dia))).toSorted();
-  const fechasSemana = diasConTurnos.map(parseFecha);
-  const franjasSemana = Array.from(new Set(turnosFiltrados.map((turno) => `${turno.horaInicio}|${turno.horaFin}`)))
+  const diasPeriodo = Array.from(new Set(turnosPeriodo.map((turno) => turno.dia))).toSorted();
+  const fechasPeriodo = diasPeriodo.map(parseFecha);
+  const franjasPeriodo = Array.from(new Set(turnosPeriodo.map((turno) => `${turno.horaInicio}|${turno.horaFin}`)))
     .toSorted((a, b) => a.localeCompare(b));
+  const turnosSinTurno = Math.max(0, fechasPeriodo.length * franjasPeriodo.length - turnosPeriodo.length);
 
   adminTurnosCubiertos.innerHTML = `
     <div class="admin-turns-dashboard">
-      <header class="admin-turns-hero">
+      <div class="admin-turns-controls" aria-label="Controles de turnos asignados">
         <div class="admin-turns-period-controls" aria-label="Vista de turnos">
-          <div class="view-toggle admin-view-toggle" role="group" aria-label="Cambiar vista de administracion">
-            <button class="${adminVistaTurnos === 'diaria' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="diaria" aria-pressed="${adminVistaTurnos === 'diaria'}">D&iacute;a</button>
-            <button class="${adminVistaTurnos === 'semanal' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="semanal" aria-pressed="${adminVistaTurnos === 'semanal'}">Semana</button>
-          </div>
           <div class="week-actions admin-period-actions" aria-label="Navegacion del periodo">
             <button class="icon-round" type="button" data-action="admin-period-prev" aria-label="Periodo anterior">‹</button>
             <div class="admin-week-picker" aria-label="Periodo visible">${escapeHtml(formatAdminPeriodoTurnos())}</div>
@@ -2907,40 +3101,49 @@ function renderAdminTurnosCubiertos(): void {
           </div>
         </div>
 
+        <div class="view-toggle admin-view-toggle" role="group" aria-label="Cambiar vista de administracion">
+          <button class="${adminVistaTurnos === 'diaria' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="diaria" aria-pressed="${adminVistaTurnos === 'diaria'}">D&iacute;a</button>
+          <button class="${adminVistaTurnos === 'semanal' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="semanal" aria-pressed="${adminVistaTurnos === 'semanal'}">Semana</button>
+        </div>
 
-        
-      </header>
-      <div class="">
-            <div class="admin-turns-tools">
-              <label class="admin-turn-search">
-                <span aria-hidden="true">⌕</span>
-                <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar fecha, hora o adorador" autocomplete="off" />
-              </label>
-
-              <div class="admin-turn-filters" aria-label="Filtros de turnos">
-                ${renderAdminTurnoFiltroButton('todos', 'Todos', turnosPeriodo.length)}
-                ${renderAdminTurnoFiltroButton('sin-asignar', 'Sin asignar', turnosSinAsignar)}
-                ${renderAdminTurnoFiltroButton('asignados', 'Asignados', turnosAsignados)}
-                ${renderAdminTurnoFiltroButton('suplente', 'Con suplente', turnosSuplente)}
-              </div>
-            </div>
-          </div>
+        <label class="admin-turn-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar adorador..." autocomplete="off" />
+        </label>
+      </div>
 
       <div class="admin-turns-layout">
         <section class="admin-turns-main">
+          <section class="admin-turns-metrics" aria-label="Resumen de turnos">
+            ${renderAdminTurnoMetricCard('Cobertura', `${cobertura}%`, `${turnosConAsignacion} de ${turnosPeriodo.length} turnos cubiertos`, '◔', 'metric-teal', 'coverage-metric', cobertura)}
+            ${renderAdminTurnoMetricCard('Libres', `${turnosSinAsignar}`, 'Turnos pendientes de asignacion', '○', 'metric-blue')}
+            ${renderAdminTurnoMetricCard('Parciales', `${turnosParciales}`, 'Con plazas aun disponibles', '◐', 'metric-amber')}
+            ${renderAdminTurnoMetricCard('Completos', `${turnosCompletos}`, 'Turnos cubiertos al 100%', '✓', 'metric-green')}
+            ${renderAdminTurnoMetricCard('Sin turno', `${turnosSinTurno}`, 'Huecos vacios en la grilla visible', '−', 'metric-gray')}
+          </section>
+
+          <div class="admin-turns-tools">
+            <div class="admin-turn-filters" aria-label="Filtros de turnos">
+              ${renderAdminTurnoFiltroButton('todos', 'Todos', turnosPeriodo.length)}
+              ${renderAdminTurnoFiltroButton('libres', 'Libres', turnosSinAsignar)}
+              ${renderAdminTurnoFiltroButton('parciales', 'Parciales', turnosParciales)}
+              ${renderAdminTurnoFiltroButton('completos', 'Completos', turnosCompletos)}
+              ${renderAdminTurnoFiltroButton('con-suplente', 'Con suplente', turnosSuplente)}
+              ${renderAdminTurnoFiltroButton('sin-turno', 'Sin turno', turnosSinTurno)}
+            </div>
+          </div>
+
           <div class="admin-turns-card">
-            ${turnosFiltrados.length > 0
-              ? `<div class="admin-assignment-scroll">${renderAdminTurnosCalendario(fechasSemana, franjasSemana, turnosFiltrados)}</div>`
+            ${turnosPeriodo.length > 0
+              ? `<div class="admin-assignment-scroll">${renderAdminTurnosCalendario(fechasPeriodo, franjasPeriodo, turnosFiltrados)}</div>`
               : `<div class="empty-card compact"><h3>No hay turnos con este filtro</h3><p>Ajusta la busqueda o selecciona otro estado.</p></div>`
             }
           </div>
         </section>
 
-        ${selectedTurno ? `
-          <aside class="admin-turn-detail-panel" aria-label="Detalle del turno">
-            ${renderAdminTurnoDetail(selectedTurno)}
-          </aside>
-        ` : ''}
+        <aside class="admin-turn-detail-panel" aria-label="Detalle del turno">
+          ${renderAdminTurnoDetail(selectedTurno)}
+        </aside>
       </div>
     </div>
   `;
@@ -2977,8 +3180,8 @@ function renderAdminTurnosCalendario(fechas: Date[], franjas: string[], turnos: 
             const turnosCelda = turnos.filter((turno) => turno.dia === key && turno.horaInicio === horaInicio && turno.horaFin === horaFin);
 
             return `
-              <div class="admin-calendar-cell">
-                ${renderNowLine(key, horaInicio, horaFin, 'admin-now-line')}
+              <div class="admin-calendar-cell ${key === adminFechaTurnosSeleccionada ? 'is-selected-day' : ''}">
+                ${key === adminFechaTurnosSeleccionada ? renderNowLine(key, horaInicio, horaFin, 'admin-now-line') : ''}
                 ${turnosCelda.length > 0
                   ? turnosCelda.map(renderAdminTurnoCalendarCard).join('')
                   : '<span class="admin-calendar-empty">Sin turnos</span>'
@@ -2999,20 +3202,19 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
   const pasado = isTurnoPasado(turno);
   const miembros = renderAdminTurnoMiembros(turno, 'compact');
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
-  const mostrarCoberturaParcial = turno.plazasDisponibles > 0 && ocupadas > 0;
-  const canAssign = !pasado && (estado === 'sin-asignar' || estado === 'suplente' || estado === 'parcial');
+  const cardLabel = estado === 'sin-asignar'
+    ? 'Libre'
+    : estado === 'asignado'
+      ? `Completo · ${ocupadas}/${turno.plazasTotales}`
+      : `Parcial · ${ocupadas}/${turno.plazasTotales}`;
 
   return `
     <article class="admin-calendar-turn is-${estado} assignment-${tipo} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
       <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
+        <strong>${escapeHtml(cardLabel)}</strong>
+        ${estado === 'sin-asignar' ? `<small>${ocupadas}/${turno.plazasTotales} plazas</small>` : ''}
         ${miembros}
-        ${mostrarCoberturaParcial ? `<small>${ocupadas}/${turno.plazasTotales} cubierto</small>` : ''}
-        ${turno.inscritos.length > 0 ? `<span class="assignment-badge assignment-badge-${tipo}">${escapeHtml(getTurnoAsignacionLabel(turno))}</span>` : ''}
       </button>
-      ${canAssign
-        ? `<button class="admin-calendar-turn-action" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${estado === 'sin-asignar' ? 'Asignar' : estado === 'parcial' ? 'Cubrir' : 'Cambiar'}</button>`
-        : ''
-      }
     </article>
   `;
 }
@@ -3020,7 +3222,7 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
 function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail'): string {
   if (turno.inscritos.length === 0) {
     return variant === 'compact'
-      ? '<span class="admin-turn-members is-empty">Sin miembros asignados</span>'
+      ? ''
       : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>';
   }
 
@@ -3029,7 +3231,7 @@ function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail'): 
     const tipo = getTurnoAsignacionTipo(turno, inscrito);
     const iniciales = usuario ? getInicialesUsuario(usuario) : inscrito.trim().charAt(0).toUpperCase() || 'A';
     const detalle = usuario
-      ? `${getTurnoAsignacionLabel(turno, inscrito)} · ${formatRol(usuario.rol)} · ${getTurnoAsignacionRepeticion(turno, inscrito)}`
+      ? `${formatRol(usuario.rol)} · ${getTurnoAsignacionRepeticion(turno, inscrito)}`
       : 'Perfil no encontrado';
 
     return `
@@ -3057,8 +3259,6 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
   const estado = getAdminTurnoEstado(turno);
   const principal = getAdminTurnoPrincipal(turno);
   const usuario = principal.usuario;
-  const tipo = getTurnoAsignacionTipo(turno);
-  const lote = getAdminTurnoLote(turno);
   const miembros = renderAdminTurnoMiembros(turno, 'detail');
   const tienePlazasLibres = turno.plazasDisponibles > 0;
   const pasado = isTurnoPasado(turno);
@@ -3077,39 +3277,27 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
       <button type="button" data-action="admin-turno-clear-detail" aria-label="Cerrar detalle">×</button>
     </header>
 
-    <dl class="admin-turn-detail-list">
-      <div><dt>Fecha</dt><dd>${escapeHtml(formatFecha(turno.dia))}</dd></div>
-      <div><dt>Hora</dt><dd>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</dd></div>
-      <div><dt>Lote</dt><dd>${escapeHtml(lote?.nombre ?? 'Lote sin identificar')}</dd></div>
-      <div><dt>Miembros</dt><dd>${turno.inscritos.length}</dd></div>
-    </dl>
-
-    <section class="admin-turn-members-panel" aria-label="Miembros asignados al turno">
-      <h4>Miembros asignados</h4>
-      ${miembros}
-    </section>
-
-    <section class="admin-turn-detail-stats">
-      <div><span>Plazas cubiertas</span><strong>${turno.plazasTotales - turno.plazasDisponibles}/${turno.plazasTotales}</strong></div>
-      <div><span>Tipo</span><strong>${escapeHtml(usuario ? formatFrecuencia(tipo) : 'Puntual')}</strong></div>
-      <div><span>Estado horario</span><strong>${pasado ? 'Pasado' : estado === 'sin-asignar' ? 'Pendiente' : 'Activo'}</strong></div>
+    <section class="admin-turn-detail-card">
+      <header>
+        <span aria-hidden="true">▣</span>
+        <strong>${escapeHtml(formatFecha(turno.dia))} · ${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</strong>
+      </header>
+      <div class="admin-turn-detail-places">
+        <span>Plazas</span>
+        <strong>${turno.plazasTotales - turno.plazasDisponibles}/${turno.plazasTotales}</strong>
+      </div>
+      <div class="admin-turn-detail-assigned">
+        <span>Asignado</span>
+        ${turno.inscritos.length > 0 ? miembros : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>'}
+      </div>
     </section>
 
     <div class="admin-turn-detail-actions">
       <button class="button button-primary" type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>${pasado ? 'Turno pasado' : textoAccionPrincipal}</button>
-      <button class="button button-secondary" type="button" data-action="admin-turno-suplente" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>Buscar suplente</button>
+      <button class="button button-secondary" type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado || !usuario ? 'disabled' : ''}>Cambiar</button>
+      <button class="button button-secondary" type="button" data-action="admin-turno-suplente" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>Marcar suplente</button>
+      <button class="button button-danger" type="button" data-action="admin-turno-incident" data-id="${turno.id}" ${pasado || turno.inscritos.length === 0 ? 'disabled' : ''}>Eliminar asignacion</button>
     </div>
-
-    <section class="admin-turn-quick-actions">
-      <h4>Acciones rapidas</h4>
-      <button type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>${pasado ? 'Turno pasado' : textoAccionPrincipal} <span>›</span></button>
-    </section>
-
-    <section class="admin-turn-last-action">
-      <strong>Ultima accion administrativa</strong>
-      <span>${turno.inscritos.length > 0 ? 'Turno sincronizado con adorador registrado.' : 'Turno sin asignar.'}</span>
-      <button type="button" data-action="admin-audit-info">Ver historial completo <span>›</span></button>
-    </section>
   `;
 }
 
@@ -3517,7 +3705,7 @@ function renderMisTurnos(): void {
   usuarioMisTurnos.innerHTML = `
     <header class="my-turns-header">
       <div>
-        <p class="section-kicker">Compromisos</p>
+        <p class="section-kicker"></p>        
         <h2>Turnos asignados</h2>
         <p>${siguienteTurno ? `Siguiente turno: ${escapeHtml(formatFecha(siguienteTurno.dia))} · ${escapeHtml(siguienteTurno.horaInicio)} - ${escapeHtml(siguienteTurno.horaFin)}` : 'Todavia no tienes turnos asignados.'}</p>
       </div>
@@ -3770,13 +3958,26 @@ function renderLotes(): void {
       ...lote,
       estado: lote.estado === 'borrador' ? lote.estado : calcularEstado(lote.fechaInicio, lote.fechaFin)
     }))
-    .toSorted((a, b) => b.fechaInicio.localeCompare(a.fechaInicio));
+    .toSorted(compareLotesPorCercania);
 
   const filtrados = lotes.filter((lote) => {
     const coincideFiltro = filtroLote === 'todos' || lote.estado === filtroLote;
     const coincideBusqueda = lote.nombre.toLowerCase().includes(busquedaLote.toLowerCase());
     return coincideFiltro && coincideBusqueda;
   });
+  const conteos = {
+    todos: lotes.length,
+    activo: lotes.filter((lote) => lote.estado === 'activo').length,
+    programado: lotes.filter((lote) => lote.estado === 'programado').length,
+    finalizado: lotes.filter((lote) => lote.estado === 'finalizado').length
+  };
+
+  loteFiltros.innerHTML = `
+    ${renderLoteFiltroButton('todos', 'Todos', conteos.todos)}
+    ${renderLoteFiltroButton('activo', 'Activos', conteos.activo)}
+    ${renderLoteFiltroButton('programado', 'Programados', conteos.programado)}
+    ${renderLoteFiltroButton('finalizado', 'Finalizados', conteos.finalizado)}
+  `;
 
   loteFiltros.querySelectorAll<HTMLButtonElement>('[data-filter]').forEach((button) => {
     button.classList.toggle('is-active', button.dataset.filter === filtroLote);
@@ -3825,6 +4026,66 @@ function renderLotes(): void {
       </div>
     </article>
   `).join('');
+}
+
+function getLoteDistanciaTemporal(lote: LoteExposicion): number {
+  const hoy = fechaToInput(new Date());
+
+  if (lote.fechaInicio <= hoy && lote.fechaFin >= hoy) {
+    return 0;
+  }
+
+  const referencia = lote.fechaInicio > hoy ? parseFecha(lote.fechaInicio) : parseFecha(lote.fechaFin);
+  return Math.abs(daysBetween(parseFecha(hoy), referencia));
+}
+
+function compareLotesPorCercania(a: LoteExposicion, b: LoteExposicion): number {
+  const byDistance = getLoteDistanciaTemporal(a) - getLoteDistanciaTemporal(b);
+
+  if (byDistance !== 0) {
+    return byDistance;
+  }
+
+  const hoy = fechaToInput(new Date());
+  const aIsPast = a.fechaFin < hoy;
+  const bIsPast = b.fechaFin < hoy;
+
+  if (aIsPast !== bIsPast) {
+    return aIsPast ? 1 : -1;
+  }
+
+  return aIsPast
+    ? b.fechaInicio.localeCompare(a.fechaInicio)
+    : a.fechaInicio.localeCompare(b.fechaInicio);
+}
+
+function renderLoteFiltroButton(filter: FiltroLote, label: string, count: number): string {
+  return `
+    <button class="chip ${filtroLote === filter ? 'is-active' : ''}" type="button" data-filter="${filter}">
+      ${escapeHtml(label)}
+      <span>${count}</span>
+    </button>
+  `;
+}
+
+function abrirTurnosAsignadosDeLote(lote: LoteExposicion): void {
+  const primerTurno = StorageDB.getTurnos()
+    .filter((turno) => turno.loteId === lote.id)
+    .toSorted((a, b) => {
+      const byDate = a.dia.localeCompare(b.dia);
+      return byDate !== 0 ? byDate : a.horaInicio.localeCompare(b.horaInicio);
+    })[0];
+  const fechaDestino = primerTurno?.dia ?? lote.fechaInicio;
+
+  adminPanel = 'turnos';
+  adminVistaTurnos = 'semanal';
+  adminFechaTurnosSeleccionada = fechaDestino;
+  adminSemanaTurnosInicio = startOfWeekMonday(parseFecha(fechaDestino));
+  adminTurnosBusqueda = lote.nombre;
+  adminTurnosFiltro = 'todos';
+  adminTurnoSeleccionadoId = null;
+  localStorage.setItem(LAST_ADMIN_PANEL_KEY, adminPanel);
+  renderAdminPanel();
 }
 
 function formatLoteEstado(estado: LoteEstado): string {
@@ -4193,11 +4454,10 @@ function renderListaTurnosDia(
 function renderUsuario(): void {
   const hoy = fechaToInput(new Date());
   const perfil = StorageDB.getPerfilAdorador();
-  const fechasRango = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index))
-    .filter((date) => fechaToInput(date) >= hoy);
+  const fechasRango = Array.from({ length: 7 }, (_, index) => addDays(semanaUsuarioInicio, index));
   const fechasRangoSet = new Set(fechasRango.map((date) => fechaToInput(date)));
   const turnosBaseSemana = StorageDB.getTurnos()
-    .filter((turno) => fechasRangoSet.has(turno.dia) && turno.dia >= hoy);
+    .filter((turno) => fechasRangoSet.has(turno.dia));
   const fechas = Array.from(new Set(turnosBaseSemana.map((turno) => turno.dia)))
     .toSorted()
     .map(parseFecha);
@@ -4313,7 +4573,7 @@ function renderUsuario(): void {
 
             return `
               <div class="calendar-cell ${key === fechaUsuarioSeleccionada ? 'is-selected-day' : ''}">
-                ${renderNowLine(key, horaInicio, horaFin)}
+                ${key === fechaUsuarioSeleccionada ? renderNowLine(key, horaInicio, horaFin) : ''}
                 ${bloqueos.map(renderBloqueoCalendario).join('')}
                 ${turnos.map((turno) => renderTurnoCalendario(turno, perfil)).join('')}
               </div>
@@ -4853,6 +5113,34 @@ document.addEventListener('click', (event) => {
       return;
     }
 
+    if (action === 'admin-turno-incident') {
+      const turno = StorageDB.getTurnos().find((item) => item.id === adminTurnoAction.dataset.id);
+
+      if (!turno || turno.inscritos.length === 0) {
+        mostrarAviso('Sin asignacion', 'Este turno no tiene adoradores asignados.', 'info');
+        return;
+      }
+
+      abrirConfirmacion({
+        titulo: 'Eliminar asignacion',
+        mensaje: `Se quitaran los adoradores asignados al turno de ${formatFecha(turno.dia)} de ${turno.horaInicio} a ${turno.horaFin}.`,
+        confirmarTexto: 'Eliminar',
+        onConfirm: () => {
+          StorageDB.actualizarTurno({
+            ...turno,
+            inscritos: [],
+            asignaciones: [],
+            plazasDisponibles: turno.plazasTotales
+          });
+          adminTurnoSeleccionadoId = turno.id;
+          renderAdminTurnosCubiertos();
+          renderUsuario();
+          mostrarAviso('Asignacion eliminada', 'El turno queda libre de nuevo.', 'success');
+        }
+      });
+      return;
+    }
+
     mostrarAviso('Accion no disponible', 'Este flujo administrativo se conectara con la asignacion avanzada de adoradores.', 'info');
     return;
   }
@@ -5029,9 +5317,7 @@ document.addEventListener('click', (event) => {
     if (loteAction.dataset.action === 'ver-turnos-lote') {
       cancelarConfirmacionEliminarLote();
       loteMenuAbiertoId = null;
-      adminPanel = 'turnos';
-      localStorage.setItem(LAST_ADMIN_PANEL_KEY, adminPanel);
-      renderAdminPanel();
+      abrirTurnosAsignadosDeLote(lote);
       return;
     }
 
@@ -5138,6 +5424,11 @@ document.addEventListener('input', (event) => {
 
 document.addEventListener('change', (event) => {
   const select = event.target as HTMLSelectElement;
+
+  if (select.id === 'admin-user-edit-role') {
+    syncAdminUsuarioFrecuenciaField(select.closest<HTMLFormElement>('.admin-user-edit-form'));
+    return;
+  }
 
   if (select.id !== 'usuario-orden-turnos') {
     return;
@@ -5432,12 +5723,15 @@ interrupcionFechasConcretas.addEventListener('change', actualizarVisibilidadFech
 
 loteMesCompleto.addEventListener('input', () => {
   if (!loteMesCompleto.value) {
+    mesesLoteSeleccionados = new Set<string>();
+    renderMesesLoteSelector();
     actualizarResumenLote();
     return;
   }
 
   const bounds = getMonthBounds(loteMesCompleto.value);
   const nombreMes = formatMonthName(loteMesCompleto.value);
+  mesesLoteSeleccionados = new Set([loteMesCompleto.value]);
   loteFechaInicio.value = bounds.inicio;
   loteFechaFin.value = bounds.fin;
 
@@ -5446,6 +5740,30 @@ loteMesCompleto.addEventListener('input', () => {
     ultimoNombreMesAutogenerado = nombreMes;
   }
 
+  renderMesesLoteSelector();
+  actualizarResumenLote();
+});
+
+loteMesesSelector.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-lote-month]');
+
+  if (!button?.dataset.loteMonth || loteEditandoId) {
+    return;
+  }
+
+  if (mesesLoteSeleccionados.has(button.dataset.loteMonth)) {
+    mesesLoteSeleccionados.delete(button.dataset.loteMonth);
+  } else {
+    mesesLoteSeleccionados.add(button.dataset.loteMonth);
+  }
+
+  if (mesesLoteSeleccionados.size > 0) {
+    const firstMonth = getMesesLoteSeleccionados()[0];
+    loteMesCompleto.value = firstMonth;
+    syncFechasConMesesSeleccionados();
+  }
+
+  renderMesesLoteSelector();
   actualizarResumenLote();
 });
 
@@ -5453,12 +5771,16 @@ loteMesCompleto.addEventListener('input', () => {
   input.addEventListener('input', () => {
     if (!loteFechaInicio.value || !loteFechaFin.value) {
       loteMesCompleto.value = '';
+      mesesLoteSeleccionados = new Set<string>();
+      renderMesesLoteSelector();
       return;
     }
 
     const monthValue = fechaToMonthInput(parseFecha(loteFechaInicio.value));
     const bounds = getMonthBounds(monthValue);
     loteMesCompleto.value = bounds.inicio === loteFechaInicio.value && bounds.fin === loteFechaFin.value ? monthValue : '';
+    mesesLoteSeleccionados = loteMesCompleto.value ? new Set([loteMesCompleto.value]) : new Set<string>();
+    renderMesesLoteSelector();
   });
 });
 
