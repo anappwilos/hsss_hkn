@@ -11,7 +11,7 @@ type VistaTurnos = 'diaria' | 'semanal';
 type AdminPanel = 'lotes' | 'usuarios' | 'turnos' | 'catalogos';
 type AdminUsuarioFiltro = 'todos' | 'administrador' | (string & {});
 type AdminUsuariosSubpanel = 'usuarios' | 'env';
-type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
+type AdminTurnoFiltro = 'todos' | 'libres' | 'parciales' | 'completos' | 'con-suplente' | 'sin-turno';
 type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'parcial';
 type UsuarioPanel = 'disponibles' | 'asignados';
 type UsuarioOrdenTurnos = 'fecha' | 'hora' | 'plazas';
@@ -3000,12 +3000,20 @@ function matchesAdminTurnoFiltro(turno: Turno): boolean {
     return true;
   }
 
-  if (adminTurnosFiltro === 'sin-asignar') {
+  if (adminTurnosFiltro === 'libres') {
     return estado === 'sin-asignar';
   }
 
-  if (adminTurnosFiltro === 'asignados') {
-    return estado === 'asignado' || estado === 'parcial';
+  if (adminTurnosFiltro === 'parciales') {
+    return estado === 'parcial';
+  }
+
+  if (adminTurnosFiltro === 'completos') {
+    return estado === 'asignado';
+  }
+
+  if (adminTurnosFiltro === 'sin-turno') {
+    return false;
   }
 
   return estado === 'suplente';
@@ -3033,6 +3041,20 @@ function renderAdminTurnoFiltroButton(filter: AdminTurnoFiltro, label: string, c
   `;
 }
 
+function renderAdminTurnoMetricCard(label: string, value: string, detail: string, icon: string, tone: string, className = '', progress?: number): string {
+  return `
+    <article class="${className}">
+      <span class="metric-icon ${tone}" aria-hidden="true">${icon}</span>
+      <div class="metric-copy">
+        <small>${escapeHtml(label)}</small>
+        <strong>${escapeHtml(value)}</strong>
+        <span>${escapeHtml(detail)}</span>
+        ${typeof progress === 'number' ? `<div class="coverage-bar" aria-hidden="true"><i style="width: ${Math.max(0, Math.min(100, progress))}%"></i></div>` : ''}
+      </div>
+    </article>
+  `;
+}
+
 function renderAdminTurnosCubiertos(): void {
   if (!isAdminAuthenticated()) {
     adminTurnosCubiertos.innerHTML = '';
@@ -3050,10 +3072,10 @@ function renderAdminTurnosCubiertos(): void {
   const turnosFiltrados = turnosPeriodo.filter((turno) => matchesAdminTurnoFiltro(turno) && matchesAdminTurnoBusqueda(turno));
   const turnosSinAsignar = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'sin-asignar').length;
   const turnosSuplente = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'suplente').length;
-  const turnosAsignados = turnosPeriodo.filter((turno) => {
-    const estado = getAdminTurnoEstado(turno);
-    return estado === 'asignado' || estado === 'parcial';
-  }).length;
+  const turnosParciales = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'parcial').length;
+  const turnosCompletos = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'asignado').length;
+  const turnosConAsignacion = turnosPeriodo.length - turnosSinAsignar;
+  const cobertura = turnosPeriodo.length > 0 ? Math.round((turnosConAsignacion / turnosPeriodo.length) * 100) : 0;
 
   if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && adminTurnoSeleccionadoId && !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId)) {
     adminTurnoSeleccionadoId = null;
@@ -3062,19 +3084,16 @@ function renderAdminTurnosCubiertos(): void {
   const selectedTurno = adminTurnoSeleccionadoId && adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED
     ? turnosPeriodo.find((turno) => turno.id === adminTurnoSeleccionadoId) ?? null
     : null;
-  const diasConTurnos = Array.from(new Set(turnosFiltrados.map((turno) => turno.dia))).toSorted();
-  const fechasSemana = diasConTurnos.map(parseFecha);
-  const franjasSemana = Array.from(new Set(turnosFiltrados.map((turno) => `${turno.horaInicio}|${turno.horaFin}`)))
+  const diasPeriodo = Array.from(new Set(turnosPeriodo.map((turno) => turno.dia))).toSorted();
+  const fechasPeriodo = diasPeriodo.map(parseFecha);
+  const franjasPeriodo = Array.from(new Set(turnosPeriodo.map((turno) => `${turno.horaInicio}|${turno.horaFin}`)))
     .toSorted((a, b) => a.localeCompare(b));
+  const turnosSinTurno = Math.max(0, fechasPeriodo.length * franjasPeriodo.length - turnosPeriodo.length);
 
   adminTurnosCubiertos.innerHTML = `
     <div class="admin-turns-dashboard">
-      <header class="admin-turns-hero">
+      <div class="admin-turns-controls" aria-label="Controles de turnos asignados">
         <div class="admin-turns-period-controls" aria-label="Vista de turnos">
-          <div class="view-toggle admin-view-toggle" role="group" aria-label="Cambiar vista de administracion">
-            <button class="${adminVistaTurnos === 'diaria' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="diaria" aria-pressed="${adminVistaTurnos === 'diaria'}">D&iacute;a</button>
-            <button class="${adminVistaTurnos === 'semanal' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="semanal" aria-pressed="${adminVistaTurnos === 'semanal'}">Semana</button>
-          </div>
           <div class="week-actions admin-period-actions" aria-label="Navegacion del periodo">
             <button class="icon-round" type="button" data-action="admin-period-prev" aria-label="Periodo anterior">‹</button>
             <div class="admin-week-picker" aria-label="Periodo visible">${escapeHtml(formatAdminPeriodoTurnos())}</div>
@@ -3082,40 +3101,49 @@ function renderAdminTurnosCubiertos(): void {
           </div>
         </div>
 
+        <div class="view-toggle admin-view-toggle" role="group" aria-label="Cambiar vista de administracion">
+          <button class="${adminVistaTurnos === 'diaria' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="diaria" aria-pressed="${adminVistaTurnos === 'diaria'}">D&iacute;a</button>
+          <button class="${adminVistaTurnos === 'semanal' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="semanal" aria-pressed="${adminVistaTurnos === 'semanal'}">Semana</button>
+        </div>
 
-        
-      </header>
-      <div class="">
-            <div class="admin-turns-tools">
-              <label class="admin-turn-search">
-                <span aria-hidden="true">⌕</span>
-                <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar fecha, hora o adorador" autocomplete="off" />
-              </label>
-
-              <div class="admin-turn-filters" aria-label="Filtros de turnos">
-                ${renderAdminTurnoFiltroButton('todos', 'Todos', turnosPeriodo.length)}
-                ${renderAdminTurnoFiltroButton('sin-asignar', 'Sin asignar', turnosSinAsignar)}
-                ${renderAdminTurnoFiltroButton('asignados', 'Asignados', turnosAsignados)}
-                ${renderAdminTurnoFiltroButton('suplente', 'Con suplente', turnosSuplente)}
-              </div>
-            </div>
-          </div>
+        <label class="admin-turn-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar adorador..." autocomplete="off" />
+        </label>
+      </div>
 
       <div class="admin-turns-layout">
         <section class="admin-turns-main">
+          <section class="admin-turns-metrics" aria-label="Resumen de turnos">
+            ${renderAdminTurnoMetricCard('Cobertura', `${cobertura}%`, `${turnosConAsignacion} de ${turnosPeriodo.length} turnos cubiertos`, '◔', 'metric-teal', 'coverage-metric', cobertura)}
+            ${renderAdminTurnoMetricCard('Libres', `${turnosSinAsignar}`, 'Turnos pendientes de asignacion', '○', 'metric-blue')}
+            ${renderAdminTurnoMetricCard('Parciales', `${turnosParciales}`, 'Con plazas aun disponibles', '◐', 'metric-amber')}
+            ${renderAdminTurnoMetricCard('Completos', `${turnosCompletos}`, 'Turnos cubiertos al 100%', '✓', 'metric-green')}
+            ${renderAdminTurnoMetricCard('Sin turno', `${turnosSinTurno}`, 'Huecos vacios en la grilla visible', '−', 'metric-gray')}
+          </section>
+
+          <div class="admin-turns-tools">
+            <div class="admin-turn-filters" aria-label="Filtros de turnos">
+              ${renderAdminTurnoFiltroButton('todos', 'Todos', turnosPeriodo.length)}
+              ${renderAdminTurnoFiltroButton('libres', 'Libres', turnosSinAsignar)}
+              ${renderAdminTurnoFiltroButton('parciales', 'Parciales', turnosParciales)}
+              ${renderAdminTurnoFiltroButton('completos', 'Completos', turnosCompletos)}
+              ${renderAdminTurnoFiltroButton('con-suplente', 'Con suplente', turnosSuplente)}
+              ${renderAdminTurnoFiltroButton('sin-turno', 'Sin turno', turnosSinTurno)}
+            </div>
+          </div>
+
           <div class="admin-turns-card">
-            ${turnosFiltrados.length > 0
-              ? `<div class="admin-assignment-scroll">${renderAdminTurnosCalendario(fechasSemana, franjasSemana, turnosFiltrados)}</div>`
+            ${turnosPeriodo.length > 0
+              ? `<div class="admin-assignment-scroll">${renderAdminTurnosCalendario(fechasPeriodo, franjasPeriodo, turnosFiltrados)}</div>`
               : `<div class="empty-card compact"><h3>No hay turnos con este filtro</h3><p>Ajusta la busqueda o selecciona otro estado.</p></div>`
             }
           </div>
         </section>
 
-        ${selectedTurno ? `
-          <aside class="admin-turn-detail-panel" aria-label="Detalle del turno">
-            ${renderAdminTurnoDetail(selectedTurno)}
-          </aside>
-        ` : ''}
+        <aside class="admin-turn-detail-panel" aria-label="Detalle del turno">
+          ${renderAdminTurnoDetail(selectedTurno)}
+        </aside>
       </div>
     </div>
   `;
@@ -3174,30 +3202,29 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
   const pasado = isTurnoPasado(turno);
   const miembros = renderAdminTurnoMiembros(turno, 'compact');
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
-  const mostrarCoberturaParcial = turno.plazasDisponibles > 0 && ocupadas > 0;
-  const canAssign = !pasado && (estado === 'sin-asignar' || estado === 'suplente' || estado === 'parcial');
+  const cardLabel = estado === 'sin-asignar'
+    ? 'Libre'
+    : estado === 'asignado'
+      ? `Completo · ${ocupadas}/${turno.plazasTotales}`
+      : `Parcial · ${ocupadas}/${turno.plazasTotales}`;
 
   return `
     <article class="admin-calendar-turn is-${estado} assignment-${tipo} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
       <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
-        ${mostrarCoberturaParcial ? `<small>${ocupadas}/${turno.plazasTotales} cubierto</small>
-        ${miembros}` 
-        : ''}
+        <strong>${escapeHtml(cardLabel)}</strong>
+        ${estado === 'sin-asignar' ? `<small>${ocupadas}/${turno.plazasTotales} plazas</small>` : ''}
+        ${miembros}
       </button>
-      ${canAssign
-        ? `<button class="admin-calendar-turn-action" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${estado === 'sin-asignar' ? 'Asignar' : estado === 'parcial' ? 'Cubrir' : 'Cambiar'}</button>`
-        : ''
-      }
     </article>
   `;
 }
 
 function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail'): string {
-  // if (turno.inscritos.length === 0) {
-  //   return variant === 'compact'
-  //     ? '<span class="admin-turn-members is-empty">Sin miembros asignados</span>'
-  //     : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>';
-  // }
+  if (turno.inscritos.length === 0) {
+    return variant === 'compact'
+      ? ''
+      : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>';
+  }
 
   const items = turno.inscritos.map((inscrito) => {
     const usuario = getUsuarioByNombre(inscrito);
@@ -3232,8 +3259,6 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
   const estado = getAdminTurnoEstado(turno);
   const principal = getAdminTurnoPrincipal(turno);
   const usuario = principal.usuario;
-  const tipo = getTurnoAsignacionTipo(turno);
-  const lote = getAdminTurnoLote(turno);
   const miembros = renderAdminTurnoMiembros(turno, 'detail');
   const tienePlazasLibres = turno.plazasDisponibles > 0;
   const pasado = isTurnoPasado(turno);
@@ -3252,39 +3277,27 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
       <button type="button" data-action="admin-turno-clear-detail" aria-label="Cerrar detalle">×</button>
     </header>
 
-    <dl class="admin-turn-detail-list">
-      <div><dt>Fecha</dt><dd>${escapeHtml(formatFecha(turno.dia))}</dd></div>
-      <div><dt>Hora</dt><dd>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</dd></div>
-      <div><dt>Lote</dt><dd>${escapeHtml(lote?.nombre ?? 'Lote sin identificar')}</dd></div>
-      <div><dt>Miembros</dt><dd>${turno.inscritos.length}</dd></div>
-    </dl>
-
-    <section class="admin-turn-members-panel" aria-label="Miembros asignados al turno">
-      <h4>Miembros asignados</h4>
-      ${miembros}
-    </section>
-
-    <section class="admin-turn-detail-stats">
-      <div><span>Plazas cubiertas</span><strong>${turno.plazasTotales - turno.plazasDisponibles}/${turno.plazasTotales}</strong></div>
-      <div><span>Tipo</span><strong>${escapeHtml(usuario ? formatFrecuencia(tipo) : 'Puntual')}</strong></div>
-      <div><span>Estado horario</span><strong>${pasado ? 'Pasado' : estado === 'sin-asignar' ? 'Pendiente' : 'Activo'}</strong></div>
+    <section class="admin-turn-detail-card">
+      <header>
+        <span aria-hidden="true">▣</span>
+        <strong>${escapeHtml(formatFecha(turno.dia))} · ${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</strong>
+      </header>
+      <div class="admin-turn-detail-places">
+        <span>Plazas</span>
+        <strong>${turno.plazasTotales - turno.plazasDisponibles}/${turno.plazasTotales}</strong>
+      </div>
+      <div class="admin-turn-detail-assigned">
+        <span>Asignado</span>
+        ${turno.inscritos.length > 0 ? miembros : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>'}
+      </div>
     </section>
 
     <div class="admin-turn-detail-actions">
       <button class="button button-primary" type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>${pasado ? 'Turno pasado' : textoAccionPrincipal}</button>
-      <button class="button button-secondary" type="button" data-action="admin-turno-suplente" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>Buscar suplente</button>
+      <button class="button button-secondary" type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado || !usuario ? 'disabled' : ''}>Cambiar</button>
+      <button class="button button-secondary" type="button" data-action="admin-turno-suplente" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>Marcar suplente</button>
+      <button class="button button-danger" type="button" data-action="admin-turno-incident" data-id="${turno.id}" ${pasado || turno.inscritos.length === 0 ? 'disabled' : ''}>Eliminar asignacion</button>
     </div>
-
-    <section class="admin-turn-quick-actions">
-      <h4>Acciones rapidas</h4>
-      <button type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>${pasado ? 'Turno pasado' : textoAccionPrincipal} <span>›</span></button>
-    </section>
-
-    <section class="admin-turn-last-action">
-      <strong>Ultima accion administrativa</strong>
-      <span>${turno.inscritos.length > 0 ? 'Turno sincronizado con adorador registrado.' : 'Turno sin asignar.'}</span>
-      <button type="button" data-action="admin-audit-info">Ver historial completo <span>›</span></button>
-    </section>
   `;
 }
 
@@ -5098,6 +5111,34 @@ document.addEventListener('click', (event) => {
 
     if (action === 'admin-turno-suplente') {
       abrirModalAdminTurnoAsignacion(adminTurnoAction.dataset.id ?? null, 'agregar');
+      return;
+    }
+
+    if (action === 'admin-turno-incident') {
+      const turno = StorageDB.getTurnos().find((item) => item.id === adminTurnoAction.dataset.id);
+
+      if (!turno || turno.inscritos.length === 0) {
+        mostrarAviso('Sin asignacion', 'Este turno no tiene adoradores asignados.', 'info');
+        return;
+      }
+
+      abrirConfirmacion({
+        titulo: 'Eliminar asignacion',
+        mensaje: `Se quitaran los adoradores asignados al turno de ${formatFecha(turno.dia)} de ${turno.horaInicio} a ${turno.horaFin}.`,
+        confirmarTexto: 'Eliminar',
+        onConfirm: () => {
+          StorageDB.actualizarTurno({
+            ...turno,
+            inscritos: [],
+            asignaciones: [],
+            plazasDisponibles: turno.plazasTotales
+          });
+          adminTurnoSeleccionadoId = turno.id;
+          renderAdminTurnosCubiertos();
+          renderUsuario();
+          mostrarAviso('Asignacion eliminada', 'El turno queda libre de nuevo.', 'success');
+        }
+      });
       return;
     }
 
