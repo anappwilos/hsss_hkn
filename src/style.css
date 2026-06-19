@@ -9,34 +9,40 @@
 ========================================================= */
 
 :root {
-  --color-bg: #a1ccd7;
+  --color-bg: #BFE9EC;
+  --color-bg-secondary: #DDF6F7;
   --color-welcome: #b4dbe6;
-  --color-surface: rgba(244, 251, 253, 0.9);
-  --color-panel: rgba(244, 251, 253, 0.86);
+  --color-surface: #F8FEFF;
+  --color-panel: #FFFFFF;
 
-  --color-text: #0d3a44;
-  --color-ink: #082f38;
-  --color-muted: #4d7580;
+  --color-text: #0E3238;
+  --color-ink: #0E3238;
+  --color-muted: #4B6F76;
+  --color-text-soft: #6F8D92;
 
-  --color-primary: #21a0b7;
-  --color-primary-2: #39aac1;
+  --color-primary: #159EB1;
+  --color-primary-hover: #0E8798;
+  --color-primary-active: #0B7280;
+  --color-primary-2: #27C6D3;
   --color-primary-soft: #dbeaf0;
-  --color-selection: #18c6d4;
+
+  --color-selection: #27C6D3;
   --color-selection-2: #56dce5;
   --color-selection-dark: #078da0;
 
-  --color-success: #21a0b7;
+  --color-success: #157A5B;
   --color-success-soft: #dbeaf0;
 
-  --color-danger: #d84b5f;
+  --color-danger: #B42318;
   --color-danger-soft: #ffe8ed;
 
-  --color-accent: #168fa3;
+  --color-accent: #27C6D3;
   --color-accent-soft: #eaf6f9;
-  --color-border: rgba(255, 255, 255, 0.48);
+  --color-border: #A7D5DA;
+  --color-border-soft: #D3ECEF;
 
-  --shadow-sm: 0 8px 20px rgba(6, 69, 82, 0.08);
-  --shadow-md: 0 24px 58px rgba(6, 69, 82, 0.14);
+  --shadow-sm: 0 4px 12px rgba(14, 50, 56, 0.08);
+  --shadow-md: 0 12px 34px rgba(14, 50, 56, 0.12);
 
   --radius-sm: 14px;
   --radius-md: 22px;
@@ -54,6 +60,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
 
 * {
   box-sizing: border-box;
@@ -76,7 +83,7 @@ body {
   color: var(--color-text);
   background:
     radial-gradient(circle at 82% 18%, rgba(219, 234, 240, 0.7), transparent 32rem),
-    linear-gradient(135deg, #7aa9b6 0%, #a1ccd7 46%, #dbeaf0 100%);
+    linear-gradient(135deg, #7aa9b6 0%, #BFE9EC 46%, #dbeaf0 100%);
 }
 
 button,
@@ -128,7 +135,7 @@ button:disabled {
 .user-view {
   background:
     radial-gradient(circle at 82% 18%, rgba(219, 234, 240, 0.7), transparent 32rem),
-    linear-gradient(135deg, #7aa9b6 0%, #a1ccd7 46%, #dbeaf0 100%);
+    linear-gradient(135deg, #7aa9b6 0%, #BFE9EC 46%, #dbeaf0 100%);
 }
 
 .screen-content {
@@ -174,8 +181,8 @@ button:disabled {
 .admin-turn-action {
   border-color: transparent;
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
-  box-shadow: 0 16px 32px rgba(33, 160, 183, 0.26);
+  background: var(--color-primary);
+  box-shadow: 0 8px 20px rgba(21, 158, 177, 0.24);
 }
 
 .button-secondary,
@@ -185,9 +192,10 @@ button:disabled {
 .admin-user-filters button,
 .view-toggle button,
 .user-panel-tabs button {
-  border: 1px solid rgba(255, 255, 255, 0.68);
-  color: #168fa3;
-  background: rgba(244, 251, 253, 0.9);
+  border: 1px solid var(--color-border);
+  color: var(--color-primary-active);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(4px);
 }
 
 .button-danger {
@@ -244,7 +252,7 @@ button:disabled {
   border: 0;
   border-radius: 28px;
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
   box-shadow: var(--shadow-md);
   font-size: 3rem;
   cursor: pointer;
@@ -273,7 +281,7 @@ button:disabled {
 .user-panel-tabs button.is-active,
 .admin-user-filters button.is-active {
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
   box-shadow: 0 12px 26px rgba(33, 160, 183, 0.2);
 }
 
@@ -303,7 +311,7 @@ button:disabled {
   border: 1px solid rgba(255, 255, 255, 0.68);
   border-radius: 999px;
   padding: 0 18px;
-  color: #168fa3;
+  color: #159EB1;
   background: rgba(244, 251, 253, 0.9);
   font-size: 0.9rem;
   font-weight: 850;
@@ -426,7 +434,7 @@ button:disabled {
   border: 2px solid rgba(255, 255, 255, 0.84);
   border-radius: 999px;
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
   font-family: var(--font-display);
   font-weight: 900;
   box-shadow: var(--shadow-sm);
@@ -472,15 +480,14 @@ button:disabled {
   bottom: 18px;
   z-index: 60;
   max-width: min(360px, calc(100vw - 36px));
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  border-radius: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
   padding: 12px 14px;
-  color: var(--color-ink);
-  background: rgba(244, 251, 253, 0.96);
+  color: var(--color-text);
+  background: var(--color-panel);
   box-shadow: var(--shadow-md);
   font-size: 0.92rem;
   line-height: 1.35;
-  backdrop-filter: blur(14px);
 }
 
 .sync-status[data-status="offline"] {
@@ -509,11 +516,11 @@ button:disabled {
 .app-toast {
   display: grid;
   gap: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--color-border);
   border-left: 5px solid var(--color-primary);
-  border-radius: 18px;
+  border-radius: 14px;
   padding: 14px 16px;
-  background: rgba(244, 251, 253, 0.98);
+  background: var(--color-panel);
   box-shadow: var(--shadow-md);
 }
 
@@ -852,8 +859,8 @@ button:disabled {
   width: 50px;
   height: 10px;
   border-radius: 10px 10px 3px 3px;
-  background: #21a0b7;
-  box-shadow: 0 9px 0 -3px #21a0b7;
+  background: #159EB1;
+  box-shadow: 0 9px 0 -3px #159EB1;
   content: "";
 }
 
@@ -862,9 +869,9 @@ button:disabled {
   width: 36px;
   height: 36px;
   place-items: center;
-  border: 4px solid #21a0b7;
+  border: 4px solid #159EB1;
   border-radius: 999px;
-  color: #21a0b7;
+  color: #159EB1;
   background: #ffffff;
   font-size: 1rem;
   font-weight: 900;
@@ -954,7 +961,7 @@ button:disabled {
 .profile-edit-field em {
   border-radius: 999px;
   padding: 3px 7px;
-  color: #168fa3;
+  color: #159EB1;
   background: #eaf6f9;
   font-size: 0.62rem;
   font-style: normal;
@@ -1007,7 +1014,7 @@ button:disabled {
 .field input:focus,
 .profile-edit-field input:focus,
 .profile-edit-field select:focus {
-  border-color: #39aac1;
+  border-color: #27C6D3;
   outline-color: rgba(57, 170, 193, 0.28);
   box-shadow: 0 0 0 4px rgba(57, 170, 193, 0.16);
 }
@@ -1213,7 +1220,7 @@ button:disabled {
   width: var(--registro-progress, 25%);
   height: 100%;
   border-radius: inherit;
-  background: #21a0b7;
+  background: #159EB1;
   content: "";
   transition: width 180ms ease;
 }
@@ -1246,7 +1253,7 @@ button:disabled {
   place-items: center;
   border-radius: 999px;
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
   font-size: 0.82rem;
   font-weight: 900;
 }
@@ -1319,7 +1326,7 @@ button:disabled {
   min-height: 60px;
   border: 1px solid rgba(255, 255, 255, 0.68);
   border-radius: 999px;
-  color: #168fa3;
+  color: #159EB1;
   background: rgba(244, 251, 253, 0.9);
   font-size: 1rem;
   font-weight: 900;
@@ -1576,7 +1583,7 @@ button:disabled {
   place-items: center;
   border-radius: 999px;
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
   font-size: 1.8rem;
 }
 
@@ -2101,7 +2108,7 @@ button:disabled {
 .day-card.is-disponible.is-active {
   border-color: rgba(255, 255, 255, 0.9);
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
   box-shadow: 0 14px 32px rgba(33, 160, 183, 0.24);
 }
 
@@ -2147,7 +2154,7 @@ button:disabled {
 }
 
 .day-card strong {
-  color: #0d3a44;
+  color: #0E3238;
   font-size: 1.85rem;
   font-weight: 900;
   line-height: 1;
@@ -2414,7 +2421,7 @@ button:disabled {
 .turn-status-asignado {
   border-color: transparent;
   color: #ffffff;
-  background: #21a0b7;
+  background: #159EB1;
 }
 
 .calendar-event.is-covered .calendar-event-top strong,
@@ -2427,7 +2434,7 @@ button:disabled {
 .calendar-event.is-free,
 .turn-status-sin-asignar {
   border-color: transparent;
-  color: #168fa3;
+  color: #159EB1;
   background: transparent;
   box-shadow: none;
 }
@@ -2435,7 +2442,7 @@ button:disabled {
 .calendar-event.is-free .calendar-event-top strong,
 .calendar-event.is-free p,
 .calendar-event.is-free .calendar-event-status {
-  color: #168fa3;
+  color: #159EB1;
 }
 
 .calendar-event.is-partial {
@@ -2534,7 +2541,7 @@ button:disabled {
 .calendar-event.is-covered .calendar-progress span,
 .calendar-event.is-free .calendar-progress span,
 .coverage-bar i {
-  background: #21a0b7;
+  background: #159EB1;
 }
 
 .calendar-event-action,
@@ -2555,7 +2562,7 @@ button:disabled {
 .calendar-event-action {
   width: 100%;
   border: 1px solid rgba(33, 160, 183, 0.18);
-  color: #168fa3;
+  color: #159EB1;
   background: rgba(234, 246, 249, 0.72);
   box-shadow: none;
   cursor: pointer;
@@ -2649,7 +2656,7 @@ button:disabled {
   border-radius: 999px;
   padding: 0 8px;
   color: #ffffff;
-  background: #168fa3;
+  background: #159EB1;
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.02em;
@@ -2965,7 +2972,7 @@ button:disabled {
 .metric-red,
 .metric-amber,
 .metric-green {
-  color: #168fa3;
+  color: #159EB1;
   background: #dbeaf0;
 }
 
@@ -3006,7 +3013,7 @@ button:disabled {
   max-width: 100%;
   height: 100%;
   border-radius: inherit;
-  background: #21a0b7;
+  background: #159EB1;
 }
 
 .admin-turns-layout {
@@ -3051,7 +3058,7 @@ button:disabled {
 
 .admin-turns-tabs button.is-active {
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
 }
 
 .admin-turns-tabs span {
@@ -3116,7 +3123,7 @@ button:disabled {
 .admin-turn-filters button.is-active {
   border-color: transparent;
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
 }
 
 .admin-turn-filters span {
@@ -3180,7 +3187,7 @@ button:disabled {
 .admin-turn-day-totals span {
   border-radius: 999px;
   padding: 6px 10px;
-  color: #168fa3;
+  color: #159EB1;
   background: #eaf6f9;
   font-size: 0.82rem;
 }
@@ -3237,7 +3244,7 @@ button:disabled {
   height: 30px;
   place-items: center;
   border-radius: 999px;
-  color: #168fa3;
+  color: #159EB1;
   background: #dbeaf0;
   font-size: 0.72rem;
   font-style: normal;
@@ -3327,13 +3334,13 @@ button:disabled {
 }
 
 .turn-status-sin-asignar {
-  color: #168fa3;
+  color: #159EB1;
   background: #ffffff;
 }
 
 .turn-status-asignado {
   color: #ffffff;
-  background: #21a0b7;
+  background: #159EB1;
 }
 
 .turn-status-suplente {
@@ -3342,7 +3349,7 @@ button:disabled {
 }
 
 .turn-status-parcial {
-  color: #168fa3;
+  color: #159EB1;
   background: #eaf6f9;
 }
 
@@ -3651,7 +3658,7 @@ button:disabled {
 
 .admin-turn-weekdays-field label:has(input:checked) {
   border-color: transparent;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
 }
 
 .admin-turn-weekdays-field label:has(input:checked) span {
@@ -3863,9 +3870,9 @@ button:disabled {
 }
 
 .admin-users-table th {
-  border-bottom: 1px solid rgba(77, 117, 128, 0.14);
+  border-bottom: 1px solid var(--color-border);
   padding: 14px 12px;
-  color: #4d7580;
+  color: var(--color-text);
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.07em;
@@ -3944,7 +3951,7 @@ button:disabled {
   align-items: center;
   border-radius: 999px;
   padding: 0 10px;
-  color: #168fa3;
+  color: #159EB1;
   background: #dbeaf0;
   font-size: 0.68rem;
   font-weight: 900;
@@ -3962,10 +3969,10 @@ button:disabled {
   width: 34px;
   height: 34px;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--color-border);
   border-radius: 999px;
-  color: var(--color-muted);
-  background: rgba(244, 251, 253, 0.86);
+  color: var(--color-primary-active);
+  background: var(--color-panel);
   cursor: pointer;
 }
 
@@ -4886,7 +4893,7 @@ select {
 .admin-turn-lote-field select {
   width: 100%;
   min-height: 64px;
-  border: 1px solid #21a0b7;
+  border: 1px solid #159EB1;
   border-radius: 999px;
   padding: 0 56px 0 18px;
   color: var(--color-ink);
@@ -4912,7 +4919,7 @@ select {
 .admin-user-edit-form select:focus,
 .admin-turn-assign-form select:focus,
 .admin-turn-lote-field select:focus {
-  border-color: #21a0b7;
+  border-color: #159EB1;
   outline: 3px solid rgba(33, 160, 183, 0.24);
   outline-offset: 2px;
   box-shadow:
@@ -4922,7 +4929,7 @@ select {
 
 /* Opciones del desplegable */
 select option {
-  color: #0d3a44;
+  color: #0E3238;
   background: #f4fbfd;
   font-weight: 600;
 }
@@ -4930,14 +4937,14 @@ select option {
 /* Opción seleccionada */
 select option:checked {
   color: #ffffff;
-  background: #21a0b7;
+  background: #159EB1;
 }
 
 /* Hover/focus de opciones: depende del navegador */
 select option:hover,
 select option:focus {
   color: #ffffff;
-  background: #39aac1;
+  background: #27C6D3;
 }
 
 /* Quitar flecha antigua en Edge/IE */
@@ -4950,16 +4957,18 @@ select::-ms-expand {
 ========================================================= */
 
 :root {
-  --color-bg: #eef7f9;
-  --color-surface: #ffffff;
-  --color-panel: #ffffff;
-  --color-border: #d9edf1;
-  --color-muted: #5f7f88;
-  --shadow-sm: 0 1px 2px rgba(8, 47, 56, 0.06);
-  --shadow-md: 0 10px 28px rgba(8, 47, 56, 0.08);
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --color-bg: #BFE9EC;
+  --color-bg-secondary: #DDF6F7;
+  --color-surface: #F8FEFF;
+  --color-panel: #FFFFFF;
+  --color-border: #A7D5DA;
+  --color-border-soft: #D3ECEF;
+  --color-muted: #4B6F76;
+  --shadow-sm: 0 4px 12px rgba(14, 50, 56, 0.08);
+  --shadow-md: 0 12px 34px rgba(14, 50, 56, 0.12);
+  --radius-sm: 14px;
+  --radius-md: 22px;
+  --radius-lg: 32px;
 }
 
 body,
@@ -4967,8 +4976,8 @@ body,
 .config-view,
 .user-view {
   background:
-    linear-gradient(180deg, rgba(33, 160, 183, 0.08), transparent 260px),
-    #eef7f9;
+    linear-gradient(180deg, rgba(21, 158, 177, 0.05), transparent 300px),
+    var(--color-bg);
 }
 
 .screen-content {
@@ -5531,7 +5540,7 @@ body,
 .admin-lotes-view .topbar-text-button,
 .admin-lotes-view .back-button {
   border-color: rgba(255, 255, 255, 0.7);
-  color: #168fa3;
+  color: #159EB1;
   background: rgba(244, 251, 253, 0.9);
 }
 
@@ -5575,7 +5584,7 @@ body,
   min-height: 66px;
   border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: 999px;
-  color: #168fa3;
+  color: #159EB1;
   background: rgba(244, 251, 253, 0.9);
   box-shadow: 0 12px 30px rgba(6, 69, 82, 0.05);
   font-size: clamp(0.92rem, 1.6vw, 1.2rem);
@@ -5585,7 +5594,7 @@ body,
 .admin-lotes-view .admin-panel-tabs .chip.is-active {
   border-color: rgba(255, 255, 255, 0.82);
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
   box-shadow:
     0 0 0 6px rgba(219, 234, 240, 0.82),
     0 16px 34px rgba(33, 160, 183, 0.24);
@@ -5617,7 +5626,7 @@ body,
 }
 
 .admin-lotes-view .section-kicker {
-  color: #21a0b7;
+  color: #159EB1;
   letter-spacing: 0.1em;
 }
 
@@ -5671,7 +5680,7 @@ body,
   height: 48px;
   place-items: center;
   border-radius: 16px;
-  color: #168fa3;
+  color: #159EB1;
   background: #dbeaf0;
   font-weight: 900;
 }
@@ -5745,7 +5754,7 @@ body,
 .admin-lotes-view .admin-turn-filters button.is-active,
 .admin-lotes-view .admin-user-filters button.is-active {
   color: #ffffff;
-  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  background: linear-gradient(135deg, #27C6D3, #159EB1);
 }
 
 .admin-lotes-view .admin-catalog-card {
@@ -6031,7 +6040,7 @@ body,
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #168fa3;
+  color: #159EB1;
   font-size: 0.9rem;
   font-weight: 900;
 }
@@ -6057,7 +6066,7 @@ body,
   justify-content: center;
   border: 0;
   border-radius: 999px;
-  color: #168fa3;
+  color: #159EB1;
   background: #ffffff;
   font-size: 0.8rem;
   font-weight: 900;
@@ -6313,7 +6322,7 @@ body,
   width: 40px;
   height: 40px;
   border: 1px solid rgba(33, 160, 183, 0.16);
-  color: #168fa3;
+  color: #159EB1;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: none;
   font-size: 1.55rem;
@@ -6760,19 +6769,19 @@ body,
 .admin-lotes-view .admin-panel-tabs .chip,
 .user-view .user-panel-tabs button {
   min-height: 52px;
-  border: 1px solid rgba(255, 255, 255, 0.66);
+  border: 1px solid var(--color-border);
   border-radius: 999px;
-  color: #078da0;
-  background: rgba(244, 251, 253, 0.9);
-  box-shadow: 0 10px 22px rgba(6, 69, 82, 0.05);
+  color: var(--color-primary-active);
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: none;
 }
 
 .admin-lotes-view .admin-panel-tabs .chip.is-active,
 .user-view .user-panel-tabs button.is-active {
-  border-color: rgba(255, 255, 255, 0.72);
+  border-color: transparent;
   color: #ffffff;
-  background: linear-gradient(135deg, #47d3dc, #1eb9ca);
-  box-shadow: 0 12px 24px rgba(24, 198, 212, 0.2);
+  background: var(--color-primary);
+  box-shadow: 0 8px 16px rgba(21, 158, 177, 0.2);
   transform: none;
 }
 
@@ -7567,13 +7576,15 @@ body,
   min-height: 40px;
   align-items: center;
   gap: 9px;
-  border: 1px solid rgba(22, 164, 190, 0.28);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 0 16px;
-  color: #0789a5;
-  background: rgba(244, 252, 254, 0.76);
+  color: var(--color-primary-active);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(4px);
   box-shadow: none;
   font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .admin-lotes-view .screen-content {
@@ -7694,12 +7705,12 @@ body,
   height: 48px;
   align-items: center;
   gap: 12px;
-  border: 1px solid rgba(83, 126, 153, 0.18);
+  border: 1px solid var(--color-border);
   border-radius: 9px;
   padding: 0 16px;
-  color: #6a8295;
-  background: rgba(252, 254, 255, 0.88);
-  box-shadow: inset 0 1px 2px rgba(16, 91, 112, 0.04);
+  color: var(--color-muted);
+  background: var(--color-panel);
+  box-shadow: inset 0 1px 2px rgba(14, 50, 56, 0.04);
 }
 
 .admin-lote-search input {
@@ -7707,7 +7718,7 @@ body,
   min-width: 0;
   border: 0;
   outline: 0;
-  color: #09263b;
+  color: var(--color-text);
   background: transparent;
   font-size: 0.92rem;
 }
@@ -7721,11 +7732,13 @@ body,
   min-height: 48px;
   align-items: center;
   gap: 10px;
-  border-radius: 7px;
+  border-radius: 8px;
   padding: 0 25px;
-  background: linear-gradient(180deg, #0fb4c8, #0793aa);
-  box-shadow: 0 12px 24px rgba(9, 147, 170, 0.24);
+  color: #ffffff;
+  background: var(--color-primary);
+  box-shadow: 0 8px 20px rgba(21, 158, 177, 0.24);
   font-size: 0.94rem;
+  font-weight: 700;
 }
 
 .admin-new-lote-button span:first-child {
@@ -7747,21 +7760,21 @@ body,
   min-height: 40px;
   align-items: center;
   gap: 9px;
-  border: 1px solid rgba(88, 136, 165, 0.18);
-  border-radius: 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
   padding: 0 21px;
-  color: #354d63;
-  background: rgba(250, 254, 255, 0.78);
+  color: var(--color-muted);
+  background: var(--color-panel);
   box-shadow: none;
   font-size: 0.87rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-lotes-view .chip-row .chip.is-active {
   border-color: transparent;
   color: #ffffff;
-  background: linear-gradient(180deg, #12b6ca, #0796ad);
-  box-shadow: 0 8px 18px rgba(9, 147, 170, 0.22);
+  background: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(21, 158, 177, 0.2);
 }
 
 .admin-lotes-view .chip-row .chip.is-active span {
