@@ -2777,7 +2777,7 @@ function renderAdminCatalogos(): void {
       <header class="admin-users-hero">
       </header>
 
-      ${canAssignAdminRoles()
+      ${canAssignRootRole()
         ? renderAdminCatalogoUsuarios()
         : `<section class="admin-user-catalog admin-catalog-empty"><h3>Solo Root puede editar catalogos</h3><p>Los administradores pueden consultar usuarios y turnos, pero la creacion de roles y frecuencias queda reservada a Root.</p></section>`
       }
@@ -2830,7 +2830,7 @@ function renderAdminCatalogoUsuarios(): string {
 }
 
 function guardarAdminCatalogo(form: HTMLFormElement): void {
-  if (!canAssignAdminRoles()) {
+  if (!canAssignRootRole()) {
     mostrarAviso('Sin permisos', 'Solo Root puede crear frecuencias y roles.', 'error');
     return;
   }
@@ -5344,6 +5344,11 @@ document.addEventListener('input', (event) => {
 document.addEventListener('change', (event) => {
   const select = event.target as HTMLSelectElement;
 
+  if (select.id === 'admin-user-edit-role') {
+    syncAdminUsuarioFrecuenciaField(select.closest<HTMLFormElement>('.admin-user-edit-form'));
+    return;
+  }
+
   if (select.id !== 'usuario-orden-turnos') {
     return;
   }
@@ -5627,7 +5632,7 @@ diasConfigEl.addEventListener('click', (event) => {
   actualizarResumenLote();
 });
 
-[loteFechaInicio, loteFechaFin, loteHoraInicio, loteHoraFin, loteTurnoMinutos, lotePlazas, loteMesesCantidad].forEach((input) => {
+[loteFechaInicio, loteFechaFin, loteHoraInicio, loteHoraFin, loteTurnoMinutos, lotePlazas].forEach((input) => {
   input.addEventListener('input', actualizarResumenLote);
 });
 
@@ -5637,13 +5642,15 @@ interrupcionFechasConcretas.addEventListener('change', actualizarVisibilidadFech
 
 loteMesCompleto.addEventListener('input', () => {
   if (!loteMesCompleto.value) {
-    loteMesesCantidad.value = '1';
+    mesesLoteSeleccionados = new Set<string>();
+    renderMesesLoteSelector();
     actualizarResumenLote();
     return;
   }
 
   const bounds = getMonthBounds(loteMesCompleto.value);
   const nombreMes = formatMonthName(loteMesCompleto.value);
+  mesesLoteSeleccionados = new Set([loteMesCompleto.value]);
   loteFechaInicio.value = bounds.inicio;
   loteFechaFin.value = bounds.fin;
 
@@ -5652,28 +5659,30 @@ loteMesCompleto.addEventListener('input', () => {
     ultimoNombreMesAutogenerado = nombreMes;
   }
 
+  renderMesesLoteSelector();
   actualizarResumenLote();
 });
 
-loteMesesCantidad.addEventListener('input', () => {
-  if (!loteMesCompleto.value || loteEditandoId) {
-    loteMesesCantidad.value = '1';
-    actualizarResumenLote();
+loteMesesSelector.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-lote-month]');
+
+  if (!button?.dataset.loteMonth || loteEditandoId) {
     return;
   }
 
-  const cantidad = Number(loteMesesCantidad.value || '1');
-
-  if (!Number.isInteger(cantidad) || cantidad < 1) {
-    actualizarResumenLote();
-    return;
+  if (mesesLoteSeleccionados.has(button.dataset.loteMonth)) {
+    mesesLoteSeleccionados.delete(button.dataset.loteMonth);
+  } else {
+    mesesLoteSeleccionados.add(button.dataset.loteMonth);
   }
 
-  const meses = getMesesConsecutivos(loteMesCompleto.value, Math.min(cantidad, 36));
-  const firstBounds = getMonthBounds(meses[0]);
-  const lastBounds = getMonthBounds(meses[meses.length - 1]);
-  loteFechaInicio.value = firstBounds.inicio;
-  loteFechaFin.value = lastBounds.fin;
+  if (mesesLoteSeleccionados.size > 0) {
+    const firstMonth = getMesesLoteSeleccionados()[0];
+    loteMesCompleto.value = firstMonth;
+    syncFechasConMesesSeleccionados();
+  }
+
+  renderMesesLoteSelector();
   actualizarResumenLote();
 });
 
@@ -5681,14 +5690,16 @@ loteMesesCantidad.addEventListener('input', () => {
   input.addEventListener('input', () => {
     if (!loteFechaInicio.value || !loteFechaFin.value) {
       loteMesCompleto.value = '';
-      loteMesesCantidad.value = '1';
+      mesesLoteSeleccionados = new Set<string>();
+      renderMesesLoteSelector();
       return;
     }
 
     const monthValue = fechaToMonthInput(parseFecha(loteFechaInicio.value));
     const bounds = getMonthBounds(monthValue);
     loteMesCompleto.value = bounds.inicio === loteFechaInicio.value && bounds.fin === loteFechaFin.value ? monthValue : '';
-    loteMesesCantidad.value = '1';
+    mesesLoteSeleccionados = loteMesCompleto.value ? new Set([loteMesCompleto.value]) : new Set<string>();
+    renderMesesLoteSelector();
   });
 });
 
