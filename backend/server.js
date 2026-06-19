@@ -583,6 +583,7 @@ function sanitizeUserForClient(usuario) {
     telefono: usuario.telefono,
     frecuencia: usuario.frecuencia,
     rol: usuario.rol,
+    origen: usuario.origen,
     creadoEn: usuario.creadoEn || Date.now(),
     actualizadoEn: usuario.actualizadoEn || Date.now()
   };
@@ -611,9 +612,17 @@ function createEnvAccessUser(id, nombre, email, rol) {
     telefono: '',
     frecuencia: 'puntual',
     rol,
+    origen: 'env',
     creadoEn: now,
     actualizadoEn: now
   };
+}
+
+function getEnvAccessUsers() {
+  return [
+    createEnvAccessUser('env-root-user', 'Root', superadminEmail, 'root'),
+    createEnvAccessUser('env-admin-user', 'Admin', adminEmail, 'admin')
+  ].filter((usuario) => usuario.email);
 }
 
 function isEnvAccessUserLike(usuario) {
@@ -723,6 +732,7 @@ async function withSeedUsers(value) {
       telefono: existing?.telefono || base.telefono || '',
       frecuencia: existing?.frecuencia || base.frecuencia || 'puntual',
       rol: existing?.rol || base.rol || 'usuario',
+      origen: 'env',
       password,
       creadoEn: existing?.creadoEn || now,
       actualizadoEn: existing?.actualizadoEn || now
@@ -800,6 +810,11 @@ function hasUserMeaningfulChanges(current, next) {
     || current.password !== next.password;
 }
 
+function isSeedUser(usuario) {
+  const email = String(usuario.email || '').trim().toLowerCase();
+  return seedUsers.some((seed) => seed.email === email);
+}
+
 function dedupeUsersByEmail(usuarios) {
   const deduped = [];
   const indexesByEmail = new Map();
@@ -828,32 +843,18 @@ function dedupeUsersByEmail(usuarios) {
 }
 
 function getSeedUsersFromEnv() {
-  const users = [
-    {
-      id: process.env.SEED_USER_1_ID || 'seed-gabi-aguilera-fernandez',
-      nombre: process.env.SEED_USER_1_NOMBRE || 'Gabi',
-      apellidos: process.env.SEED_USER_1_APELLIDOS || 'Aguilera Fernandez',
-      email: process.env.SEED_USER_1_EMAIL || 'gabi.aguilera.fernandez@example.com',
-      telefono: process.env.SEED_USER_1_TELEFONO || '',
-      frecuencia: process.env.SEED_USER_1_FRECUENCIA || 'fijo',
-      password: process.env.SEED_USER_1_PASSWORD || '',
-      rol: 'usuario'
-    },
-    {
-      id: process.env.SEED_USER_2_ID || 'seed-nicolas-alarcon-rapela',
-      nombre: process.env.SEED_USER_2_NOMBRE || 'Nicolas',
-      apellidos: process.env.SEED_USER_2_APELLIDOS || 'Alarcon Rapela',
-      email: process.env.SEED_USER_2_EMAIL || 'nicolas.alarcon.rapela@example.com',
-      telefono: process.env.SEED_USER_2_TELEFONO || '',
-      frecuencia: process.env.SEED_USER_2_FRECUENCIA || 'suplente',
-      password: process.env.SEED_USER_2_PASSWORD || '',
-      rol: 'usuario'
-    }
-  ];
+  const defaultSeedUsers = 'Gabi|Aguilera Fernandez|gabi.aguilera.fernandez@example.com|fijo||;Nicolas|Alarcon Rapela|nicolas.alarcon.rapela@example.com|suplente||';
+  const users = parseSeedUsersList(process.env.SEED_USERS || defaultSeedUsers);
   const seen = new Set();
 
   return users.filter((usuario) => {
     usuario.email = String(usuario.email || '').trim().toLowerCase();
+    usuario.nombre = String(usuario.nombre || '').trim();
+    usuario.apellidos = String(usuario.apellidos || '').trim();
+    usuario.frecuencia = normalizeCatalogOption(usuario.frecuencia, 'puntual');
+    usuario.telefono = String(usuario.telefono || '').trim();
+    usuario.password = String(usuario.password || '');
+    usuario.id = String(usuario.id || `seed-${slugify(`${usuario.nombre}-${usuario.apellidos || usuario.email}`)}`).trim();
 
     if (!usuario.email || !usuario.nombre || seen.has(usuario.email)) {
       return false;
@@ -862,6 +863,38 @@ function getSeedUsersFromEnv() {
     seen.add(usuario.email);
     return true;
   });
+}
+
+function parseSeedUsersList(value) {
+  return String(value || '')
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item, index) => {
+      const [nombre, apellidos, email, frecuencia, telefono = '', password = '', id = ''] = item
+        .split('|')
+        .map((part) => part.trim());
+
+      return {
+        id: id || `seed-user-${index + 1}-${slugify(`${nombre}-${apellidos || email}`)}`,
+        nombre,
+        apellidos,
+        email,
+        telefono,
+        frecuencia,
+        password,
+        rol: 'usuario'
+      };
+    });
+}
+
+function slugify(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'usuario';
 }
 
 function normalizeUsuarios(value) {
@@ -886,6 +919,7 @@ function normalizeUsuarios(value) {
         telefono: String(source.telefono || '').trim(),
         frecuencia: normalizeCatalogOption(source.frecuencia, 'puntual'),
         rol: normalizeRol(source.rol),
+        origen: source.origen === 'env' ? 'env' : undefined,
         password: typeof source.password === 'string' ? source.password : undefined,
         creadoEn,
         actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn
@@ -1003,8 +1037,11 @@ async function readRelationalState() {
       .map((row) => row.valor)
   };
 
-  return normalizeState({
-    usuarios: usuariosResult.rows.map(mapDbUser).filter(Boolean),
+  const state = normalizeState({
+    usuarios: usuariosResult.rows.map(mapDbUser).filter(Boolean).map((usuario) => ({
+      ...usuario,
+      origen: isSeedUser(usuario) ? 'env' : usuario.origen
+    })),
     lotes: lotesResult.rows.map((row) => row.data).filter(Boolean),
     turnos: turnosResult.rows.map((row) => row.data).filter(Boolean),
     notificaciones: notificacionesResult.rows.map((row) => ({
@@ -1020,6 +1057,11 @@ async function readRelationalState() {
     catalogoUsuarios,
     updatedAt: Date.now()
   });
+  state.usuarios = [
+    ...getEnvAccessUsers(),
+    ...state.usuarios
+  ];
+  return state;
 }
 
 async function writeRelationalState(state) {

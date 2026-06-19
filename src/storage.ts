@@ -64,6 +64,7 @@ export interface Usuario {
   telefono: string;
   frecuencia: UsuarioFrecuencia;
   rol: UsuarioRol;
+  origen?: 'env';
   password?: string;
   creadoEn: number;
   actualizadoEn: number;
@@ -505,6 +506,7 @@ export class StorageDB {
       telefono: String(source.telefono ?? '').trim(),
       frecuencia: StorageDB.normalizeFrecuencia(source.frecuencia),
       rol,
+      origen: source.origen === 'env' ? 'env' : undefined,
       password: typeof source.password === 'string' ? source.password : undefined,
       creadoEn,
       actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn

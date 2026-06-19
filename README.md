@@ -19,16 +19,14 @@ Copia `backend/.env.example` a `backend/.env` para las variables de la API:
 STORAGE_DRIVER=postgres
 DATABASE_URL=postgresql://a_solas:a_solas_dev@localhost:5432/a_solas
 DATABASE_SSL=false
-SEED_USER_1_NOMBRE=Gabi
-SEED_USER_1_APELLIDOS=Aguilera Fernandez
-SEED_USER_1_FRECUENCIA=fijo
-SEED_USER_2_NOMBRE=Nicolas
-SEED_USER_2_APELLIDOS=Alarcon Rapela
-SEED_USER_2_FRECUENCIA=suplente
+SEED_USERS=Gabi|Aguilera Fernandez|gabi.aguilera.fernandez@example.com|fijo||;Nicolas|Alarcon Rapela|nicolas.alarcon.rapela@example.com|suplente||
 ```
 
 Las credenciales `VITE_ADMIN_*` y `VITE_SUPERADMIN_*` son accesos virtuales:
 no se guardan como filas en `usuarios`.
+`SEED_USERS` es una lista separada por `;`; cada usuario usa
+`Nombre|Apellidos|email|frecuencia|telefono|password` y se muestra como fila
+normal en la tabla `usuarios`.
 
 ## Comandos
 

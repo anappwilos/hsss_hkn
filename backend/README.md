@@ -31,7 +31,9 @@ CORS_ORIGIN=http://localhost:5173
 `VITE_ADMIN_EMAIL`, `VITE_ADMIN_PASSWORD`, `VITE_SUPERADMIN_EMAIL` y `VITE_SUPERADMIN_PASSWORD`
 son credenciales virtuales de acceso administrativo. No se insertan en `usuarios`.
 
-Los usuarios semilla se definen con `SEED_USER_1_*` y `SEED_USER_2_*`; por defecto son:
-Gabi Aguilera Fernandez (`fijo`) y Nicolas Alarcon Rapela (`suplente`).
+Los usuarios semilla se definen con `SEED_USERS` como lista separada por `;`.
+Cada entrada usa `Nombre|Apellidos|email|frecuencia|telefono|password` y se
+inserta/actualiza como fila normal en `usuarios`. Por defecto son Gabi Aguilera
+Fernandez (`fijo`) y Nicolas Alarcon Rapela (`suplente`).
 
 Si el frontend se despliega en otro dominio, define `CORS_ORIGIN` con ese origen.
