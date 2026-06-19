@@ -2571,9 +2571,6 @@ function renderAdminCatalogos(): void {
   adminCatalogosLista.innerHTML = `
     <div class="admin-catalog-screen">
       <header class="admin-users-hero">
-        <div>
-          <h4>Opciones maestras para clasificar usuarios y permisos.</h4>
-        </div>
       </header>
 
       ${canAssignAdminRoles()
@@ -2589,10 +2586,6 @@ function renderAdminCatalogoUsuarios(): string {
 
   return `
     <section class="admin-user-catalog" aria-label="Catalogo de usuarios">
-      <div class="admin-catalog-head">
-        <h3>Catalogos</h3>
-        <p>Crea opciones reutilizables para los formularios de usuarios y registro.</p>
-      </div>
       <div class="admin-catalog-grid">
         <article class="admin-catalog-card">
           <header>
