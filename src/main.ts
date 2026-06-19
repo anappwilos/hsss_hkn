@@ -3953,7 +3953,7 @@ function renderLotes(): void {
       ...lote,
       estado: lote.estado === 'borrador' ? lote.estado : calcularEstado(lote.fechaInicio, lote.fechaFin)
     }))
-    .toSorted((a, b) => b.fechaInicio.localeCompare(a.fechaInicio));
+    .toSorted(compareLotesPorCercania);
 
   const filtrados = lotes.filter((lote) => {
     const coincideFiltro = filtroLote === 'todos' || lote.estado === filtroLote;
@@ -4023,6 +4023,37 @@ function renderLotes(): void {
   `).join('');
 }
 
+function getLoteDistanciaTemporal(lote: LoteExposicion): number {
+  const hoy = fechaToInput(new Date());
+
+  if (lote.fechaInicio <= hoy && lote.fechaFin >= hoy) {
+    return 0;
+  }
+
+  const referencia = lote.fechaInicio > hoy ? parseFecha(lote.fechaInicio) : parseFecha(lote.fechaFin);
+  return Math.abs(daysBetween(parseFecha(hoy), referencia));
+}
+
+function compareLotesPorCercania(a: LoteExposicion, b: LoteExposicion): number {
+  const byDistance = getLoteDistanciaTemporal(a) - getLoteDistanciaTemporal(b);
+
+  if (byDistance !== 0) {
+    return byDistance;
+  }
+
+  const hoy = fechaToInput(new Date());
+  const aIsPast = a.fechaFin < hoy;
+  const bIsPast = b.fechaFin < hoy;
+
+  if (aIsPast !== bIsPast) {
+    return aIsPast ? 1 : -1;
+  }
+
+  return aIsPast
+    ? b.fechaInicio.localeCompare(a.fechaInicio)
+    : a.fechaInicio.localeCompare(b.fechaInicio);
+}
+
 function renderLoteFiltroButton(filter: FiltroLote, label: string, count: number): string {
   return `
     <button class="chip ${filtroLote === filter ? 'is-active' : ''}" type="button" data-filter="${filter}">
@@ -4030,6 +4061,26 @@ function renderLoteFiltroButton(filter: FiltroLote, label: string, count: number
       <span>${count}</span>
     </button>
   `;
+}
+
+function abrirTurnosAsignadosDeLote(lote: LoteExposicion): void {
+  const primerTurno = StorageDB.getTurnos()
+    .filter((turno) => turno.loteId === lote.id)
+    .toSorted((a, b) => {
+      const byDate = a.dia.localeCompare(b.dia);
+      return byDate !== 0 ? byDate : a.horaInicio.localeCompare(b.horaInicio);
+    })[0];
+  const fechaDestino = primerTurno?.dia ?? lote.fechaInicio;
+
+  adminPanel = 'turnos';
+  adminVistaTurnos = 'semanal';
+  adminFechaTurnosSeleccionada = fechaDestino;
+  adminSemanaTurnosInicio = startOfWeekMonday(parseFecha(fechaDestino));
+  adminTurnosBusqueda = lote.nombre;
+  adminTurnosFiltro = 'todos';
+  adminTurnoSeleccionadoId = null;
+  localStorage.setItem(LAST_ADMIN_PANEL_KEY, adminPanel);
+  renderAdminPanel();
 }
 
 function formatLoteEstado(estado: LoteEstado): string {
@@ -5234,9 +5285,7 @@ document.addEventListener('click', (event) => {
     if (loteAction.dataset.action === 'ver-turnos-lote') {
       cancelarConfirmacionEliminarLote();
       loteMenuAbiertoId = null;
-      adminPanel = 'turnos';
-      localStorage.setItem(LAST_ADMIN_PANEL_KEY, adminPanel);
-      renderAdminPanel();
+      abrirTurnosAsignadosDeLote(lote);
       return;
     }
 
