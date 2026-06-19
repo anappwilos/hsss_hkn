@@ -1,4 +1,5 @@
 import './style.css';
+import logoUrl from './assets/logo_t.png';
 import adoracionHeroUrl from './assets/a_solas.jpg';
 import { NotificationService, type AppNotification } from './notifications';
 import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type TurnoAsignacionTipo, type Usuario, type UsuarioFrecuencia, type UsuarioRol } from './storage';
@@ -160,10 +161,8 @@ app.innerHTML = `
 
       <form id="form-admin-login" class="admin-login-card" novalidate>
         <section class="auth-welcome" aria-label="Inicio de sesion">
-          <div class="auth-symbol-wrap" aria-hidden="true">
-            <span class="auth-spark auth-spark-left">✦</span>
-            <span class="auth-symbol">✚</span>
-            <span class="auth-spark auth-spark-right">✦</span>
+          <div class="auth-logo-wrap" aria-hidden="true">
+            <img src="${logoUrl}" alt="Logo A Solas" class="auth-logo" />
           </div>
             <h1>Iniciar sesion</h1>
         </section>
@@ -336,10 +335,8 @@ app.innerHTML = `
       <form id="form-registro-adorador" class="registro-form" novalidate>
         <div class="registro-shell">
           <section class="auth-welcome registro-welcome" aria-label="Crear cuenta">
-            <div class="auth-symbol-wrap" aria-hidden="true">
-              <span class="auth-spark auth-spark-left">✦</span>
-              <span class="auth-symbol">✚</span>
-              <span class="auth-spark auth-spark-right">✦</span>
+            <div class="auth-logo-wrap" aria-hidden="true">
+              <img src="${logoUrl}" alt="Logo A Solas" class="auth-logo" />
             </div>
             <h1>Crea tu cuenta</h1>
           </section>
