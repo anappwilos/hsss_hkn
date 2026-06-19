@@ -1637,10 +1637,6 @@ function getTurnoAsignacionTipo(turno: Turno, nombreCompleto?: string): TurnoAsi
   return normalizarTipoAsignacion(usuario?.frecuencia);
 }
 
-function getTurnoAsignacionLabel(turno: Turno, nombreCompleto?: string): string {
-  return formatFrecuencia(getTurnoAsignacionTipo(turno, nombreCompleto));
-}
-
 function getTurnoAsignacionRepeticion(turno: Turno, nombreCompleto?: string): string {
   const asignacion = (turno.asignaciones ?? []).find((item) =>
     !nombreCompleto || normalizarNombre(item.nombreCompleto) === normalizarNombre(nombreCompleto)
@@ -3184,9 +3180,9 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
   return `
     <article class="admin-calendar-turn is-${estado} assignment-${tipo} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
       <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
-        ${miembros}
-        ${mostrarCoberturaParcial ? `<small>${ocupadas}/${turno.plazasTotales} cubierto</small>` : ''}
-        ${turno.inscritos.length > 0 ? `<span class="assignment-badge assignment-badge-${tipo}">${escapeHtml(getTurnoAsignacionLabel(turno))}</span>` : ''}
+        ${mostrarCoberturaParcial ? `<small>${ocupadas}/${turno.plazasTotales} cubierto</small>
+        ${miembros}` 
+        : ''}
       </button>
       ${canAssign
         ? `<button class="admin-calendar-turn-action" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${estado === 'sin-asignar' ? 'Asignar' : estado === 'parcial' ? 'Cubrir' : 'Cambiar'}</button>`
@@ -3197,18 +3193,18 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
 }
 
 function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail'): string {
-  if (turno.inscritos.length === 0) {
-    return variant === 'compact'
-      ? '<span class="admin-turn-members is-empty">Sin miembros asignados</span>'
-      : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>';
-  }
+  // if (turno.inscritos.length === 0) {
+  //   return variant === 'compact'
+  //     ? '<span class="admin-turn-members is-empty">Sin miembros asignados</span>'
+  //     : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>';
+  // }
 
   const items = turno.inscritos.map((inscrito) => {
     const usuario = getUsuarioByNombre(inscrito);
     const tipo = getTurnoAsignacionTipo(turno, inscrito);
     const iniciales = usuario ? getInicialesUsuario(usuario) : inscrito.trim().charAt(0).toUpperCase() || 'A';
     const detalle = usuario
-      ? `${getTurnoAsignacionLabel(turno, inscrito)} · ${formatRol(usuario.rol)} · ${getTurnoAsignacionRepeticion(turno, inscrito)}`
+      ? `${formatRol(usuario.rol)} · ${getTurnoAsignacionRepeticion(turno, inscrito)}`
       : 'Perfil no encontrado';
 
     return `

@@ -3285,6 +3285,24 @@ button:disabled {
   font-weight: 900;
 }
 
+.admin-turn-member.assignment-fijo i,
+.admin-turn-member.assignment-suplente i,
+.admin-turn-member.assignment-puntual i {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.96), 0 0 0 4px var(--assignment-ring, rgba(33, 160, 183, 0.28));
+}
+
+.admin-turn-member.assignment-fijo i {
+  --assignment-ring: var(--assignment-fixed);
+}
+
+.admin-turn-member.assignment-suplente i {
+  --assignment-ring: var(--assignment-suplente);
+}
+
+.admin-turn-member.assignment-puntual i {
+  --assignment-ring: var(--assignment-puntual);
+}
+
 .admin-turn-member b {
   overflow: hidden;
   font-size: 0.78rem;
