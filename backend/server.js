@@ -22,6 +22,7 @@ const adminEmail = String(process.env.VITE_ADMIN_EMAIL || 'admin@admin.com').tri
 const adminPassword = String(process.env.VITE_ADMIN_PASSWORD || 'admin');
 const superadminEmail = String(process.env.VITE_SUPERADMIN_EMAIL || 'root@root.com').trim().toLowerCase();
 const superadminPassword = String(process.env.VITE_SUPERADMIN_PASSWORD || 'root');
+const seedUsers = getSeedUsersFromEnv();
 const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const passwordHashPrefix = 'scrypt';
@@ -37,6 +38,13 @@ const pool = isPostgresStorage
     ssl: shouldUseDatabaseSsl(databaseUrl) ? { rejectUnauthorized: false } : undefined
   })
   : null;
+
+if (pool) {
+  pool.on('error', (error) => {
+    logError('postgres.pool', error, getDatabaseDiagnostics(error));
+  });
+}
+
 const store = createStore();
 
 const emptyState = {
@@ -46,7 +54,7 @@ const emptyState = {
   notificaciones: [],
   catalogoUsuarios: {
     frecuencias: ['fijo', 'suplente', 'puntual'],
-    roles: ['usuario', 'sacerdote', 'admin', 'root']
+    roles: ['usuario', 'sacerdote']
   },
   updatedAt: 0
 };
@@ -67,7 +75,12 @@ const mimeTypes = new Map([
 ]);
 
 await store.initialize();
-await ensureBaseUsersAvailable();
+await store.ensureSeedUsers();
+logInfo('storage.ready', {
+  driver: storageDriver,
+  database: isPostgresStorage ? redactDatabaseUrl(databaseUrl) : undefined,
+  jsonDataFile: isPostgresStorage ? undefined : jsonDataFile
+});
 
 const server = createServer(async (request, response) => {
   try {
@@ -82,7 +95,7 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
 
     if (url.pathname === '/api/health') {
-      sendJson(response, 200, { ok: true });
+      await handleHealth(url, response);
       return;
     }
 
@@ -99,13 +112,30 @@ const server = createServer(async (request, response) => {
     await serveStatic(url.pathname, response);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected server error';
+    logError('request.failed', error, {
+      method: request.method,
+      url: request.url,
+      ...getDatabaseDiagnostics(error)
+    });
     sendJson(response, 500, { error: message });
   }
 });
 
+server.on('error', (error) => {
+  logError('server.listen_failed', error, {
+    port,
+    hint: error?.code === 'EADDRINUSE'
+      ? `El puerto ${port} ya esta ocupado. Cierra el proceso anterior o define PORT con otro valor.`
+      : undefined
+  });
+  process.exit(1);
+});
+
 server.listen(port, () => {
-  console.log(`A solas escuchando en http://localhost:${port}`);
-  console.log(store.description);
+  logInfo('server.listening', {
+    url: `http://localhost:${port}`,
+    storage: store.description
+  });
 });
 
 async function waitForDatabase(retries = 20, delayMs = 1000) {
@@ -113,16 +143,36 @@ async function waitForDatabase(retries = 20, delayMs = 1000) {
     return;
   }
 
+  logInfo('postgres.connecting', {
+    database: redactDatabaseUrl(databaseUrl),
+    ssl: shouldUseDatabaseSsl(databaseUrl)
+  });
+
   for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {
       await pool.query('SELECT 1');
+      logInfo('postgres.connected', {
+        attempt,
+        database: redactDatabaseUrl(databaseUrl)
+      });
       return;
     } catch (error) {
       if (attempt === retries) {
+        logError('postgres.connection_failed', error, {
+          attempt,
+          retries,
+          database: redactDatabaseUrl(databaseUrl),
+          ...getDatabaseDiagnostics(error)
+        });
         throw error;
       }
 
-      console.log(`Esperando PostgreSQL (${attempt}/${retries})...`);
+      logError('postgres.connection_retry', error, {
+        attempt,
+        retries,
+        nextRetryMs: delayMs,
+        ...getDatabaseDiagnostics(error)
+      });
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
@@ -130,9 +180,9 @@ async function waitForDatabase(retries = 20, delayMs = 1000) {
 
 async function loadEnvFile() {
   const envFiles = [
+    path.join(__dirname, '.env'),
     path.join(runtimeRoot, '.env'),
-    path.join(projectRoot, '.env'),
-    path.join(__dirname, '.env')
+    path.join(projectRoot, '.env')
   ];
 
   for (const envFile of Array.from(new Set(envFiles))) {
@@ -186,6 +236,71 @@ function shouldUseDatabaseSsl(connectionString) {
   }
 }
 
+function redactDatabaseUrl(connectionString) {
+  if (!connectionString) {
+    return '';
+  }
+
+  try {
+    const url = new URL(connectionString);
+    if (url.password) {
+      url.password = '***';
+    }
+    return url.toString();
+  } catch {
+    return connectionString.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:***@');
+  }
+}
+
+function logInfo(event, details = {}) {
+  console.log(JSON.stringify({
+    level: 'info',
+    event,
+    time: new Date().toISOString(),
+    ...details
+  }));
+}
+
+function logError(event, error, details = {}) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(JSON.stringify({
+    level: 'error',
+    event,
+    time: new Date().toISOString(),
+    message,
+    code: error?.code,
+    errno: error?.errno,
+    syscall: error?.syscall,
+    address: error?.address,
+    port: error?.port,
+    ...details
+  }));
+}
+
+function getDatabaseDiagnostics(error) {
+  if (!isPostgresStorage) {
+    return {};
+  }
+
+  const message = error instanceof Error ? error.message : String(error || '');
+  const lowerMessage = message.toLowerCase();
+  let hint = '';
+
+  if (lowerMessage.includes('terminated unexpectedly')) {
+    hint = 'La red llega al host, pero PostgreSQL cerro la sesion. En Render revisa External Database URL, credenciales, SSL y PostgreSQL Inbound IP Rules.';
+  } else if (lowerMessage.includes('password authentication failed')) {
+    hint = 'Credenciales rechazadas. Regenera o copia de nuevo la External Database URL.';
+  } else if (lowerMessage.includes('no pg_hba.conf entry') || lowerMessage.includes('ssl')) {
+    hint = 'La conexion requiere una regla de acceso o SSL compatible. En Render usa DATABASE_SSL=true y permite la IP publica del cliente.';
+  } else if (error?.code === 'ENOTFOUND' || error?.code === 'EAI_AGAIN') {
+    hint = 'No se pudo resolver el hostname de PostgreSQL.';
+  } else if (error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
+    hint = 'No se pudo abrir TCP contra PostgreSQL. Revisa hostname, puerto, firewall o allowlist.';
+  }
+
+  return hint ? { databaseHint: hint } : {};
+}
+
 function createStore() {
   if (isPostgresStorage) {
     return createPostgresStore();
@@ -217,11 +332,18 @@ function createJsonStore() {
       }
     },
     async writeState(state) {
-      await writeJsonState(await withBaseUsers(state));
+      await writeJsonState(state);
     },
     async findUserByEmail(email) {
       const state = await this.readState();
       return state.usuarios.find((item) => item.email.toLowerCase() === email);
+    },
+    async ensureSeedUsers() {
+      if (seedUsers.length === 0) {
+        return;
+      }
+
+      await writeJsonState(await withSeedUsers(await this.readState()));
     }
   };
 }
@@ -231,26 +353,16 @@ function createPostgresStore() {
     description: 'Datos persistentes en PostgreSQL.',
     async initialize() {
       await initializePostgresStore();
-      await migrateStoredPasswords();
     },
     async readState() {
-      const result = await pool.query('SELECT state FROM app_state WHERE id = $1', ['default']);
-      return normalizeState(result.rows[0]?.state);
+      return readRelationalState();
     },
     async writeState(state) {
-      const stateWithBaseUsers = await withBaseUsers(state);
-      await pool.query(
-        `INSERT INTO app_state (id, state, updated_at)
-         VALUES ('default', $1::jsonb, now())
-         ON CONFLICT (id)
-         DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
-        [JSON.stringify(stateWithBaseUsers)]
-      );
-      await writeRelationalState(stateWithBaseUsers);
+      await writeRelationalState(state);
     },
     async findUserByEmail(email) {
       const result = await pool.query(
-        `SELECT id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
+        `SELECT id, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
          FROM usuarios
          WHERE lower(email) = $1
          LIMIT 1`,
@@ -258,6 +370,9 @@ function createPostgresStore() {
       );
 
       return mapDbUser(result.rows[0]);
+    },
+    async ensureSeedUsers() {
+      await ensureSeedUsersAvailable();
     }
   };
 }
@@ -266,17 +381,8 @@ async function initializePostgresStore() {
   await waitForDatabase();
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS app_state (
-      id text PRIMARY KEY,
-      state jsonb NOT NULL,
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id text PRIMARY KEY,
-      nombre_completo text NOT NULL DEFAULT '',
       nombre text NOT NULL,
       apellidos text NOT NULL,
       email text NOT NULL UNIQUE,
@@ -289,13 +395,7 @@ async function initializePostgresStore() {
     )
   `);
 
-  await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_completo text NOT NULL DEFAULT ''");
   await pool.query("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password text NOT NULL DEFAULT ''");
-  await pool.query(`
-    UPDATE usuarios
-    SET nombre_completo = trim(concat_ws(' ', nombre, apellidos))
-    WHERE nombre_completo = ''
-  `);
   await pool.query(`
     DO $$
     BEGIN
@@ -308,7 +408,6 @@ async function initializePostgresStore() {
         ALTER TABLE usuarios DROP CONSTRAINT usuarios_rol_check;
       END IF;
 
-      UPDATE usuarios SET rol = 'admin' WHERE rol = 'administrador';
     END $$;
   `);
   await pool.query('ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_frecuencia_check');
@@ -318,6 +417,20 @@ async function initializePostgresStore() {
       id text PRIMARY KEY,
       data jsonb NOT NULL,
       creado_en timestamptz NOT NULL DEFAULT now(),
+      actualizado_en timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS turnos (
+      id text PRIMARY KEY,
+      lote_id text,
+      dia date NOT NULL,
+      hora_inicio text NOT NULL,
+      hora_fin text NOT NULL,
+      plazas_totales integer NOT NULL,
+      plazas_disponibles integer NOT NULL,
+      data jsonb NOT NULL,
       actualizado_en timestamptz NOT NULL DEFAULT now()
     )
   `);
@@ -335,12 +448,55 @@ async function initializePostgresStore() {
     )
   `);
 
-  await pool.query(
-    `INSERT INTO app_state (id, state)
-     VALUES ('default', $1::jsonb)
-     ON CONFLICT (id) DO NOTHING`,
-    [JSON.stringify(emptyState)]
-  );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS catalogo_usuario_opciones (
+      tipo text NOT NULL CHECK (tipo IN ('frecuencia', 'rol')),
+      valor text NOT NULL,
+      creado_en timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (tipo, valor)
+    )
+  `);
+
+  logInfo('postgres.schema_ready');
+}
+
+async function handleHealth(url, response) {
+  const includeDetails = url.searchParams.get('details') === '1';
+  const payload = {
+    ok: true,
+    storage: storageDriver
+  };
+
+  if (!includeDetails || !pool) {
+    sendJson(response, 200, payload);
+    return;
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT current_database() AS database, current_user AS "user", version() AS version`
+    );
+    sendJson(response, 200, {
+      ...payload,
+      database: {
+        ok: true,
+        name: result.rows[0]?.database,
+        user: result.rows[0]?.user,
+        version: result.rows[0]?.version
+      }
+    });
+  } catch (error) {
+    logError('health.database_failed', error, getDatabaseDiagnostics(error));
+    sendJson(response, 503, {
+      ...payload,
+      ok: false,
+      database: {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Database healthcheck failed',
+        ...getDatabaseDiagnostics(error)
+      }
+    });
+  }
 }
 
 async function migrateStoredPasswords() {
@@ -374,9 +530,9 @@ async function handleState(request, response) {
     const body = await readJsonBody(request);
     const currentState = await store.readState();
     const state = await normalizeIncomingState(body, currentState);
-    const stateWithBaseUsers = await withBaseUsers(state);
-    await store.writeState(stateWithBaseUsers);
-    sendJson(response, 200, sanitizeStateForClient(stateWithBaseUsers));
+    const stateWithSeeds = await withSeedUsers(state);
+    await store.writeState(stateWithSeeds);
+    sendJson(response, 200, sanitizeStateForClient(stateWithSeeds));
     return;
   }
 
@@ -398,6 +554,13 @@ async function handleLogin(request, response) {
     return;
   }
 
+  const envUser = getEnvAccessUser(email, password);
+
+  if (envUser) {
+    sendJson(response, 200, { usuario: sanitizeUserForClient(envUser) });
+    return;
+  }
+
   const usuario = await store.findUserByEmail(email);
 
   if (!usuario || !(await verifyPassword(password, usuario.password))) {
@@ -406,19 +569,72 @@ async function handleLogin(request, response) {
   }
 
   sendJson(response, 200, {
-    usuario: {
-      id: usuario.id,
-      nombreCompleto: usuario.nombreCompleto || `${usuario.nombre} ${usuario.apellidos}`.trim(),
-      nombre: usuario.nombre,
-      apellidos: usuario.apellidos,
-      email: usuario.email,
-      telefono: usuario.telefono,
-      frecuencia: usuario.frecuencia,
-      rol: usuario.rol,
-      creadoEn: usuario.creadoEn || Date.now(),
-      actualizadoEn: usuario.actualizadoEn || Date.now()
-    }
+    usuario: sanitizeUserForClient(usuario)
   });
+}
+
+function sanitizeUserForClient(usuario) {
+  return {
+    id: usuario.id,
+    nombreCompleto: usuario.nombreCompleto || `${usuario.nombre} ${usuario.apellidos}`.trim(),
+    nombre: usuario.nombre,
+    apellidos: usuario.apellidos,
+    email: usuario.email,
+    telefono: usuario.telefono,
+    frecuencia: usuario.frecuencia,
+    rol: usuario.rol,
+    origen: usuario.origen,
+    creadoEn: usuario.creadoEn || Date.now(),
+    actualizadoEn: usuario.actualizadoEn || Date.now()
+  };
+}
+
+function getEnvAccessUser(email, password) {
+  if (email === superadminEmail && password === superadminPassword) {
+    return createEnvAccessUser('env-root-user', 'Root', superadminEmail, 'root');
+  }
+
+  if (email === adminEmail && password === adminPassword) {
+    return createEnvAccessUser('env-admin-user', 'Admin', adminEmail, 'admin');
+  }
+
+  return undefined;
+}
+
+function createEnvAccessUser(id, nombre, email, rol) {
+  const now = Date.now();
+  return {
+    id,
+    nombreCompleto: nombre,
+    nombre,
+    apellidos: '',
+    email,
+    telefono: '',
+    frecuencia: 'puntual',
+    rol,
+    origen: 'env',
+    creadoEn: now,
+    actualizadoEn: now
+  };
+}
+
+function getEnvAccessUsers() {
+  return [
+    createEnvAccessUser('env-root-user', 'Root', superadminEmail, 'root'),
+    createEnvAccessUser('env-admin-user', 'Admin', adminEmail, 'admin')
+  ].filter((usuario) => usuario.email);
+}
+
+function isEnvAccessUserLike(usuario) {
+  const email = String(usuario.email || '').trim().toLowerCase();
+  const id = String(usuario.id || '').trim();
+
+  return id === 'root-user'
+    || id === 'admin-user'
+    || id === 'env-root-user'
+    || id === 'env-admin-user'
+    || email === superadminEmail
+    || email === adminEmail;
 }
 
 async function writeJsonState(state) {
@@ -433,7 +649,6 @@ function mapDbUser(row) {
 
   return normalizeUsuarios([{
     id: row.id,
-    nombreCompleto: row.nombre_completo || `${row.nombre} ${row.apellidos}`.trim(),
     nombre: row.nombre,
     apellidos: row.apellidos,
     email: row.email,
@@ -495,36 +710,36 @@ function sanitizeStateForClient(state) {
   };
 }
 
-async function ensureBaseUsersAvailable() {
-  await store.writeState(await withBaseUsers(await store.readState()));
-}
-
-async function withBaseUsers(value) {
+async function withSeedUsers(value) {
   const state = normalizeState(value);
   state.usuarios = dedupeUsersByEmail(state.usuarios);
   const usersByEmail = new Map(state.usuarios.map((usuario) => [usuario.email.toLowerCase(), usuario]));
   const now = Date.now();
 
-  for (const base of getBaseUsers()) {
+  for (const base of seedUsers) {
     const existing = usersByEmail.get(base.email);
-    const password = existing?.password && await verifyPassword(base.password, existing.password)
-      ? existing.password
-      : await hashPassword(base.password);
+    const password = base.password
+      ? existing?.password && await verifyPassword(base.password, existing.password)
+        ? existing.password
+        : await hashPassword(base.password)
+      : existing?.password || '';
     const usuario = {
       id: existing?.id || base.id,
-      nombreCompleto: existing?.nombreCompleto || base.nombre,
+      nombreCompleto: existing?.nombreCompleto || `${base.nombre} ${base.apellidos || ''}`.trim(),
       nombre: existing?.nombre || base.nombre,
-      apellidos: existing?.apellidos || '',
+      apellidos: existing?.apellidos || base.apellidos || '',
       email: base.email,
-      telefono: existing?.telefono || '000000000',
-      frecuencia: existing?.frecuencia || 'puntual',
-      rol: base.rol,
+      telefono: existing?.telefono || base.telefono || '',
+      frecuencia: existing?.frecuencia || base.frecuencia || 'puntual',
+      rol: existing?.rol || base.rol || 'usuario',
+      origen: 'env',
       password,
       creadoEn: existing?.creadoEn || now,
-      actualizadoEn: now
+      actualizadoEn: existing?.actualizadoEn || now
     };
 
     if (existing) {
+      usuario.actualizadoEn = hasUserMeaningfulChanges(existing, usuario) ? now : existing.actualizadoEn;
       const index = state.usuarios.findIndex((item) => item.email.toLowerCase() === base.email);
       state.usuarios[index] = usuario;
     } else {
@@ -533,6 +748,71 @@ async function withBaseUsers(value) {
   }
 
   return normalizeState(state);
+}
+
+async function ensureSeedUsersAvailable() {
+  if (seedUsers.length === 0) {
+    return;
+  }
+
+  const state = await readRelationalState();
+  const stateWithSeeds = await withSeedUsers(state);
+
+  if (JSON.stringify(state.usuarios) === JSON.stringify(stateWithSeeds.usuarios)) {
+    return;
+  }
+
+  await upsertSeedUsers(stateWithSeeds.usuarios.filter((usuario) =>
+    seedUsers.some((seed) => seed.email === usuario.email.toLowerCase())
+  ));
+  logInfo('postgres.seed_users_ensured', { usuarios: seedUsers.length });
+}
+
+async function upsertSeedUsers(usuarios) {
+  for (const usuario of usuarios) {
+    await pool.query(
+      `INSERT INTO usuarios (id, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))
+       ON CONFLICT (email)
+       DO UPDATE SET
+         nombre = EXCLUDED.nombre,
+         apellidos = EXCLUDED.apellidos,
+         telefono = EXCLUDED.telefono,
+         frecuencia = EXCLUDED.frecuencia,
+         rol = EXCLUDED.rol,
+         password = CASE WHEN usuarios.password = '' THEN EXCLUDED.password ELSE usuarios.password END,
+         actualizado_en = EXCLUDED.actualizado_en`,
+      [
+        usuario.id,
+        usuario.nombre,
+        usuario.apellidos,
+        usuario.email,
+        usuario.telefono,
+        usuario.frecuencia,
+        usuario.rol,
+        usuario.password ?? '',
+        usuario.creadoEn,
+        usuario.actualizadoEn
+      ]
+    );
+  }
+}
+
+function hasUserMeaningfulChanges(current, next) {
+  return current.id !== next.id
+    || current.nombreCompleto !== next.nombreCompleto
+    || current.nombre !== next.nombre
+    || current.apellidos !== next.apellidos
+    || current.email !== next.email
+    || current.telefono !== next.telefono
+    || current.frecuencia !== next.frecuencia
+    || current.rol !== next.rol
+    || current.password !== next.password;
+}
+
+function isSeedUser(usuario) {
+  const email = String(usuario.email || '').trim().toLowerCase();
+  return seedUsers.some((seed) => seed.email === email);
 }
 
 function dedupeUsersByEmail(usuarios) {
@@ -562,21 +842,59 @@ function dedupeUsersByEmail(usuarios) {
   return deduped;
 }
 
-function getBaseUsers() {
-  const users = [
-    { id: 'root-user', email: superadminEmail, password: superadminPassword, rol: 'root', nombre: 'Root' },
-    { id: 'admin-user', email: adminEmail, password: adminPassword, rol: 'admin', nombre: 'Admin' }
-  ];
+function getSeedUsersFromEnv() {
+  const defaultSeedUsers = 'Gabi|Aguilera Fernandez|gabi.aguilera.fernandez@example.com|fijo||;Nicolas|Alarcon Rapela|nicolas.alarcon.rapela@example.com|suplente||';
+  const users = parseSeedUsersList(process.env.SEED_USERS || defaultSeedUsers);
   const seen = new Set();
 
   return users.filter((usuario) => {
-    if (!usuario.email || !usuario.password || seen.has(usuario.email)) {
+    usuario.email = String(usuario.email || '').trim().toLowerCase();
+    usuario.nombre = String(usuario.nombre || '').trim();
+    usuario.apellidos = String(usuario.apellidos || '').trim();
+    usuario.frecuencia = normalizeCatalogOption(usuario.frecuencia, 'puntual');
+    usuario.telefono = String(usuario.telefono || '').trim();
+    usuario.password = String(usuario.password || '');
+    usuario.id = String(usuario.id || `seed-${slugify(`${usuario.nombre}-${usuario.apellidos || usuario.email}`)}`).trim();
+
+    if (!usuario.email || !usuario.nombre || seen.has(usuario.email)) {
       return false;
     }
 
     seen.add(usuario.email);
     return true;
   });
+}
+
+function parseSeedUsersList(value) {
+  return String(value || '')
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item, index) => {
+      const [nombre, apellidos, email, frecuencia, telefono = '', password = '', id = ''] = item
+        .split('|')
+        .map((part) => part.trim());
+
+      return {
+        id: id || `seed-user-${index + 1}-${slugify(`${nombre}-${apellidos || email}`)}`,
+        nombre,
+        apellidos,
+        email,
+        telefono,
+        frecuencia,
+        password,
+        rol: 'usuario'
+      };
+    });
+}
+
+function slugify(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'usuario';
 }
 
 function normalizeUsuarios(value) {
@@ -601,12 +919,13 @@ function normalizeUsuarios(value) {
         telefono: String(source.telefono || '').trim(),
         frecuencia: normalizeCatalogOption(source.frecuencia, 'puntual'),
         rol: normalizeRol(source.rol),
+        origen: source.origen === 'env' ? 'env' : undefined,
         password: typeof source.password === 'string' ? source.password : undefined,
         creadoEn,
         actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn
       };
     })
-    .filter((usuario) => usuario.id && (usuario.nombre || usuario.nombreCompleto) && usuario.email);
+    .filter((usuario) => usuario.id && (usuario.nombre || usuario.nombreCompleto) && usuario.email && !isEnvAccessUserLike(usuario));
 }
 
 function normalizeRol(rol) {
@@ -622,7 +941,7 @@ function normalizeCatalogoUsuarios(value) {
   const source = value && typeof value === 'object' ? value : {};
   const defaults = {
     frecuencias: ['fijo', 'suplente', 'puntual'],
-    roles: ['usuario', 'sacerdote', 'admin', 'root']
+    roles: ['usuario', 'sacerdote']
   };
 
   return {
@@ -693,20 +1012,71 @@ async function verifyPassword(password, storedPassword) {
   return stored.length === candidate.length && timingSafeEqual(stored, candidate);
 }
 
+async function readRelationalState() {
+  const [usuariosResult, lotesResult, turnosResult, notificacionesResult, catalogoResult] = await Promise.all([
+    pool.query(
+      `SELECT id, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en
+       FROM usuarios
+       ORDER BY creado_en, id`
+    ),
+    pool.query('SELECT data FROM lotes ORDER BY creado_en, id'),
+    pool.query('SELECT data FROM turnos ORDER BY dia, hora_inicio, id'),
+    pool.query(
+      `SELECT id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en
+       FROM notificaciones
+       ORDER BY creado_en DESC, id`
+    ),
+    pool.query('SELECT tipo, valor FROM catalogo_usuario_opciones ORDER BY tipo, valor')
+  ]);
+  const catalogoUsuarios = {
+    frecuencias: catalogoResult.rows
+      .filter((row) => row.tipo === 'frecuencia')
+      .map((row) => row.valor),
+    roles: catalogoResult.rows
+      .filter((row) => row.tipo === 'rol')
+      .map((row) => row.valor)
+  };
+
+  const state = normalizeState({
+    usuarios: usuariosResult.rows.map(mapDbUser).filter(Boolean).map((usuario) => ({
+      ...usuario,
+      origen: isSeedUser(usuario) ? 'env' : usuario.origen
+    })),
+    lotes: lotesResult.rows.map((row) => row.data).filter(Boolean),
+    turnos: turnosResult.rows.map((row) => row.data).filter(Boolean),
+    notificaciones: notificacionesResult.rows.map((row) => ({
+      id: row.id,
+      usuarioId: row.usuario_id || undefined,
+      titulo: row.titulo,
+      mensaje: row.mensaje,
+      tipo: row.tipo,
+      estado: row.estado,
+      creadoEn: row.creado_en ? new Date(row.creado_en).getTime() : Date.now(),
+      leidoEn: row.leido_en ? new Date(row.leido_en).getTime() : undefined
+    })),
+    catalogoUsuarios,
+    updatedAt: Date.now()
+  });
+  state.usuarios = [
+    ...getEnvAccessUsers(),
+    ...state.usuarios
+  ];
+  return state;
+}
+
 async function writeRelationalState(state) {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
-    await client.query('TRUNCATE notificaciones, lotes, usuarios');
+    await client.query('TRUNCATE catalogo_usuario_opciones, notificaciones, turnos, lotes, usuarios');
 
     for (const usuario of state.usuarios) {
       await client.query(
-        `INSERT INTO usuarios (id, nombre_completo, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, to_timestamp($10 / 1000.0), to_timestamp($11 / 1000.0))`,
+        `INSERT INTO usuarios (id, nombre, apellidos, email, telefono, frecuencia, rol, password, creado_en, actualizado_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9 / 1000.0), to_timestamp($10 / 1000.0))`,
         [
           usuario.id,
-          usuario.nombreCompleto,
           usuario.nombre,
           usuario.apellidos,
           usuario.email,
@@ -728,6 +1098,23 @@ async function writeRelationalState(state) {
       );
     }
 
+    for (const turno of state.turnos) {
+      await client.query(
+        `INSERT INTO turnos (id, lote_id, dia, hora_inicio, hora_fin, plazas_totales, plazas_disponibles, data, actualizado_en)
+         VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8::jsonb, now())`,
+        [
+          turno.id,
+          turno.loteId ?? null,
+          turno.dia,
+          turno.horaInicio,
+          turno.horaFin,
+          turno.plazasTotales,
+          turno.plazasDisponibles,
+          JSON.stringify(turno)
+        ]
+      );
+    }
+
     for (const notificacion of state.notificaciones) {
       await client.query(
         `INSERT INTO notificaciones (id, usuario_id, titulo, mensaje, tipo, estado, creado_en, leido_en)
@@ -736,9 +1123,36 @@ async function writeRelationalState(state) {
       );
     }
 
+    const catalogoUsuarios = normalizeCatalogoUsuarios(state.catalogoUsuarios);
+
+    for (const frecuencia of catalogoUsuarios.frecuencias) {
+      await client.query(
+        `INSERT INTO catalogo_usuario_opciones (tipo, valor)
+         VALUES ('frecuencia', $1)
+         ON CONFLICT (tipo, valor) DO NOTHING`,
+        [frecuencia]
+      );
+    }
+
+    for (const rol of catalogoUsuarios.roles) {
+      await client.query(
+        `INSERT INTO catalogo_usuario_opciones (tipo, valor)
+         VALUES ('rol', $1)
+         ON CONFLICT (tipo, valor) DO NOTHING`,
+        [rol]
+      );
+    }
+
     await client.query('COMMIT');
+    logInfo('postgres.state_written', {
+      usuarios: state.usuarios.length,
+      lotes: state.lotes.length,
+      turnos: state.turnos.length,
+      notificaciones: state.notificaciones.length
+    });
   } catch (error) {
     await client.query('ROLLBACK');
+    logError('postgres.state_write_failed', error, getDatabaseDiagnostics(error));
     throw error;
   } finally {
     client.release();

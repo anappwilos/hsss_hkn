@@ -10,6 +10,7 @@ type TipoAnotacion = 'puntual' | 'periodica';
 type VistaTurnos = 'diaria' | 'semanal';
 type AdminPanel = 'lotes' | 'usuarios' | 'turnos' | 'catalogos';
 type AdminUsuarioFiltro = 'todos' | 'administrador' | (string & {});
+type AdminUsuariosSubpanel = 'usuarios' | 'env';
 type AdminTurnoFiltro = 'todos' | 'sin-asignar' | 'asignados' | 'suplente';
 type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'parcial';
 type UsuarioPanel = 'disponibles' | 'asignados';
@@ -45,6 +46,7 @@ const REMEMBERED_EMAIL_KEY = 'hsss_remembered_email';
 const ADMIN_TURNO_DETAIL_CLOSED = '__closed__';
 const ROLES_PROTEGIDOS = new Set<UsuarioRol>(['root', 'admin']);
 const ROLES_ADMINISTRATIVOS = new Set<UsuarioRol>(['root', 'admin']);
+const ROLES_SIN_FRECUENCIA = new Set<UsuarioRol>(['root', 'admin', 'sacerdote']);
 const FRECUENCIA_LABELS: Record<string, string> = {
   fijo: 'Fijo',
   suplente: 'Suplente',
@@ -90,6 +92,7 @@ let usuarioOrdenTurnos: UsuarioOrdenTurnos = 'fecha';
 let adminPanel: AdminPanel = 'turnos';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
+let adminUsuariosSubpanel: AdminUsuariosSubpanel = 'usuarios';
 let adminUsuarioEditandoId: string | null = null;
 let adminFechaTurnosSeleccionada = fechaToInput(new Date());
 let adminSemanaTurnosInicio = startOfWeekMonday(new Date());
@@ -1070,6 +1073,14 @@ function isAdminRol(rol: UsuarioRol): rol is Extract<UsuarioRol, 'root' | 'admin
 
 function isRolProtegido(rol: UsuarioRol): boolean {
   return ROLES_PROTEGIDOS.has(rol);
+}
+
+function rolTieneFrecuencia(rol: UsuarioRol): boolean {
+  return !ROLES_SIN_FRECUENCIA.has(rol);
+}
+
+function usuarioTieneFrecuencia(usuario: Usuario): boolean {
+  return rolTieneFrecuencia(usuario.rol);
 }
 
 function getRolesEditables(usuario: Usuario): UsuarioRol[] {
@@ -2176,7 +2187,7 @@ function matchesAdminUsuarioFiltro(usuario: Usuario): boolean {
     return isAdminRol(usuario.rol);
   }
 
-  return usuario.frecuencia === adminUsuariosFiltro;
+  return usuarioTieneFrecuencia(usuario) && usuario.frecuencia === adminUsuariosFiltro;
 }
 
 function matchesAdminUsuarioBusqueda(usuario: Usuario): boolean {
@@ -2189,17 +2200,38 @@ function matchesAdminUsuarioBusqueda(usuario: Usuario): boolean {
     usuario.nombreCompleto,
     usuario.email,
     usuario.telefono,
-    formatFrecuencia(usuario.frecuencia),
+    usuarioTieneFrecuencia(usuario) ? formatFrecuencia(usuario.frecuencia) : '',
     formatRol(usuario.rol)
   ].some((value) => normalizarNombre(value).includes(query));
 }
 
+function esUsuarioEnv(usuario: Usuario): boolean {
+  return usuario.origen === 'env';
+}
+
+function matchesAdminUsuariosSubpanel(usuario: Usuario): boolean {
+  return adminUsuariosSubpanel === 'env' ? esUsuarioEnv(usuario) : !esUsuarioEnv(usuario);
+}
+
+function renderAdminUsuariosSubtab(value: AdminUsuariosSubpanel, label: string, count: number): string {
+  return `
+    <button class="${adminUsuariosSubpanel === value ? 'is-active' : ''}" type="button" data-admin-user-source="${value}">
+      ${escapeHtml(label)}
+      <span>${count}</span>
+    </button>
+  `;
+}
+
 function renderAdminUsuarios(): void {
   const usuarios = StorageDB.getUsuarios().toSorted((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto));
-  const filtrados = usuarios.filter((usuario) => matchesAdminUsuarioFiltro(usuario) && matchesAdminUsuarioBusqueda(usuario));
-  const totalFijos = usuarios.filter((usuario) => usuario.frecuencia === 'fijo').length;
-  const totalSuplentes = usuarios.filter((usuario) => usuario.frecuencia === 'suplente').length;
-  const totalPuntuales = usuarios.filter((usuario) => usuario.frecuencia === 'puntual').length;
+  const usuariosEnv = usuarios.filter(esUsuarioEnv);
+  const usuariosNormales = usuarios.filter((usuario) => !esUsuarioEnv(usuario));
+  const usuariosVisibles = usuarios.filter(matchesAdminUsuariosSubpanel);
+  const filtrados = usuariosVisibles.filter((usuario) => matchesAdminUsuarioFiltro(usuario) && matchesAdminUsuarioBusqueda(usuario));
+  const usuariosConFrecuencia = usuariosVisibles.filter(usuarioTieneFrecuencia);
+  const totalFijos = usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === 'fijo').length;
+  const totalSuplentes = usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === 'suplente').length;
+  const totalPuntuales = usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === 'puntual').length;
   const selectedId = adminUsuarioEditandoId;
 
   adminUsuariosLista.innerHTML = `
@@ -2207,14 +2239,14 @@ function renderAdminUsuarios(): void {
       <section class="admin-users-main">
         <header class="admin-users-hero">
           <div>
-            <h2>Usuarios</h2>
-            <button id="btn-admin-user-create" class="button button-primary button-small" type="button">Crear usuario</button>
+            <h2>${adminUsuariosSubpanel === 'env' ? 'Pringados (.env)' : 'Usuarios'}</h2>
+            ${adminUsuariosSubpanel === 'usuarios' ? '<button id="btn-admin-user-create" class="button button-primary button-small" type="button">Crear usuario</button>' : ''}
           </div>
           <div class="admin-month-pill" aria-label="Periodo visible">${escapeHtml(new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date()))}</div>
         </header>
 
         <section class="admin-user-metrics" aria-label="Resumen de usuarios">
-          <article><span>Total usuarios</span><strong>${usuarios.length}</strong><small>perfiles registrados</small></article>
+          <article><span>Total ${adminUsuariosSubpanel === 'env' ? '.env' : 'usuarios'}</span><strong>${usuariosVisibles.length}</strong><small>${adminUsuariosSubpanel === 'env' ? 'definidos en backend/.env' : 'perfiles registrados'}</small></article>
           <article><span>Fijos</span><strong>${totalFijos}</strong></article>
           <article><span>Puntuales</span><strong>${totalPuntuales}</strong></article>
           <article><span>Suplentes</span><strong>${totalSuplentes}</strong></article>
@@ -2228,15 +2260,20 @@ function renderAdminUsuarios(): void {
             </label>
           </div>
 
-          <div class="admin-user-filters" aria-label="Filtros de usuarios">
-            ${renderAdminUsuarioFiltroButton('todos', 'Todos', usuarios.length)}
-            ${getFrecuenciasEditables().map((frecuencia) => renderAdminUsuarioFiltroButton(frecuencia, formatFrecuencia(frecuencia), usuarios.filter((usuario) => usuario.frecuencia === frecuencia).length)).join('')}
-            ${renderAdminUsuarioFiltroButton('administrador', 'Admin/Root', usuarios.filter((usuario) => isAdminRol(usuario.rol)).length)}
+          <div class="admin-user-filters admin-user-subtabs" aria-label="Origen de usuarios">
+            ${renderAdminUsuariosSubtab('usuarios', 'Usuarios', usuariosNormales.length)}
+            ${renderAdminUsuariosSubtab('env', 'Pringados (.env)', usuariosEnv.length)}
           </div>
 
-          ${usuarios.length === 0
-            ? `<div class="empty-card compact"><h3>No hay usuarios registrados</h3><p>Cuando un adorador complete su perfil, aparecera aqui para administracion.</p></div>`
-            : renderAdminUsuariosTable(filtrados, selectedId)
+          <div class="admin-user-filters" aria-label="Filtros de usuarios">
+            ${renderAdminUsuarioFiltroButton('todos', 'Todos', usuariosVisibles.length)}
+            ${getFrecuenciasEditables().map((frecuencia) => renderAdminUsuarioFiltroButton(frecuencia, formatFrecuencia(frecuencia), usuariosConFrecuencia.filter((usuario) => usuario.frecuencia === frecuencia).length)).join('')}
+            ${renderAdminUsuarioFiltroButton('administrador', 'Admin/Root', usuariosVisibles.filter((usuario) => isAdminRol(usuario.rol)).length)}
+          </div>
+
+          ${usuariosVisibles.length === 0
+            ? `<div class="empty-card compact"><h3>${adminUsuariosSubpanel === 'env' ? 'No hay pringados en .env' : 'No hay usuarios registrados'}</h3><p>${adminUsuariosSubpanel === 'env' ? 'Anade entradas en SEED_USERS para verlas aqui.' : 'Cuando un adorador complete su perfil, aparecera aqui para administracion.'}</p></div>`
+            : renderAdminUsuariosTable(filtrados, selectedId, usuariosVisibles.length)
           }
         </section>
       </section>
@@ -2254,7 +2291,7 @@ function renderAdminUsuarioFiltroButton(filter: AdminUsuarioFiltro, label: strin
   `;
 }
 
-function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null): string {
+function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null, totalVisible = StorageDB.getUsuarios().length): string {
   if (usuarios.length === 0) {
     return `
       <div class="empty-card compact">
@@ -2282,7 +2319,7 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
       </table>
     </div>
     <footer class="admin-users-pagination">
-      <span>Mostrando ${usuarios.length} de ${StorageDB.getUsuarios().length} usuarios</span>
+      <span>Mostrando ${usuarios.length} de ${totalVisible} usuarios</span>
       <div>
         <button type="button" aria-label="Pagina anterior">‹</button>
         <strong>1</strong>
@@ -2293,6 +2330,11 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
 }
 
 function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): string {
+  const frecuenciaCell = usuarioTieneFrecuencia(usuario)
+    ? `<strong class="admin-table-main">${escapeHtml(formatFrecuencia(usuario.frecuencia))}</strong><small>${escapeHtml(getFrecuenciaDetalle(usuario.frecuencia))}</small>`
+    : '<strong class="admin-table-main">No aplica</strong><small>Rol sin frecuencia asociada</small>';
+  const canDelete = canManageUsers() && !isRolProtegido(usuario.rol) && !esUsuarioEnv(usuario);
+
   return `
     <tr class="${selectedId === usuario.id ? 'is-selected' : ''}">
       <td>
@@ -2302,13 +2344,12 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
             <button class="admin-user-name-button" type="button" data-action="admin-user-focus" data-id="${usuario.id}">
               ${escapeHtml(usuario.nombreCompleto)}
             </button>
-            <small>ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}</small>
+            <small>ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}${esUsuarioEnv(usuario) ? ' · .env' : ''}</small>
           </div>
         </div>
       </td>
       <td>
-        <strong class="admin-table-main">${escapeHtml(formatFrecuencia(usuario.frecuencia))}</strong>
-        <small>${escapeHtml(getFrecuenciaDetalle(usuario.frecuencia))}</small>
+        ${frecuenciaCell}
       </td>
       <td><span class="admin-role-chip">${escapeHtml(formatRol(usuario.rol))}</span></td>
       <td>
@@ -2319,7 +2360,7 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
         <div class="admin-row-actions">
           <button type="button" data-action="admin-user-edit" data-id="${usuario.id}" aria-label="Editar usuario ${escapeHtml(usuario.nombreCompleto)}">✎</button>
           <button type="button" data-action="admin-user-focus" data-id="${usuario.id}" aria-label="Ver usuario ${escapeHtml(usuario.nombreCompleto)}">◉</button>
-          ${canManageUsers() && !isRolProtegido(usuario.rol) ? `<button type="button" data-action="admin-user-delete" data-id="${usuario.id}" aria-label="Eliminar usuario ${escapeHtml(usuario.nombreCompleto)}">×</button>` : ''}
+          ${canDelete ? `<button type="button" data-action="admin-user-delete" data-id="${usuario.id}" aria-label="Eliminar usuario ${escapeHtml(usuario.nombreCompleto)}">×</button>` : ''}
         </div>
       </td>
     </tr>
@@ -2330,6 +2371,9 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
   const isNew = !StorageDB.getUsuarios().some((item) => item.id === usuario.id);
   const turnosAsignados = isNew ? [] : getTurnosUsuario(usuario);
   const rolesEditables = getRolesEditables(usuario);
+  const mostrarFrecuencia = isNew || usuarioTieneFrecuencia(usuario);
+  const readOnlyEnv = esUsuarioEnv(usuario);
+  const disabledEnv = readOnlyEnv ? 'disabled' : '';
 
   return `
       <header class="modal-header admin-user-modal-head">
@@ -2344,32 +2388,33 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
         <span class="admin-user-avatar is-large">${escapeHtml(getInicialesUsuario(usuario))}</span>
         <div>
           <h4>${escapeHtml(usuario.nombreCompleto)}</h4>
-          <p>ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}</p>
+          <p>ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}${esUsuarioEnv(usuario) ? ' · definido en .env' : ''}</p>
         </div>
       </section>
 
       <form class="admin-user-edit-form" data-admin-user-form="${usuario.id}">
         <label>
           <span>Nombre completo</span>
-          <input id="admin-user-edit-name" type="text" value="${escapeHtml(usuario.nombreCompleto)}" required />
+          <input id="admin-user-edit-name" type="text" value="${escapeHtml(usuario.nombreCompleto)}" required ${disabledEnv} />
         </label>
         <label>
           <span>Email</span>
-          <input id="admin-user-edit-email" type="email" value="${escapeHtml(usuario.email)}" required />
+          <input id="admin-user-edit-email" type="email" value="${escapeHtml(usuario.email)}" required ${disabledEnv} />
         </label>
         <label>
           <span>Telefono</span>
-          <input id="admin-user-edit-phone" type="tel" value="${escapeHtml(usuario.telefono)}" />
+          <input id="admin-user-edit-phone" type="tel" value="${escapeHtml(usuario.telefono)}" ${disabledEnv} />
         </label>
-        <label>
+        <label ${mostrarFrecuencia ? '' : 'hidden'}>
           <span>Frecuencia</span>
-          <select id="admin-user-edit-frequency">
+          <select id="admin-user-edit-frequency" ${mostrarFrecuencia && !readOnlyEnv ? '' : 'disabled'}>
             ${getFrecuenciasEditables().map((value) => `<option value="${value}" ${usuario.frecuencia === value ? 'selected' : ''}>${escapeHtml(formatFrecuencia(value))}</option>`).join('')}
           </select>
+          ${mostrarFrecuencia ? '' : '<small>Admin, Root y Sacerdotes no tienen frecuencia asociada.</small>'}
         </label>
         <label>
           <span>Rol</span>
-          <select id="admin-user-edit-role" ${!canAssignAdminRoles() && isAdminRol(usuario.rol) ? 'disabled' : ''}>
+          <select id="admin-user-edit-role" ${readOnlyEnv || !canAssignAdminRoles() && isAdminRol(usuario.rol) ? 'disabled' : ''}>
             ${rolesEditables.map((value) => `<option value="${value}" ${usuario.rol === value ? 'selected' : ''}>${escapeHtml(formatRol(value))}</option>`).join('')}
           </select>
         </label>
@@ -2389,8 +2434,8 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
           }
         </section>
         <div class="admin-user-edit-actions">
-          <button class="button button-primary" type="submit" data-action="admin-user-save">Guardar cambios</button>
-          ${canManageUsers() && !isRolProtegido(usuario.rol) ? `<button class="button button-danger" type="button" data-action="admin-user-delete" data-id="${usuario.id}">Eliminar usuario</button>` : ''}
+          ${readOnlyEnv ? '<p class="modal-message" data-tone="info">Definido en backend/.env. Edita SEED_USERS o las credenciales administrativas para cambiarlo.</p>' : '<button class="button button-primary" type="submit" data-action="admin-user-save">Guardar cambios</button>'}
+          ${canManageUsers() && !isRolProtegido(usuario.rol) && !esUsuarioEnv(usuario) ? `<button class="button button-danger" type="button" data-action="admin-user-delete" data-id="${usuario.id}">Eliminar usuario</button>` : ''}
           <button class="button button-secondary" type="button" data-action="admin-user-close">Cancelar</button>
         </div>
       </form>
@@ -2445,12 +2490,18 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
     usuario = crearUsuarioVacio();
   }
 
+  if (esUsuarioEnv(usuario)) {
+    mostrarAviso('Solo lectura', 'Este usuario viene de backend/.env. Edita la variable correspondiente para cambiarlo.', 'error');
+    return;
+  }
+
   const nombreCompleto = limpiarTextoRegistro(form.querySelector<HTMLInputElement>('#admin-user-edit-name')?.value ?? '');
   const email = form.querySelector<HTMLInputElement>('#admin-user-edit-email')?.value.trim().toLowerCase() ?? '';
   const telefono = limpiarTelefono(form.querySelector<HTMLInputElement>('#admin-user-edit-phone')?.value ?? '');
-  const frecuencia = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency')?.value as UsuarioFrecuencia;
+  const requestedFrecuencia = form.querySelector<HTMLSelectElement>('#admin-user-edit-frequency')?.value as UsuarioFrecuencia | undefined;
   const requestedRol = form.querySelector<HTMLSelectElement>('#admin-user-edit-role')?.value as UsuarioRol;
   const rol = getRolPermitidoParaGuardar(usuario, requestedRol);
+  const frecuencia = rolTieneFrecuencia(rol) ? (requestedFrecuencia ?? usuario.frecuencia ?? 'puntual') : usuario.frecuencia;
 
   if (!nombreCompleto || !esEmailValido(email) || (telefono && !esTelefonoValido(telefono))) {
     mostrarAviso('Revisa el usuario', 'Nombre, email y telefono deben ser validos. El telefono puede quedar vacio.', 'error');
@@ -2621,6 +2672,11 @@ function eliminarAdminUsuario(id: string | null): void {
 
   if (isRolProtegido(usuario.rol)) {
     mostrarAviso('Accion no permitida', 'Los perfiles Admin y Root no se pueden eliminar.', 'error');
+    return;
+  }
+
+  if (esUsuarioEnv(usuario)) {
+    mostrarAviso('Accion no permitida', 'Este usuario viene de backend/.env. Edita SEED_USERS para quitarlo.', 'error');
     return;
   }
 
@@ -3032,7 +3088,7 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
 
 function getUsuariosAsignables(modo: AdminAsignacionModo): Usuario[] {
   const usuarios = StorageDB.getUsuarios()
-    .filter((usuario) => !isAdminRol(usuario.rol))
+    .filter(usuarioTieneFrecuencia)
     .toSorted((a, b) => {
       if (modo === 'agregar' && a.frecuencia !== b.frecuencia) {
         return a.frecuencia === 'suplente' ? -1 : b.frecuencia === 'suplente' ? 1 : 0;
@@ -4641,6 +4697,16 @@ document.addEventListener('click', (event) => {
 
   if (adminUserFilterButton?.dataset.adminUserFilter) {
     adminUsuariosFiltro = adminUserFilterButton.dataset.adminUserFilter as AdminUsuarioFiltro;
+    adminUsuarioEditandoId = null;
+    renderAdminUsuarios();
+    return;
+  }
+
+  const adminUserSourceButton = target.closest<HTMLButtonElement>('[data-admin-user-source]');
+
+  if (adminUserSourceButton?.dataset.adminUserSource) {
+    adminUsuariosSubpanel = adminUserSourceButton.dataset.adminUserSource as AdminUsuariosSubpanel;
+    adminUsuariosFiltro = 'todos';
     adminUsuarioEditandoId = null;
     renderAdminUsuarios();
     return;

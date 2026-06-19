@@ -4,7 +4,7 @@ Version 0.5.0 de la aplicacion de la capilla A solas para crear lotes de exposic
 
 ## Configuracion
 
-Copia `.env.example` a `.env` y define las credenciales del administrador:
+Copia `.env.example` a `.env` para las variables del frontend:
 
 ```env
 VITE_ADMIN_EMAIL=admin@example.com
@@ -12,6 +12,21 @@ VITE_ADMIN_PASSWORD=change-me
 VITE_SUPERADMIN_EMAIL=root@root.com
 VITE_SUPERADMIN_PASSWORD=change-root-password
 ```
+
+Copia `backend/.env.example` a `backend/.env` para las variables de la API:
+
+```env
+STORAGE_DRIVER=postgres
+DATABASE_URL=postgresql://a_solas:a_solas_dev@localhost:5432/a_solas
+DATABASE_SSL=false
+SEED_USERS=Gabi|Aguilera Fernandez|gabi.aguilera.fernandez@example.com|fijo||;Nicolas|Alarcon Rapela|nicolas.alarcon.rapela@example.com|suplente||
+```
+
+Las credenciales `VITE_ADMIN_*` y `VITE_SUPERADMIN_*` son accesos virtuales:
+no se guardan como filas en `usuarios`.
+`SEED_USERS` es una lista separada por `;`; cada usuario usa
+`Nombre|Apellidos|email|frecuencia|telefono|password` y se muestra como fila
+normal en la tabla `usuarios`.
 
 ## Comandos
 
@@ -79,7 +94,7 @@ Para probar con PostgreSQL, levanta la base con Docker. En el primer arranque de
 npm run db:up
 ```
 
-Copia `.env.example` a `.env` y usa:
+Copia `backend/.env.example` a `backend/.env` y usa:
 
 ```env
 STORAGE_DRIVER=postgres
@@ -128,7 +143,7 @@ Nota: `npm run db:down` detiene el contenedor, pero conserva el volumen de datos
 
 ## Persistencia y Render
 
-El backend puede desplegarse en Render como un Blueprint desde `render.yaml`. El Blueprint actual usa `backend/` como `rootDir` y crea un servicio API con `STORAGE_DRIVER=json` y `JSON_DATA_FILE=/tmp/a-solas-state.json` como base temporal.
+El backend puede desplegarse en Render como un Blueprint desde `render.yaml`. El Blueprint actual usa `backend/` como `rootDir` y crea un servicio API con `STORAGE_DRIVER=postgres`.
 
 ### Despliegue recomendado con Blueprint
 
@@ -136,16 +151,17 @@ El backend puede desplegarse en Render como un Blueprint desde `render.yaml`. El
 2. En Render, crea un **New Blueprint Instance** y selecciona el repositorio.
 3. Render leera `render.yaml` y creara:
    - Servicio backend `a-solas` con `rootDir: backend`, `buildCommand: npm install`, `startCommand: npm start` y healthcheck `/api/health`.
-   - Archivo JSON temporal en `/tmp/a-solas-state.json` para guardar usuarios, lotes, turnos y notificaciones mientras viva la instancia.
+   - Persistencia PostgreSQL mediante `DATABASE_URL`.
 4. Cuando Render pida variables marcadas con `sync: false`, define:
    - `VITE_ADMIN_EMAIL`: correo del administrador.
    - `VITE_ADMIN_PASSWORD`: contrasena del administrador.
    - `VITE_SUPERADMIN_EMAIL`: correo del superadministrador.
    - `VITE_SUPERADMIN_PASSWORD`: contrasena del superadministrador.
+   - `DATABASE_URL`: External Database URL de PostgreSQL en Render.
    - `CORS_ORIGIN`: dominio del frontend si queda desplegado separado.
 5. Al terminar el despliegue, abre `https://<tu-servicio>.onrender.com/api/health`; deberia devolver `{"ok":true}`.
 
-El Blueprint activa `STORAGE_DRIVER=json`. Si el frontend se despliega separado, compila el frontend con `VITE_API_BASE_URL` apuntando a la URL publica del backend y define `CORS_ORIGIN` con el dominio del frontend.
+El Blueprint activa `STORAGE_DRIVER=postgres` y `DATABASE_SSL=true`. Si el frontend se despliega separado, compila el frontend con `VITE_API_BASE_URL` apuntando a la URL publica del backend y define `CORS_ORIGIN` con el dominio del frontend.
 
 El modo JSON sincroniza todo el estado compartido en un unico documento con estos dominios principales:
 
@@ -154,4 +170,4 @@ El modo JSON sincroniza todo el estado compartido en un unico documento con esto
 - `turnos`: turnos generados e inscripciones.
 - `notificaciones`: historial de avisos del sistema, inscripciones, lotes y recordatorios con estado (`pendiente`, `enviada`, `leida`).
 
-Para produccion estable, conviene volver a `STORAGE_DRIVER=postgres` o a una base persistente equivalente. El JSON en `/tmp` es deliberadamente temporal.
+Para pruebas rapidas puedes usar `STORAGE_DRIVER=json`, pero en produccion estable usa `STORAGE_DRIVER=postgres` o una base persistente equivalente.

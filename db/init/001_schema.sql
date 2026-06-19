@@ -2,15 +2,8 @@
 -- PostgreSQL ejecuta este archivo automaticamente la primera vez que se crea
 -- el volumen del contenedor montado en /docker-entrypoint-initdb.d.
 
-CREATE TABLE IF NOT EXISTS app_state (
-  id text PRIMARY KEY,
-  state jsonb NOT NULL,
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
 CREATE TABLE IF NOT EXISTS usuarios (
   id text PRIMARY KEY,
-  nombre_completo text NOT NULL DEFAULT '',
   nombre text NOT NULL,
   apellidos text NOT NULL,
   email text NOT NULL UNIQUE,
@@ -29,6 +22,18 @@ CREATE TABLE IF NOT EXISTS lotes (
   actualizado_en timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS turnos (
+  id text PRIMARY KEY,
+  lote_id text,
+  dia date NOT NULL,
+  hora_inicio text NOT NULL,
+  hora_fin text NOT NULL,
+  plazas_totales integer NOT NULL,
+  plazas_disponibles integer NOT NULL,
+  data jsonb NOT NULL,
+  actualizado_en timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS notificaciones (
   id text PRIMARY KEY,
   usuario_id text REFERENCES usuarios(id) ON DELETE SET NULL,
@@ -40,6 +45,9 @@ CREATE TABLE IF NOT EXISTS notificaciones (
   leido_en timestamptz
 );
 
-INSERT INTO app_state (id, state)
-VALUES ('default', '{"usuarios":[],"lotes":[],"turnos":[],"notificaciones":[],"catalogoUsuarios":{"frecuencias":["fijo","suplente","puntual"],"roles":["usuario","sacerdote","admin","root"]},"updatedAt":0}'::jsonb)
-ON CONFLICT (id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS catalogo_usuario_opciones (
+  tipo text NOT NULL CHECK (tipo IN ('frecuencia', 'rol')),
+  valor text NOT NULL,
+  creado_en timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tipo, valor)
+);

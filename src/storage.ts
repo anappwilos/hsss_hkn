@@ -64,6 +64,7 @@ export interface Usuario {
   telefono: string;
   frecuencia: UsuarioFrecuencia;
   rol: UsuarioRol;
+  origen?: 'env';
   password?: string;
   creadoEn: number;
   actualizadoEn: number;
@@ -87,7 +88,7 @@ export interface PerfilAdorador extends Usuario {}
 
 export type SyncStatus = 'idle' | 'syncing' | 'online' | 'offline';
 
-export interface RemoteSnapshot {
+export interface RemoteStatePayload {
   usuarios: Usuario[];
   lotes: LoteExposicion[];
   turnos: Turno[];
@@ -105,8 +106,8 @@ export class StorageDB {
   private static readonly API_BASE_URL = apiBaseUrl;
   private static readonly PERFIL_ADORADOR_SESSION_KEY = 'hsss_perfil_adorador_id';
   private static readonly PERFIL_ADORADOR_CACHE_KEY = 'hsss_perfil_adorador_cache';
-  private static applyingRemoteSnapshot = false;
-  private static lastRemoteSnapshotHash: string | null = null;
+  private static applyingRemoteState = false;
+  private static lastRemoteStateHash: string | null = null;
   private static remotePollHandle: number | null = null;
   private static syncQueue: Promise<void> = Promise.resolve();
   private static syncListeners = new Set<SyncListener>();
@@ -150,13 +151,13 @@ export class StorageDB {
         throw new Error(`Servidor no disponible (${response.status})`);
       }
 
-      const snapshot = StorageDB.normalizeSnapshot(await StorageDB.readJsonResponse(response));
-      const snapshotHash = JSON.stringify(snapshot);
-      const hasChanged = snapshotHash !== StorageDB.lastRemoteSnapshotHash;
+      const remoteState = StorageDB.normalizeRemoteState(await StorageDB.readJsonResponse(response));
+      const remoteStateHash = JSON.stringify(remoteState);
+      const hasChanged = remoteStateHash !== StorageDB.lastRemoteStateHash;
 
       if (hasChanged) {
-        StorageDB.applyRemoteSnapshot(snapshot);
-        StorageDB.lastRemoteSnapshotHash = snapshotHash;
+        StorageDB.applyRemoteState(remoteState);
+        StorageDB.lastRemoteStateHash = remoteStateHash;
       }
 
       StorageDB.emitSync('online', hasChanged ? 'Datos sincronizados desde PostgreSQL.' : 'Sincronizado con el servidor. No hay cambios nuevos.');
@@ -195,15 +196,15 @@ export class StorageDB {
   }
 
   public static queueRemoteSync(): void {
-    if (!StorageDB.REMOTE_ENABLED || StorageDB.applyingRemoteSnapshot) {
+    if (!StorageDB.REMOTE_ENABLED || StorageDB.applyingRemoteState) {
       return;
     }
 
-    const snapshot = StorageDB.getRemoteSnapshot();
+    const remoteState = StorageDB.getRemoteState();
     StorageDB.emitSync('syncing', 'Guardando cambios en PostgreSQL...');
     StorageDB.syncQueue = StorageDB.syncQueue
       .catch(() => undefined)
-      .then(() => StorageDB.saveRemote(snapshot));
+      .then(() => StorageDB.saveRemote(remoteState));
     void StorageDB.syncQueue.catch(() => undefined);
   }
 
@@ -226,7 +227,7 @@ export class StorageDB {
     StorageDB.remotePollHandle = null;
   }
 
-  public static getRemoteSnapshot(): RemoteSnapshot {
+  public static getRemoteState(): RemoteStatePayload {
     return {
       usuarios: StorageDB.getUsuarios(),
       lotes: StorageDB.getLotes(),
@@ -311,7 +312,7 @@ export class StorageDB {
     }
   }
 
-  private static async saveRemote(snapshot: RemoteSnapshot): Promise<void> {
+  private static async saveRemote(remoteState: RemoteStatePayload): Promise<void> {
     try {
       const response = await fetch(StorageDB.apiUrl('/api/state'), {
         method: 'PUT',
@@ -319,7 +320,7 @@ export class StorageDB {
           'Content-Type': 'application/json',
           Accept: 'application/json'
         },
-        body: JSON.stringify(snapshot)
+        body: JSON.stringify(remoteState)
       });
 
       if (!response.ok) {
@@ -333,31 +334,34 @@ export class StorageDB {
     }
   }
 
-  private static applyRemoteSnapshot(snapshot: RemoteSnapshot): void {
-    StorageDB.applyingRemoteSnapshot = true;
-    StorageDB.saveUsuarios(snapshot.usuarios);
-    StorageDB.saveLotes(snapshot.lotes);
-    StorageDB.saveTurnos(snapshot.turnos);
-    StorageDB.saveNotificaciones(snapshot.notificaciones);
-    StorageDB.saveCatalogoUsuarios(snapshot.catalogoUsuarios);
-    StorageDB.applyingRemoteSnapshot = false;
-    StorageDB.emitStateChange();
+  private static applyRemoteState(remoteState: RemoteStatePayload): void {
+    StorageDB.applyingRemoteState = true;
+    try {
+      StorageDB.saveUsuarios(remoteState.usuarios);
+      StorageDB.saveLotes(remoteState.lotes);
+      StorageDB.saveTurnos(remoteState.turnos);
+      StorageDB.saveNotificaciones(remoteState.notificaciones);
+      StorageDB.saveCatalogoUsuarios(remoteState.catalogoUsuarios);
+      StorageDB.emitStateChange();
+    } finally {
+      StorageDB.applyingRemoteState = false;
+    }
   }
 
-  private static normalizeSnapshot(value: unknown): RemoteSnapshot {
+  private static normalizeRemoteState(value: unknown): RemoteStatePayload {
     if (!value || typeof value !== 'object') {
       return { usuarios: [], lotes: [], turnos: [], notificaciones: [], catalogoUsuarios: StorageDB.getDefaultCatalogoUsuarios(), updatedAt: Date.now() };
     }
 
-    const snapshot = value as Partial<RemoteSnapshot>;
+    const remoteState = value as Partial<RemoteStatePayload>;
 
     return {
-      usuarios: StorageDB.normalizeUsuarios(snapshot.usuarios),
-      lotes: Array.isArray(snapshot.lotes) ? snapshot.lotes : [],
-      turnos: Array.isArray(snapshot.turnos) ? snapshot.turnos : [],
-      notificaciones: StorageDB.normalizeNotificaciones(snapshot.notificaciones),
-      catalogoUsuarios: StorageDB.normalizeCatalogoUsuarios(snapshot.catalogoUsuarios),
-      updatedAt: typeof snapshot.updatedAt === 'number' ? snapshot.updatedAt : Date.now()
+      usuarios: StorageDB.normalizeUsuarios(remoteState.usuarios),
+      lotes: Array.isArray(remoteState.lotes) ? remoteState.lotes : [],
+      turnos: Array.isArray(remoteState.turnos) ? remoteState.turnos : [],
+      notificaciones: StorageDB.normalizeNotificaciones(remoteState.notificaciones),
+      catalogoUsuarios: StorageDB.normalizeCatalogoUsuarios(remoteState.catalogoUsuarios),
+      updatedAt: typeof remoteState.updatedAt === 'number' ? remoteState.updatedAt : Date.now()
     };
   }
 
@@ -502,6 +506,7 @@ export class StorageDB {
       telefono: String(source.telefono ?? '').trim(),
       frecuencia: StorageDB.normalizeFrecuencia(source.frecuencia),
       rol,
+      origen: source.origen === 'env' ? 'env' : undefined,
       password: typeof source.password === 'string' ? source.password : undefined,
       creadoEn,
       actualizadoEn: typeof source.actualizadoEn === 'number' ? source.actualizadoEn : creadoEn
@@ -520,7 +525,7 @@ export class StorageDB {
   private static getDefaultCatalogoUsuarios(): CatalogoUsuarios {
     return {
       frecuencias: ['fijo', 'suplente', 'puntual'],
-      roles: ['usuario', 'sacerdote', 'admin', 'root']
+      roles: ['usuario', 'sacerdote']
     };
   }
 
