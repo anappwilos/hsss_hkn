@@ -1,17 +1,17 @@
 {
-  "name": "app-turnos",
+  "name": "a-solas",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "dev:api": "node server.js",
+    "dev:api": "npm --prefix backend run dev",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "start": "node server.js",
-    "render-build": "npm ci && npm run build"
+    "start": "npm --prefix backend start",
+    "render-build": "npm install && npm run build"
   },
   "dependencies": {
     "pg": "^8.21.0"

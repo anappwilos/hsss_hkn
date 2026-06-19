@@ -1,18 +1,19 @@
 services:
   postgres:
     image: postgres:16
-    container_name: adoraplus-postgres
+    container_name: a_solas-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: adoraplus
-      POSTGRES_USER: adoraplus
-      POSTGRES_PASSWORD: adoraplus_dev
+      POSTGRES_DB: a_solas
+      POSTGRES_USER: a_solas
+      POSTGRES_PASSWORD: a_solas_dev
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U adoraplus -d adoraplus"]
+      test: ["CMD-SHELL", "pg_isready -U a_solas -d a_solas"]
       interval: 5s
       timeout: 5s
       retries: 10
