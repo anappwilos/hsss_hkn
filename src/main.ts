@@ -3210,16 +3210,14 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
   const miembros = renderAdminTurnoMiembros(turno, 'compact');
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
   const cardLabel = estado === 'sin-asignar'
-    ? 'Libre'
-    : estado === 'asignado'
-      ? `Completo · ${ocupadas}/${turno.plazasTotales}`
-      : `Parcial · ${ocupadas}/${turno.plazasTotales}`;
+    ? `Asignar 1/${turno.plazasTotales}`
+    : `${ocupadas}/${turno.plazasTotales}`;
 
   return `
     <article class="admin-calendar-turn is-${estado} assignment-${tipo} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
       <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
         <strong>${escapeHtml(cardLabel)}</strong>
-        ${estado === 'sin-asignar' ? `<small>${ocupadas}/${turno.plazasTotales} plazas</small>` : ''}
+        ${estado === 'sin-asignar' ? `<small></small>` : ''}
         ${miembros}
       </button>
     </article>
