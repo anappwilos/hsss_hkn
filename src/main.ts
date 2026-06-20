@@ -3209,15 +3209,17 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
   const pasado = isTurnoPasado(turno);
   const miembros = renderAdminTurnoMiembros(turno, 'compact');
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
-  const cardLabel = estado === 'sin-asignar'
-    ? `Asignar 1/${turno.plazasTotales}`
+  const necesitaAsignacion = turno.plazasDisponibles > 0;
+  const siguientePlaza = Math.min(turno.plazasTotales, ocupadas + 1);
+  const cardLabel = necesitaAsignacion
+    ? `Asignar ${siguientePlaza}/${turno.plazasTotales}`
     : `${ocupadas}/${turno.plazasTotales}`;
 
   return `
-    <article class="admin-calendar-turn is-${estado} assignment-${tipo} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
+    <article class="admin-calendar-turn is-${estado} assignment-${tipo} ${necesitaAsignacion ? 'is-actionable' : ''} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
       <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
         <strong>${escapeHtml(cardLabel)}</strong>
-        ${estado === 'sin-asignar' ? `<small></small>` : ''}
+        ${necesitaAsignacion ? '<small></small>' : ''}
         ${miembros}
       </button>
     </article>
@@ -3268,7 +3270,7 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
   const tienePlazasLibres = turno.plazasDisponibles > 0;
   const pasado = isTurnoPasado(turno);
   const textoAccionPrincipal = estado === 'sin-asignar'
-    ? 'Asignar adorador'
+    ? ''
     : tienePlazasLibres
       ? 'Cubrir plaza restante'
       : 'Reasignar turno';
@@ -3346,7 +3348,7 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo
     ? 'Buscar suplente'
     : modo === 'cubrir'
       ? 'Cubrir plaza restante'
-      : turno.inscritos.length > 0 ? 'Reasignar turno' : 'Asignar adorador';
+      : turno.inscritos.length > 0 ? 'Reasignar turno' : '';
   const turnosMismaHoraSemana = getTurnosOrdenados().filter((item) =>
     item.dia >= fechaToInput(startOfWeekMonday(fechaTurno)) &&
     item.dia <= fechaToInput(addDays(startOfWeekMonday(fechaTurno), 6)) &&
