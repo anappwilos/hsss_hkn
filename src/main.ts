@@ -3289,48 +3289,44 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
   const cardLabel = necesitaAsignacion
     ? `Asignar ${siguientePlaza}/${turno.plazasTotales}`
     : '';
-  const miembros = renderAdminTurnoMiembros(turno, 'compact', cardLabel);
+  const miembros = renderAdminTurnoMiembros(turno, 'compact');
 
   return `
     <article class="admin-calendar-turn is-${estadoVisual} assignment-${tipo} ${estado === 'suplente' ? 'has-suplente' : ''} ${necesitaAsignacion ? 'is-actionable' : ''} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
       <div class="admin-calendar-turn-main" role="button" tabindex="0" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
         ${miembros}
-        ${cardLabel && turno.inscritos.length === 0 ? `<button class="admin-turn-inline-action admin-turn-inline-action-button" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${escapeHtml(cardLabel)}</button>` : ''}
+        ${cardLabel ? `<button class="admin-turn-inline-action admin-turn-inline-action-button" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${escapeHtml(cardLabel)}</button>` : ''}
       </div>
     </article>
   `;
 }
 
-function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail', inlineActionLabel = ''): string {
+function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail'): string {
   if (turno.inscritos.length === 0) {
     return variant === 'compact'
       ? ''
       : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>';
   }
 
-  const items = turno.inscritos.map((inscrito, index) => {
+  const items = turno.inscritos.map((inscrito) => {
     const usuario = getUsuarioByNombre(inscrito);
     const tipo = getTurnoAsignacionTipo(turno, inscrito);
     const iniciales = usuario ? getInicialesUsuario(usuario) : inscrito.trim().charAt(0).toUpperCase() || 'A';
     const detalle = usuario
       ? `${formatRol(usuario.rol)} · ${getTurnoAsignacionRepeticion(turno, inscrito)}`
       : 'Perfil no encontrado';
-    const inlineAction = variant === 'compact' && inlineActionLabel && index === 0
-      ? `<button class="admin-turn-inline-action admin-turn-inline-action-button" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${escapeHtml(inlineActionLabel)}</button>`
-      : '';
     const avatarTag = usuario ? 'button' : 'i';
     const avatarAttributes = usuario
       ? ` class="admin-turn-member-avatar-button assignment-${tipo}" type="button" data-action="admin-turno-edit-slot" data-id="${turno.id}" data-user-id="${usuario.id}" data-assigned-name="${escapeHtml(inscrito)}" aria-label="Editar plaza cubierta de ${escapeHtml(inscrito)}"`
       : ` class="admin-turn-member-avatar assignment-${tipo}" aria-hidden="true"`;
 
     return `
-      <span class="${variant === 'compact' && inlineAction ? 'admin-turn-member-row' : ''}">
+      <span>
         <span class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}">
           <${avatarTag}${avatarAttributes}>${escapeHtml(iniciales)}</${avatarTag}>
           <b>${escapeHtml(inscrito)}</b>
           ${variant === 'detail' ? `<small>${escapeHtml(detalle)}</small>` : ''}
         </span>
-        ${inlineAction}
       </span>
     `;
   }).join('');
