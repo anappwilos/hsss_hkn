@@ -2302,6 +2302,41 @@ function getUsuarioByNombre(nombreCompleto: string): PerfilAdorador | undefined 
   return StorageDB.getUsuarios().find((usuario) => normalizarNombre(usuario.nombreCompleto) === nombreNormalizado);
 }
 
+function sanearTurnosConUsuariosInexistentes(): number {
+  const usuariosValidos = new Set(StorageDB.getUsuarios().map((usuario) => normalizarNombre(usuario.nombreCompleto)));
+  let asignacionesEliminadas = 0;
+  let huboCambios = false;
+  const turnosSaneados = StorageDB.getTurnos().map((turno) => {
+    const inscritosValidos = turno.inscritos.filter((inscrito) => usuariosValidos.has(normalizarNombre(inscrito)));
+    const asignacionesValidas = (turno.asignaciones ?? []).filter((asignacion) => {
+      const sigueExistiendo = usuariosValidos.has(normalizarNombre(asignacion.nombreCompleto));
+      const sigueInscrito = inscritosValidos.some((inscrito) => normalizarNombre(inscrito) === normalizarNombre(asignacion.nombreCompleto));
+      return sigueExistiendo && sigueInscrito;
+    });
+
+    const eliminadosEnTurno = (turno.inscritos.length - inscritosValidos.length) + ((turno.asignaciones ?? []).length - asignacionesValidas.length);
+
+    if (eliminadosEnTurno === 0 && turno.plazasDisponibles === Math.max(0, turno.plazasTotales - inscritosValidos.length)) {
+      return turno;
+    }
+
+    asignacionesEliminadas += eliminadosEnTurno;
+    huboCambios = true;
+    return {
+      ...turno,
+      inscritos: inscritosValidos,
+      asignaciones: asignacionesValidas,
+      plazasDisponibles: Math.max(0, turno.plazasTotales - inscritosValidos.length)
+    };
+  });
+
+  if (huboCambios) {
+    StorageDB.saveTurnos(turnosSaneados);
+  }
+
+  return asignacionesEliminadas;
+}
+
 function getTurnosOrdenados(): Turno[] {
   return StorageDB.getTurnos().toSorted((a, b) => {
     const byDate = a.dia.localeCompare(b.dia);
@@ -2689,6 +2724,7 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
   const usuarios = StorageDB.getUsuarios();
   let usuario = id ? usuarios.find((item) => item.id === id) : undefined;
   const isNew = !usuario;
+  const nombreAnterior = usuario?.nombreCompleto ?? '';
 
   if (!usuario) {
     usuario = crearUsuarioVacio();
@@ -2725,6 +2761,7 @@ function guardarAdminUsuarioDesdeFormulario(form: HTMLFormElement): void {
     rol,
     actualizadoEn: Date.now()
   });
+  actualizarNombreEnTurnos(nombreAnterior, nombreCompleto);
 
   adminUsuarioEditandoId = usuario.id;
   if (modalAdminUsuario.open) {
@@ -3533,6 +3570,8 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo
         <p>Se aplicara solo a turnos del lote, horas, dias y repeticion seleccionados. Los turnos llenos o duplicados se omitiran si conservas miembros actuales.</p>
       </section>
 
+      <p id="admin-turno-modal-message" class="modal-message" role="status" aria-live="polite"></p>
+
       <footer class="modal-actions">
         <button class="button button-secondary" type="button" data-action="admin-turno-modal-close">Cancelar</button>
         <button class="button button-primary" type="submit" ${usuarios.length === 0 ? 'disabled' : ''}>Aplicar asignacion</button>
@@ -3629,6 +3668,20 @@ function abrirModalAdminTurnoAsignacion(id: string | null, modo: AdminAsignacion
     return;
   }
 
+  if (objetivoNombre && !getUsuarioByNombre(objetivoNombre)) {
+    const eliminados = sanearTurnosConUsuariosInexistentes();
+    adminTurnoSeleccionadoId = turno.id;
+    renderAdminTurnosCubiertos();
+    mostrarAviso(
+      'Usuario no disponible',
+      eliminados > 0
+        ? 'La plaza apuntaba a un usuario inexistente y se limpio automaticamente.'
+        : 'No se pudo editar esta plaza porque el usuario asignado ya no existe.',
+      'error'
+    );
+    return;
+  }
+
   adminTurnoAsignacionId = turno.id;
   adminTurnoAsignacionObjetivoNombre = objetivoNombre;
   adminTurnoSeleccionadoId = turno.id;
@@ -3643,6 +3696,17 @@ function cerrarModalAdminTurno(): void {
   modalAdminTurnoCard.innerHTML = '';
   adminTurnoAsignacionId = null;
   adminTurnoAsignacionObjetivoNombre = null;
+}
+
+function setAdminTurnoModalMessage(message: string, tone: 'info' | 'error' | 'success' = 'info'): void {
+  const messageElement = modalAdminTurnoCard.querySelector<HTMLParagraphElement>('#admin-turno-modal-message');
+
+  if (!messageElement) {
+    return;
+  }
+
+  messageElement.textContent = message;
+  messageElement.dataset.tone = message ? tone : '';
 }
 
 function syncAdminTurnoUsuarioSelect(form: HTMLFormElement | null): void {
@@ -3694,17 +3758,33 @@ function syncAdminTurnoUsuarioSelect(form: HTMLFormElement | null): void {
 function guardarAsignacionTurnoDesdeFormulario(form: HTMLFormElement): void {
   const turno = adminTurnoAsignacionId ? StorageDB.getTurnos().find((item) => item.id === adminTurnoAsignacionId) : undefined;
   const objetivoNombre = adminTurnoAsignacionObjetivoNombre;
-  const tipoValue = form.querySelector<HTMLSelectElement>('select[name="admin-turno-tipo"]')?.value ?? '';
+  const tipoSelect = form.querySelector<HTMLSelectElement>('select[name="admin-turno-tipo"]');
+  const usuarioSelect = form.querySelector<HTMLSelectElement>('select[name="admin-turno-usuario"]');
+  const tipoValue = tipoSelect?.value ?? '';
   const tipoAsignacion = tipoValue === 'fijo' || tipoValue === 'suplente' || tipoValue === 'puntual'
     ? tipoValue
     : null;
-  const usuarioId = form.querySelector<HTMLSelectElement>('select[name="admin-turno-usuario"]')?.value ?? '';
+  const usuarioId = usuarioSelect?.value ?? '';
   const usuario = StorageDB.getUsuarios().find((item) => item.id === usuarioId);
   const eliminarActuales = form.querySelector<HTMLInputElement>('input[name="admin-turno-eliminar-actuales"]')?.value === 'true';
   const repeticion = (form.querySelector<HTMLSelectElement>('select[name="admin-turno-repeticion"]')?.value ?? 'unica') as 'unica' | 'semanal' | 'mensual';
 
-  if (!turno || !usuario || !tipoAsignacion) {
-    mostrarAviso('No se pudo asignar', 'Selecciona un adorador valido para continuar.', 'error');
+  setAdminTurnoModalMessage('');
+
+  if (!turno) {
+    mostrarAviso('Turno no encontrado', 'No se pudo localizar el turno para asignarlo.', 'error');
+    return;
+  }
+
+  if (!tipoAsignacion) {
+    setAdminTurnoModalMessage('Selecciona un tipo de asignacion para continuar.', 'error');
+    tipoSelect?.focus();
+    return;
+  }
+
+  if (!usuario) {
+    setAdminTurnoModalMessage('Selecciona un usuario valido para continuar.', 'error');
+    usuarioSelect?.focus();
     return;
   }
 
@@ -3713,12 +3793,12 @@ function guardarAsignacionTurnoDesdeFormulario(form: HTMLFormElement): void {
   try {
     objetivos = getTurnosObjetivoAsignacion(turno, form);
   } catch (error) {
-    mostrarAviso('Revisa la asignacion', error instanceof Error ? error.message : 'No se pudo calcular la recurrencia.', 'error');
+    setAdminTurnoModalMessage(error instanceof Error ? error.message : 'No se pudo calcular la recurrencia.', 'error');
     return;
   }
 
   if (objetivos.length === 0) {
-    mostrarAviso('Sin turnos coincidentes', 'No hay turnos con esa hora, rango y dias seleccionados.', 'error');
+    setAdminTurnoModalMessage('No hay turnos con esa hora, rango y dias seleccionados.', 'error');
     return;
   }
 
@@ -3805,7 +3885,7 @@ function guardarAsignacionTurnoDesdeFormulario(form: HTMLFormElement): void {
   });
 
   if (actualizados === 0) {
-    mostrarAviso('No se aplicaron cambios', 'Todos los turnos estaban completos o ya tenian ese adorador asignado.', 'error');
+    setAdminTurnoModalMessage('No se aplicaron cambios: los turnos ya estaban completos o ese usuario ya estaba asignado.', 'error');
     return;
   }
 
@@ -4043,12 +4123,31 @@ function actualizarNombreEnTurnos(nombreAnterior: string, nombreNuevo: string): 
   }
 
   const anterior = normalizarNombre(nombreAnterior);
-  const turnos = StorageDB.getTurnos().map((turno) => ({
-    ...turno,
-    inscritos: turno.inscritos.map((inscrito) => normalizarNombre(inscrito) === anterior ? nombreNuevo : inscrito)
-  }));
+  let huboCambios = false;
+  const turnos = StorageDB.getTurnos().map((turno) => {
+    const inscritos = turno.inscritos.map((inscrito) => normalizarNombre(inscrito) === anterior ? nombreNuevo : inscrito);
+    const asignaciones = (turno.asignaciones ?? []).map((asignacion) =>
+      normalizarNombre(asignacion.nombreCompleto) === anterior
+        ? { ...asignacion, nombreCompleto: nombreNuevo }
+        : asignacion
+    );
+    const cambioInscritos = inscritos.some((inscrito, index) => inscrito !== turno.inscritos[index]);
+    const cambioAsignaciones = asignaciones.some((asignacion, index) => asignacion.nombreCompleto !== (turno.asignaciones ?? [])[index]?.nombreCompleto);
 
-  StorageDB.saveTurnos(turnos);
+    if (cambioInscritos || cambioAsignaciones) {
+      huboCambios = true;
+    }
+
+    return {
+      ...turno,
+      inscritos,
+      asignaciones
+    };
+  });
+
+  if (huboCambios) {
+    StorageDB.saveTurnos(turnos);
+  }
 }
 
 function guardarPerfilDesdeModal(form: HTMLFormElement): void {
@@ -5579,6 +5678,11 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('input', (event) => {
   const input = event.target as HTMLInputElement;
+  const adminTurnoForm = input.closest<HTMLFormElement>('.admin-turn-assign-form');
+
+  if (adminTurnoForm) {
+    setAdminTurnoModalMessage('');
+  }
 
   if (input.id === 'lote-buscar') {
     const caret = input.selectionStart ?? input.value.length;
@@ -5629,9 +5733,14 @@ document.addEventListener('input', (event) => {
 
 document.addEventListener('change', (event) => {
   const select = event.target as HTMLSelectElement;
+  const adminTurnoForm = select.closest<HTMLFormElement>('.admin-turn-assign-form');
+
+  if (adminTurnoForm) {
+    setAdminTurnoModalMessage('');
+  }
 
   if (select.id === 'admin-turno-tipo-select') {
-    syncAdminTurnoUsuarioSelect(select.closest<HTMLFormElement>('.admin-turn-assign-form'));
+    syncAdminTurnoUsuarioSelect(adminTurnoForm);
     return;
   }
 
@@ -5817,6 +5926,15 @@ function limpiarTextoRegistro(value: string): string {
 
 function limpiarTelefono(value: string): string {
   return value.trim().replace(/[^\d+]/g, '');
+}
+
+function refrescarEstadoConSaneamiento(showNotice = false): void {
+  const eliminados = sanearTurnosConUsuariosInexistentes();
+
+  void showNotice;
+  void eliminados;
+
+  refrescarVistaActual();
 }
 
 function esEmailValido(value: string): boolean {
@@ -6034,7 +6152,7 @@ window.addEventListener(NotificationService.EVENT_NAME, (event) => {
 
 NotificationService.init();
 StorageDB.subscribeSync(actualizarEstadoPersistencia);
-StorageDB.subscribeStateChange(refrescarVistaActual);
+StorageDB.subscribeStateChange(() => refrescarEstadoConSaneamiento(true));
 StorageDB.startRemotePolling(3000);
 
 window.addEventListener('focus', () => {
@@ -6057,6 +6175,7 @@ syncRegistroFrecuencias();
 mostrarVista(getVistaInicial(), { recordHistory: false });
 void StorageDB.loadRemote().then((loaded) => {
   asegurarPerfilesBase();
+  refrescarEstadoConSaneamiento(loaded);
   syncRegistroFrecuencias();
 
   if (StorageDB.getPerfilAdorador() && vistaActual === 'admin-login') {
@@ -6065,6 +6184,6 @@ void StorageDB.loadRemote().then((loaded) => {
   }
 
   if (loaded) {
-    refrescarVistaActual();
+    return;
   }
 });
