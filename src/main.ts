@@ -3213,13 +3213,12 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
   const siguientePlaza = Math.min(turno.plazasTotales, ocupadas + 1);
   const cardLabel = necesitaAsignacion
     ? `Asignar ${siguientePlaza}/${turno.plazasTotales}`
-    : `${ocupadas}/${turno.plazasTotales}`;
+    : '';
 
   return `
     <article class="admin-calendar-turn is-${estado} assignment-${tipo} ${necesitaAsignacion ? 'is-actionable' : ''} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
       <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
-        <strong>${escapeHtml(cardLabel)}</strong>
-        ${necesitaAsignacion ? '<small></small>' : ''}
+        ${cardLabel ? `<strong>${escapeHtml(cardLabel)}</strong>` : ''}
         ${miembros}
       </button>
     </article>
