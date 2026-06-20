@@ -3052,20 +3052,6 @@ function renderAdminTurnoFiltroButton(
   `;
 }
 
-function renderAdminTurnoMetricCard(label: string, value: string, detail: string, icon: string, tone: string, className = '', progress?: number): string {
-  return `
-    <article class="${className}">
-      <span class="metric-icon ${tone}" aria-hidden="true">${icon}</span>
-      <div class="metric-copy">
-        <small>${escapeHtml(label)}</small>
-        <strong>${escapeHtml(value)}</strong>
-        <span>${escapeHtml(detail)}</span>
-        ${typeof progress === 'number' ? `<div class="coverage-bar" aria-hidden="true"><i style="width: ${Math.max(0, Math.min(100, progress))}%"></i></div>` : ''}
-      </div>
-    </article>
-  `;
-}
-
 function renderAdminTurnosCubiertos(): void {
   if (!isAdminAuthenticated()) {
     adminTurnosCubiertos.innerHTML = '';
@@ -3145,7 +3131,7 @@ function renderAdminTurnosCubiertos(): void {
           <div class="admin-turns-card">
             ${turnosPeriodo.length > 0
               ? `<div class="admin-assignment-scroll">${renderAdminTurnosCalendario(fechasPeriodo, franjasPeriodo, turnosFiltrados)}</div>`
-              : `<div class="empty-card compact"><h3>No hay turnos con este filtro</h3><p>Ajusta la busqueda o selecciona otro estado.</p></div>`
+              : `<div class="empty-card compact"><p>No hay turnos</p></div>`
             }
           </div>
         </section>
