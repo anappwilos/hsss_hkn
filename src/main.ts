@@ -3029,6 +3029,17 @@ function formatAdminPeriodoTurnos(): string {
     : formatAdminSemana(adminSemanaTurnosInicio);
 }
 
+function isAdminPeriodoPast(): boolean {
+  const hoy = fechaToInput(new Date());
+
+  if (adminVistaTurnos === 'diaria') {
+    return adminFechaTurnosSeleccionada < hoy;
+  }
+
+  const finSemana = fechaToInput(addDays(adminSemanaTurnosInicio, 6));
+  return finSemana < hoy;
+}
+
 function renderAdminTurnoFiltroButton(
   filter: AdminTurnoFiltro,
   label: string,
@@ -3074,6 +3085,7 @@ function renderAdminTurnosCubiertos(): void {
   const turnosTotalPeriodo = turnosPeriodo.length;
   const turnosCubiertos = turnosTotalPeriodo - turnosSinAsignar;
   const cobertura = turnosTotalPeriodo > 0 ? Math.round((turnosCubiertos / turnosTotalPeriodo) * 100) : 0;
+  const periodoPast = isAdminPeriodoPast();
 
   if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && adminTurnoSeleccionadoId && !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId)) {
     adminTurnoSeleccionadoId = null;
@@ -3094,7 +3106,7 @@ function renderAdminTurnosCubiertos(): void {
         <div class="admin-turns-period-controls" aria-label="Vista de turnos">
           <div class="week-actions admin-period-actions" aria-label="Navegacion del periodo">
             <button class="icon-round" type="button" data-action="admin-period-prev" aria-label="Periodo anterior">‹</button>
-            <div class="admin-week-picker" aria-label="Periodo visible">${escapeHtml(formatAdminPeriodoTurnos())}</div>
+            <div class="admin-week-picker ${periodoPast ? 'is-past' : ''}" aria-label="Periodo visible">${escapeHtml(formatAdminPeriodoTurnos())}</div>
             <button class="icon-round" type="button" data-action="admin-period-next" aria-label="Periodo siguiente">›</button>
           </div>
         </div>
@@ -3128,9 +3140,9 @@ function renderAdminTurnosCubiertos(): void {
             </div>
           </div>
 
-          <div class="admin-turns-card">
+          <div class="admin-turns-card ${periodoPast ? 'is-past' : ''}">
             ${turnosPeriodo.length > 0
-              ? `<div class="admin-assignment-scroll">${renderAdminTurnosCalendario(fechasPeriodo, franjasPeriodo, turnosFiltrados)}</div>`
+              ? `<div class="admin-assignment-scroll ${periodoPast ? 'is-past' : ''}">${renderAdminTurnosCalendario(fechasPeriodo, franjasPeriodo, turnosFiltrados)}</div>`
               : `<div class="empty-card compact"><p>No hay turnos</p></div>`
             }
           </div>

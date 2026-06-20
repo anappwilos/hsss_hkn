@@ -8569,6 +8569,13 @@ body,
   font-size: 0.78rem;
 }
 
+.admin-lotes-view .admin-period-actions .admin-week-picker.is-past {
+  border-color: rgba(167, 186, 194, 0.5);
+  color: #6c818b;
+  background: rgba(242, 246, 247, 0.92);
+  box-shadow: none;
+}
+
 .admin-lotes-view .admin-turns-metrics {
   grid-template-columns: repeat(5, minmax(138px, 1fr));
   gap: 16px;
@@ -9018,9 +9025,24 @@ body,
   background: rgba(246, 253, 255, 0.64);
 }
 
+.admin-lotes-view .admin-turns-card.is-past {
+  border-color: rgba(161, 176, 184, 0.28);
+  background: rgba(238, 243, 245, 0.9);
+}
+
 .admin-lotes-view .admin-assignment-scroll {
   border-radius: 14px;
   background: transparent;
+}
+
+.admin-lotes-view .admin-assignment-scroll.is-past {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.56) 0,
+    rgba(255, 255, 255, 0.56) 10px,
+    rgba(228, 235, 238, 0.56) 10px,
+    rgba(228, 235, 238, 0.56) 20px
+  );
 }
 
 .admin-lotes-view .admin-assignment-board {
@@ -9029,6 +9051,57 @@ body,
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-assignment-board {
+  background: rgba(239, 244, 246, 0.72);
+}
+
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-corner,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-day-head,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-time,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-cell {
+  border-color: rgba(155, 171, 179, 0.22);
+}
+
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-corner,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-day-head {
+  background: rgba(233, 239, 241, 0.92);
+}
+
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-time,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-cell {
+  background: rgba(244, 247, 248, 0.42);
+}
+
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-day-head span,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-time strong,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-empty {
+  color: #70838c;
+}
+
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-turn {
+  border-color: rgba(160, 175, 182, 0.28);
+  background: rgba(236, 241, 243, 0.9);
+  box-shadow: none;
+}
+
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-turn.is-sin-asignar,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-turn.is-parcial,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-turn.is-asignado,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-turn.is-suplente {
+  border-color: rgba(160, 175, 182, 0.28);
+  background: rgba(236, 241, 243, 0.9);
+  box-shadow: none;
+}
+
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-turn-main > strong,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-turn.is-parcial .admin-calendar-turn-main > strong,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-turn.is-asignado .admin-calendar-turn-main > strong,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-calendar-turn-main small,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-turn-member b,
+.admin-lotes-view .admin-assignment-scroll.is-past .admin-turn-member i::before {
+  color: #71828a;
 }
 
 .admin-lotes-view .admin-calendar-day-head {
