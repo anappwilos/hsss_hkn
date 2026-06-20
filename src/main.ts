@@ -253,7 +253,7 @@ app.innerHTML = `
         </section>
 
         <section id="admin-panel-turnos" class="admin-panel-section" aria-label="Panel de turnos asignados" hidden>
-          <div id="admin-turnos-cubiertos" class="admin-covered-panel" aria-label="Turnos cubiertos y perfiles inscritos"></div>
+          <div id="admin-turnos-cubiertos" class="" aria-label="Turnos cubiertos y perfiles inscritos"></div>
         </section>
       </div>
 
