@@ -111,6 +111,7 @@ let adminTurnosBusqueda = '';
 let adminTurnosFiltro: AdminTurnoFiltro = 'todos';
 let adminTurnoSeleccionadoId: string | null = null;
 let adminTurnoAsignacionId: string | null = null;
+let adminTurnoAsignacionObjetivoNombre: string | null = null;
 let adminTurnosBusquedaTimeout = 0;
 let adminUsuariosBusquedaTimeout = 0;
 const adminTurnosDiasColapsados = new Set<string>();
@@ -3317,9 +3318,9 @@ function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail', i
     const inlineAction = variant === 'compact' && inlineActionLabel && index === 0
       ? `<button class="admin-turn-inline-action admin-turn-inline-action-button" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${escapeHtml(inlineActionLabel)}</button>`
       : '';
-    const memberTag = variant === 'compact' && usuario ? 'button' : 'span';
-    const memberAttributes = variant === 'compact' && usuario
-      ? ` class="admin-turn-member admin-turn-member-button assignment-${tipo}" type="button" data-action="admin-turno-user" data-user-id="${usuario.id}" aria-label="Ver usuario ${escapeHtml(inscrito)}"`
+    const memberTag = usuario ? 'button' : 'span';
+    const memberAttributes = usuario
+      ? ` class="admin-turn-member admin-turn-member-button assignment-${tipo}" type="button" data-action="admin-turno-user" data-id="${turno.id}" data-user-id="${usuario.id}" data-assigned-name="${escapeHtml(inscrito)}" aria-label="Editar plaza cubierta de ${escapeHtml(inscrito)}"`
       : ` class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}"`;
 
     return `
@@ -3385,7 +3386,7 @@ function renderAdminTurnoDetail(turno: Turno | null): string {
 
     <div class="admin-turn-detail-actions">
       <button class="button button-primary" type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>${pasado ? 'Turno pasado' : textoAccionPrincipal}</button>
-      <button class="button button-secondary" type="button" data-action="admin-turno-assign" data-id="${turno.id}" ${pasado || !usuario ? 'disabled' : ''}>Cambiar</button>
+      <button class="button button-secondary" type="button" data-action="admin-turno-assign" data-id="${turno.id}" data-assigned-name="${escapeHtml(usuario?.nombreCompleto ?? '')}" ${pasado || !usuario ? 'disabled' : ''}>Cambiar</button>
       <button class="button button-secondary" type="button" data-action="admin-turno-suplente" data-id="${turno.id}" ${pasado ? 'disabled' : ''}>Marcar suplente</button>
       <button class="button button-danger" type="button" data-action="admin-turno-incident" data-id="${turno.id}" ${pasado || turno.inscritos.length === 0 ? 'disabled' : ''}>Eliminar asignacion</button>
     </div>
@@ -3406,12 +3407,14 @@ function getUsuariosAsignables(modo: AdminAsignacionModo): Usuario[] {
   return usuarios;
 }
 
-function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo): string {
+function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo, objetivoNombre: string | null = null): string {
   const usuarios = getUsuariosAsignables(modo);
   const lote = getAdminTurnoLote(turno);
   const fechaTurno = parseFecha(turno.dia);
   const diaTurno = getWeekdayIso(fechaTurno);
   const lotesMes = getLotesMesTurno(turno);
+  const usuarioObjetivo = objetivoNombre ? getUsuarioByNombre(objetivoNombre) : undefined;
+  const tipoInicial = objetivoNombre ? getTurnoAsignacionTipo(turno, objetivoNombre) : '';
   const usuariosPorTipo = (['fijo', 'suplente', 'puntual'] as TurnoAsignacionTipo[]).map((tipo) => ({
     tipo,
     usuarios: usuarios.filter((usuario) => normalizarTipoAsignacion(usuario.frecuencia) === tipo)
@@ -3431,7 +3434,7 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo
     ? 'Buscar suplente'
     : modo === 'cubrir'
       ? 'Cubrir plaza restante'
-      : turno.inscritos.length > 0 ? 'Reasignar turno' : '';
+      : objetivoNombre ? 'Editar plaza cubierta' : turno.inscritos.length > 0 ? 'Reasignar turno' : '';
   const turnosMismaHoraSemana = getTurnosOrdenados().filter((item) =>
     item.dia >= fechaToInput(startOfWeekMonday(fechaTurno)) &&
     item.dia <= fechaToInput(addDays(startOfWeekMonday(fechaTurno), 6)) &&
@@ -3461,20 +3464,21 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo
       <label class="admin-turn-field">
         <span>1. Tipo</span>
         <select id="admin-turno-tipo-select" name="admin-turno-tipo">
-          <option value="">Seleccionar</option>
+          <option value="" ${tipoInicial ? '' : 'selected'}>Seleccionar</option>
           ${(['fijo', 'suplente', 'puntual'] as TurnoAsignacionTipo[]).map((tipo) => `
-            <option value="${tipo}">${escapeHtml(formatFrecuencia(tipo))} · ${usuariosPorTipo.find((grupo) => grupo.tipo === tipo)?.usuarios.length ?? 0} adoradores</option>
+            <option value="${tipo}" ${tipo === tipoInicial ? 'selected' : ''}>${escapeHtml(formatFrecuencia(tipo))} · ${usuariosPorTipo.find((grupo) => grupo.tipo === tipo)?.usuarios.length ?? 0} adoradores</option>
           `).join('')}
         </select>
       </label>
 
       <label class="admin-turn-field">
         <span>2. Usuario</span>
-        <select id="admin-turno-usuario-select" name="admin-turno-usuario" disabled>
+        <select id="admin-turno-usuario-select" name="admin-turno-usuario" data-pending-user-id="${escapeHtml(usuarioObjetivo?.id ?? '')}" ${tipoInicial ? '' : 'disabled'}>
           <option value="">Seleccionar</option>
           ${usuarios.map((usuario) => {
             const tipoUsuario = normalizarTipoAsignacion(usuario.frecuencia);
-            return `<option value="${usuario.id}" data-user-type="${tipoUsuario}" hidden>${escapeHtml(usuario.nombreCompleto)} · ${escapeHtml(usuario.email)}</option>`;
+            const visible = !tipoInicial || tipoUsuario !== tipoInicial ? ' hidden disabled' : '';
+            return `<option value="${usuario.id}" data-user-type="${tipoUsuario}"${visible}>${escapeHtml(usuario.nombreCompleto)} · ${escapeHtml(usuario.email)}</option>`;
           }).join('')}
         </select>
       </label>
@@ -3615,7 +3619,7 @@ function getModoAsignacionParaTurno(turno: Turno): AdminAsignacionModo {
   return turno.inscritos.length > 0 && turno.plazasDisponibles > 0 ? 'cubrir' : 'reemplazar';
 }
 
-function abrirModalAdminTurnoAsignacion(id: string | null, modo: AdminAsignacionModo = 'reemplazar'): void {
+function abrirModalAdminTurnoAsignacion(id: string | null, modo: AdminAsignacionModo = 'reemplazar', objetivoNombre: string | null = null): void {
   const turno = id ? StorageDB.getTurnos().find((item) => item.id === id) : undefined;
 
   if (!turno) {
@@ -3631,8 +3635,9 @@ function abrirModalAdminTurnoAsignacion(id: string | null, modo: AdminAsignacion
   }
 
   adminTurnoAsignacionId = turno.id;
+  adminTurnoAsignacionObjetivoNombre = objetivoNombre;
   adminTurnoSeleccionadoId = turno.id;
-  modalAdminTurnoCard.innerHTML = renderAdminTurnoAsignacionModal(turno, modo);
+  modalAdminTurnoCard.innerHTML = renderAdminTurnoAsignacionModal(turno, modo, objetivoNombre);
   syncAdminTurnoUsuarioSelect(modalAdminTurnoCard.querySelector<HTMLFormElement>('.admin-turn-assign-form'));
   modalAdminTurno.showModal();
   renderAdminTurnosCubiertos();
@@ -3642,6 +3647,7 @@ function cerrarModalAdminTurno(): void {
   modalAdminTurno.close();
   modalAdminTurnoCard.innerHTML = '';
   adminTurnoAsignacionId = null;
+  adminTurnoAsignacionObjetivoNombre = null;
 }
 
 function syncAdminTurnoUsuarioSelect(form: HTMLFormElement | null): void {
@@ -3658,19 +3664,41 @@ function syncAdminTurnoUsuarioSelect(form: HTMLFormElement | null): void {
 
   const tipo = tipoSelect.value;
   const options = Array.from(usuarioSelect.querySelectorAll<HTMLOptionElement>('option[data-user-type]'));
+  const pendingUserId = usuarioSelect.dataset.pendingUserId ?? '';
+  let pendingVisible = false;
 
-  usuarioSelect.value = '';
   usuarioSelect.disabled = !tipo;
 
   options.forEach((option) => {
     const visible = Boolean(tipo) && option.dataset.userType === tipo;
     option.hidden = !visible;
     option.disabled = !visible;
+
+    if (visible && option.value === pendingUserId) {
+      pendingVisible = true;
+    }
   });
+
+  if (!tipo) {
+    usuarioSelect.value = '';
+    return;
+  }
+
+  if (pendingVisible) {
+    usuarioSelect.value = pendingUserId;
+    delete usuarioSelect.dataset.pendingUserId;
+    return;
+  }
+
+  const selectedOption = options.find((option) => option.value === usuarioSelect.value);
+  if (!selectedOption || selectedOption.hidden || selectedOption.disabled) {
+    usuarioSelect.value = '';
+  }
 }
 
 function guardarAsignacionTurnoDesdeFormulario(form: HTMLFormElement): void {
   const turno = adminTurnoAsignacionId ? StorageDB.getTurnos().find((item) => item.id === adminTurnoAsignacionId) : undefined;
+  const objetivoNombre = adminTurnoAsignacionObjetivoNombre;
   const tipoValue = form.querySelector<HTMLSelectElement>('select[name="admin-turno-tipo"]')?.value ?? '';
   const tipoAsignacion = tipoValue === 'fijo' || tipoValue === 'suplente' || tipoValue === 'puntual'
     ? tipoValue
@@ -3704,8 +3732,51 @@ function guardarAsignacionTurnoDesdeFormulario(form: HTMLFormElement): void {
 
   objetivos.forEach((objetivo) => {
     const yaInscrito = objetivo.inscritos.some((inscrito) => normalizarNombre(inscrito) === normalizarNombre(usuario.nombreCompleto));
+    const indiceObjetivo = objetivoNombre
+      ? objetivo.inscritos.findIndex((inscrito) => normalizarNombre(inscrito) === normalizarNombre(objetivoNombre))
+      : -1;
     let inscritos = eliminarActuales ? [] : [...objetivo.inscritos];
     let asignaciones = eliminarActuales ? [] : [...(objetivo.asignaciones ?? [])];
+
+    if (objetivoNombre) {
+      if (indiceObjetivo === -1) {
+        omitidos += 1;
+        return;
+      }
+
+      const duplicadoEnOtraPlaza = objetivo.inscritos.some((inscrito, index) =>
+        index !== indiceObjetivo && normalizarNombre(inscrito) === normalizarNombre(usuario.nombreCompleto)
+      );
+
+      if (duplicadoEnOtraPlaza) {
+        omitidos += 1;
+        return;
+      }
+
+      inscritos[indiceObjetivo] = usuario.nombreCompleto;
+      asignaciones = [
+        ...asignaciones.filter((asignacion) => {
+          const nombreAsignacion = normalizarNombre(asignacion.nombreCompleto);
+          return nombreAsignacion !== normalizarNombre(objetivoNombre) && nombreAsignacion !== normalizarNombre(usuario.nombreCompleto);
+        }),
+        {
+          nombreCompleto: usuario.nombreCompleto,
+          tipo: tipoAsignacion,
+          origen: 'admin' as const,
+          repeticion,
+          creadoEn: Date.now()
+        }
+      ];
+
+      StorageDB.actualizarTurno({
+        ...objetivo,
+        inscritos,
+        asignaciones,
+        plazasDisponibles: objetivo.plazasDisponibles
+      });
+      actualizados += 1;
+      return;
+    }
 
     if (yaInscrito && !eliminarActuales) {
       omitidos += 1;
@@ -5208,12 +5279,20 @@ document.addEventListener('click', (event) => {
 
     if (action === 'admin-turno-assign') {
       const turno = StorageDB.getTurnos().find((item) => item.id === adminTurnoAction.dataset.id);
-      abrirModalAdminTurnoAsignacion(adminTurnoAction.dataset.id ?? null, turno ? getModoAsignacionParaTurno(turno) : 'reemplazar');
+      abrirModalAdminTurnoAsignacion(
+        adminTurnoAction.dataset.id ?? null,
+        turno ? getModoAsignacionParaTurno(turno) : 'reemplazar',
+        adminTurnoAction.dataset.assignedName ?? null
+      );
       return;
     }
 
     if (action === 'admin-turno-user') {
-      abrirModalAdminUsuario(adminTurnoAction.dataset.userId ?? null);
+      abrirModalAdminTurnoAsignacion(
+        adminTurnoAction.dataset.id ?? null,
+        'reemplazar',
+        adminTurnoAction.dataset.assignedName ?? null
+      );
       return;
     }
 
