@@ -3029,10 +3029,24 @@ function formatAdminPeriodoTurnos(): string {
     : formatAdminSemana(adminSemanaTurnosInicio);
 }
 
-function renderAdminTurnoFiltroButton(filter: AdminTurnoFiltro, label: string, count: number): string {
+function renderAdminTurnoFiltroButton(
+  filter: AdminTurnoFiltro,
+  label: string,
+  count: number,
+  options?: { coverage?: number; tooltip?: string; className?: string }
+): string {
+  const classes = [adminTurnosFiltro === filter ? 'is-active' : '', options?.className ?? '']
+    .filter(Boolean)
+    .join(' ');
+  const style = typeof options?.coverage === 'number'
+    ? ` style="--turno-coverage: ${Math.max(0, Math.min(100, options.coverage))}%"`
+    : '';
+  const tooltip = options?.tooltip ? escapeHtml(options.tooltip) : '';
+  const tooltipAttr = tooltip ? ` data-coverage-tooltip="${tooltip}" title="${tooltip}"` : '';
+
   return `
-    <button class="${adminTurnosFiltro === filter ? 'is-active' : ''}" type="button" data-admin-turno-filter="${filter}">
-      ${escapeHtml(label)}
+    <button class="${classes}" type="button" data-admin-turno-filter="${filter}"${style}${tooltipAttr}>
+      <b>${escapeHtml(label)}</b>
       <span>${count}</span>
     </button>
   `;
@@ -3071,8 +3085,9 @@ function renderAdminTurnosCubiertos(): void {
   const turnosSuplente = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'suplente').length;
   const turnosParciales = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'parcial').length;
   const turnosCompletos = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'asignado').length;
-  const turnosConAsignacion = turnosPeriodo.length - turnosSinAsignar;
-  const cobertura = turnosPeriodo.length > 0 ? Math.round((turnosConAsignacion / turnosPeriodo.length) * 100) : 0;
+  const turnosTotalPeriodo = turnosPeriodo.length;
+  const turnosCubiertos = turnosTotalPeriodo - turnosSinAsignar;
+  const cobertura = turnosTotalPeriodo > 0 ? Math.round((turnosCubiertos / turnosTotalPeriodo) * 100) : 0;
 
   if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && adminTurnoSeleccionadoId && !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId)) {
     adminTurnoSeleccionadoId = null;
@@ -3111,17 +3126,14 @@ function renderAdminTurnosCubiertos(): void {
 
       <div class="admin-turns-layout">
         <section class="admin-turns-main">
-          <section class="admin-turns-metrics" aria-label="Resumen de turnos">
-            ${renderAdminTurnoMetricCard('Cobertura', `${cobertura}%`, `${turnosConAsignacion} de ${turnosPeriodo.length} turnos cubiertos`, '◔', 'metric-teal', 'coverage-metric', cobertura)}
-            ${renderAdminTurnoMetricCard('Libres', `${turnosSinAsignar}`, 'Turnos pendientes de asignacion', '○', 'metric-blue')}
-            ${renderAdminTurnoMetricCard('Parciales', `${turnosParciales}`, 'Con plazas aun disponibles', '◐', 'metric-amber')}
-            ${renderAdminTurnoMetricCard('Completos', `${turnosCompletos}`, 'Turnos cubiertos al 100%', '✓', 'metric-green')}
-            ${renderAdminTurnoMetricCard('Sin turno', `${turnosSinTurno}`, 'Huecos vacios en la grilla visible', '−', 'metric-gray')}
-          </section>
-
+   
           <div class="admin-turns-tools">
             <div class="admin-turn-filters" aria-label="Filtros de turnos">
-              ${renderAdminTurnoFiltroButton('todos', 'Todos', turnosPeriodo.length)}
+              ${renderAdminTurnoFiltroButton('todos', 'Total', turnosPeriodo.length, {
+                coverage: cobertura,
+                tooltip: `Cobertura: ${cobertura}%`,
+                className: 'admin-turn-filter-total'
+              })}
               ${renderAdminTurnoFiltroButton('libres', 'Libres', turnosSinAsignar)}
               ${renderAdminTurnoFiltroButton('parciales', 'Parciales', turnosParciales)}
               ${renderAdminTurnoFiltroButton('completos', 'Completos', turnosCompletos)}
