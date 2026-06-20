@@ -106,6 +106,7 @@ let adminUsuarioEditandoId: string | null = null;
 let adminFechaTurnosSeleccionada = fechaToInput(new Date());
 let adminSemanaTurnosInicio = startOfWeekMonday(new Date());
 let adminVistaTurnos: VistaTurnos = 'semanal';
+let adminTurnosNavegacionManual = false;
 let adminTurnosBusqueda = '';
 let adminTurnosFiltro: AdminTurnoFiltro = 'todos';
 let adminTurnoSeleccionadoId: string | null = null;
@@ -3139,7 +3140,7 @@ function renderAdminTurnosCubiertos(): void {
   const esVistaSemanalActual = adminVistaTurnos === 'semanal' && inicioSemanaInput === fechaToInput(semanaActualInicio);
   const fechaPrincipal = getAdminFechaTurnosPrincipal();
 
-  if ((esVistaDiariaActual || esVistaSemanalActual) && periodoAgotado && fechaPrincipal !== adminFechaTurnosSeleccionada) {
+  if (!adminTurnosNavegacionManual && (esVistaDiariaActual || esVistaSemanalActual) && periodoAgotado && fechaPrincipal !== adminFechaTurnosSeleccionada) {
     adminFechaTurnosSeleccionada = fechaPrincipal;
     adminSemanaTurnosInicio = startOfWeekMonday(parseFecha(fechaPrincipal));
     adminTurnoSeleccionadoId = null;
@@ -3291,10 +3292,10 @@ function renderAdminTurnoCalendarCard(turno: Turno): string {
 
   return `
     <article class="admin-calendar-turn is-${estadoVisual} assignment-${tipo} ${estado === 'suplente' ? 'has-suplente' : ''} ${necesitaAsignacion ? 'is-actionable' : ''} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
-      <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
+      <div class="admin-calendar-turn-main" role="button" tabindex="0" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
         ${miembros}
-        ${cardLabel && turno.inscritos.length === 0 ? `<strong>${escapeHtml(cardLabel)}</strong>` : ''}
-      </button>
+        ${cardLabel && turno.inscritos.length === 0 ? `<button class="admin-turn-inline-action admin-turn-inline-action-button" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${escapeHtml(cardLabel)}</button>` : ''}
+      </div>
     </article>
   `;
 }
@@ -3314,16 +3315,20 @@ function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail', i
       ? `${formatRol(usuario.rol)} · ${getTurnoAsignacionRepeticion(turno, inscrito)}`
       : 'Perfil no encontrado';
     const inlineAction = variant === 'compact' && inlineActionLabel && index === 0
-      ? `<span class="admin-turn-inline-action">${escapeHtml(inlineActionLabel)}</span>`
+      ? `<button class="admin-turn-inline-action admin-turn-inline-action-button" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${escapeHtml(inlineActionLabel)}</button>`
       : '';
+    const memberTag = variant === 'compact' && usuario ? 'button' : 'span';
+    const memberAttributes = variant === 'compact' && usuario
+      ? ` class="admin-turn-member admin-turn-member-button assignment-${tipo}" type="button" data-action="admin-turno-user" data-user-id="${usuario.id}" aria-label="Ver usuario ${escapeHtml(inscrito)}"`
+      : ` class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}"`;
 
     return `
       <span class="${variant === 'compact' && inlineAction ? 'admin-turn-member-row' : ''}">
-        <span class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}">
+        <${memberTag}${memberAttributes}>
           <i aria-hidden="true">${escapeHtml(iniciales)}</i>
           <b>${escapeHtml(inscrito)}</b>
           ${variant === 'detail' ? `<small>${escapeHtml(detalle)}</small>` : ''}
-        </span>
+        </${memberTag}>
         ${inlineAction}
       </span>
     `;
@@ -3407,7 +3412,6 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo
   const fechaTurno = parseFecha(turno.dia);
   const diaTurno = getWeekdayIso(fechaTurno);
   const lotesMes = getLotesMesTurno(turno);
-  const tipoInicial = modo === 'agregar' ? 'suplente' : normalizarTipoAsignacion(getUsuarioByNombre(turno.inscritos[0] ?? '')?.frecuencia ?? 'puntual');
   const usuariosPorTipo = (['fijo', 'suplente', 'puntual'] as TurnoAsignacionTipo[]).map((tipo) => ({
     tipo,
     usuarios: usuarios.filter((usuario) => normalizarTipoAsignacion(usuario.frecuencia) === tipo)
@@ -3452,70 +3456,43 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo
     </section>
 
     <form class="admin-turn-assign-form" data-admin-turno-form="${turno.id}">
-      <fieldset class="admin-turn-type-field">
-        <legend>1. Tipo</legend>
-        <div>
+      <input type="hidden" name="admin-turno-eliminar-actuales" value="${modo === 'reemplazar' ? 'true' : 'false'}" />
+
+      <label class="admin-turn-field">
+        <span>1. Tipo</span>
+        <select id="admin-turno-tipo-select" name="admin-turno-tipo">
+          <option value="">Seleccionar</option>
           ${(['fijo', 'suplente', 'puntual'] as TurnoAsignacionTipo[]).map((tipo) => `
-            <label class="assignment-type-card is-${tipo}">
-              <input type="radio" name="admin-turno-tipo" value="${tipo}" ${tipo === tipoInicial ? 'checked' : ''} />
-              <span>${escapeHtml(formatFrecuencia(tipo))}</span>
-              <small>${usuariosPorTipo.find((grupo) => grupo.tipo === tipo)?.usuarios.length ?? 0} adoradores</small>
-            </label>
+            <option value="${tipo}">${escapeHtml(formatFrecuencia(tipo))} · ${usuariosPorTipo.find((grupo) => grupo.tipo === tipo)?.usuarios.length ?? 0} adoradores</option>
           `).join('')}
-        </div>
-      </fieldset>
+        </select>
+      </label>
 
-      <section class="admin-turn-user-pickers" aria-label="Usuarios por tipo seleccionado">
-        ${usuariosPorTipo.map(({ tipo, usuarios: usuariosTipo }) => `
-          <label class="admin-turn-user-picker" data-user-picker="${tipo}">
-            <span>1.1 Usuarios ${escapeHtml(formatFrecuencia(tipo).toLowerCase())}</span>
-            <select name="admin-turno-usuario-${tipo}" ${usuariosTipo.length === 0 ? 'disabled' : ''}>
-              ${usuariosTipo.length === 0
-                ? `<option value="">No hay adoradores ${escapeHtml(formatFrecuencia(tipo).toLowerCase())}</option>`
-                : usuariosTipo.map((usuario) => `<option value="${usuario.id}">${escapeHtml(usuario.nombreCompleto)} · ${escapeHtml(usuario.email)}</option>`).join('')
-              }
-            </select>
-          </label>
-        `).join('')}
-      </section>
+      <label class="admin-turn-field">
+        <span>2. Usuario</span>
+        <select id="admin-turno-usuario-select" name="admin-turno-usuario" disabled>
+          <option value="">Seleccionar</option>
+          ${usuarios.map((usuario) => {
+            const tipoUsuario = normalizarTipoAsignacion(usuario.frecuencia);
+            return `<option value="${usuario.id}" data-user-type="${tipoUsuario}" hidden>${escapeHtml(usuario.nombreCompleto)} · ${escapeHtml(usuario.email)}</option>`;
+          }).join('')}
+        </select>
+      </label>
 
-      <fieldset class="admin-turn-mode-field">
-        <legend>2. Eliminamos</legend>
-        <label>
-          <input type="checkbox" name="admin-turno-eliminar-actuales" ${modo === 'reemplazar' ? 'checked' : ''} />
-          <span>Eliminar miembros actuales antes de asignar</span>
-        </label>
-      </fieldset>
+      <label class="admin-turn-field">
+        <span>3. Frecuencia de repeticion</span>
+        <select name="admin-turno-repeticion">
+          <option value="unica" selected>1 vez solo</option>
+          <option value="semanal">1 vez cada semana</option>
+          <option value="mensual">1 vez cada mes</option>
+        </select>
+      </label>
 
-      <fieldset class="admin-turn-period-field">
-        <legend>3. Alcance de la asignacion</legend>
-        <label>
-          <input type="radio" name="admin-turno-repeticion" value="unica" checked />
-          <span>1 vez solo</span>
-        </label>
-        <label>
-          <input type="radio" name="admin-turno-repeticion" value="semanal" />
-          <span>1 vez cada semana</span>
-        </label>
-        <label>
-          <input type="radio" name="admin-turno-repeticion" value="mensual" />
-          <span>1 vez cada mes</span>
-        </label>
-      </fieldset>
-
-      <div class="admin-turn-period-grid">
-        <label>
-          <span>Desde</span>
-          <input id="admin-turno-fecha-inicio" type="date" value="${turno.dia}" />
-        </label>
-        <label>
-          <span>Hasta</span>
-          <input id="admin-turno-fecha-fin" type="date" value="${turno.dia}" />
-        </label>
-      </div>
+      <input id="admin-turno-fecha-inicio" type="hidden" value="${turno.dia}" />
+      <input id="admin-turno-fecha-fin" type="hidden" value="${turno.dia}" />
 
       <label class="admin-turn-lote-field">
-        <span>Lote</span>
+        <span>4. Lote</span>
         <select id="admin-turno-lote" ${lotesMes.length === 0 ? 'disabled' : ''}>
           ${lotesMes.length === 0
             ? '<option value="">No hay lote para este mes</option>'
@@ -3525,7 +3502,7 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo
       </label>
 
       <fieldset class="admin-turn-hours-field">
-        <legend>Hora u horas</legend>
+        <legend>5. Horas del lote</legend>
         <div>
           ${horasDisponibles.map((hora) => {
             const [horaInicio, horaFin] = hora.split('|');
@@ -3541,7 +3518,7 @@ function renderAdminTurnoAsignacionModal(turno: Turno, modo: AdminAsignacionModo
       </fieldset>
 
       <fieldset class="admin-turn-weekdays-field">
-        <legend>Dias incluidos</legend>
+        <legend>6. Dias</legend>
         <div>
           ${diasSemana.map((dia) => `
             <label>
@@ -3591,7 +3568,7 @@ function getHorasAsignacionTurno(form: HTMLFormElement, turnoBase: Turno): Set<s
 }
 
 function getTurnosObjetivoAsignacion(turnoBase: Turno, form: HTMLFormElement): Turno[] {
-  const repeticion = form.querySelector<HTMLInputElement>('input[name="admin-turno-repeticion"]:checked')?.value ?? 'unica';
+  const repeticion = form.querySelector<HTMLSelectElement>('select[name="admin-turno-repeticion"]')?.value ?? 'unica';
 
   const horasSeleccionadas = getHorasAsignacionTurno(form, turnoBase);
   const diasSeleccionados = new Set(getDiasAsignacionTurno(form, turnoBase.dia));
@@ -3656,6 +3633,7 @@ function abrirModalAdminTurnoAsignacion(id: string | null, modo: AdminAsignacion
   adminTurnoAsignacionId = turno.id;
   adminTurnoSeleccionadoId = turno.id;
   modalAdminTurnoCard.innerHTML = renderAdminTurnoAsignacionModal(turno, modo);
+  syncAdminTurnoUsuarioSelect(modalAdminTurnoCard.querySelector<HTMLFormElement>('.admin-turn-assign-form'));
   modalAdminTurno.showModal();
   renderAdminTurnosCubiertos();
 }
@@ -3666,15 +3644,43 @@ function cerrarModalAdminTurno(): void {
   adminTurnoAsignacionId = null;
 }
 
+function syncAdminTurnoUsuarioSelect(form: HTMLFormElement | null): void {
+  if (!form) {
+    return;
+  }
+
+  const tipoSelect = form.querySelector<HTMLSelectElement>('#admin-turno-tipo-select');
+  const usuarioSelect = form.querySelector<HTMLSelectElement>('#admin-turno-usuario-select');
+
+  if (!tipoSelect || !usuarioSelect) {
+    return;
+  }
+
+  const tipo = tipoSelect.value;
+  const options = Array.from(usuarioSelect.querySelectorAll<HTMLOptionElement>('option[data-user-type]'));
+
+  usuarioSelect.value = '';
+  usuarioSelect.disabled = !tipo;
+
+  options.forEach((option) => {
+    const visible = Boolean(tipo) && option.dataset.userType === tipo;
+    option.hidden = !visible;
+    option.disabled = !visible;
+  });
+}
+
 function guardarAsignacionTurnoDesdeFormulario(form: HTMLFormElement): void {
   const turno = adminTurnoAsignacionId ? StorageDB.getTurnos().find((item) => item.id === adminTurnoAsignacionId) : undefined;
-  const tipoAsignacion = normalizarTipoAsignacion(form.querySelector<HTMLInputElement>('input[name="admin-turno-tipo"]:checked')?.value);
-  const usuarioId = form.querySelector<HTMLSelectElement>(`select[name="admin-turno-usuario-${tipoAsignacion}"]`)?.value ?? '';
+  const tipoValue = form.querySelector<HTMLSelectElement>('select[name="admin-turno-tipo"]')?.value ?? '';
+  const tipoAsignacion = tipoValue === 'fijo' || tipoValue === 'suplente' || tipoValue === 'puntual'
+    ? tipoValue
+    : null;
+  const usuarioId = form.querySelector<HTMLSelectElement>('select[name="admin-turno-usuario"]')?.value ?? '';
   const usuario = StorageDB.getUsuarios().find((item) => item.id === usuarioId);
-  const eliminarActuales = Boolean(form.querySelector<HTMLInputElement>('input[name="admin-turno-eliminar-actuales"]')?.checked);
-  const repeticion = (form.querySelector<HTMLInputElement>('input[name="admin-turno-repeticion"]:checked')?.value ?? 'unica') as 'unica' | 'semanal' | 'mensual';
+  const eliminarActuales = form.querySelector<HTMLInputElement>('input[name="admin-turno-eliminar-actuales"]')?.value === 'true';
+  const repeticion = (form.querySelector<HTMLSelectElement>('select[name="admin-turno-repeticion"]')?.value ?? 'unica') as 'unica' | 'semanal' | 'mensual';
 
-  if (!turno || !usuario) {
+  if (!turno || !usuario || !tipoAsignacion) {
     mostrarAviso('No se pudo asignar', 'Selecciona un adorador valido para continuar.', 'error');
     return;
   }
@@ -4165,6 +4171,7 @@ function abrirTurnosAsignadosDeLote(lote: LoteExposicion): void {
 
   adminPanel = 'turnos';
   adminVistaTurnos = 'semanal';
+  adminTurnosNavegacionManual = false;
   adminFechaTurnosSeleccionada = fechaDestino;
   adminSemanaTurnosInicio = startOfWeekMonday(parseFecha(fechaDestino));
   adminTurnosBusqueda = lote.nombre;
@@ -5125,8 +5132,8 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  const adminTurnoAction = target.closest<HTMLButtonElement>(
-    '[data-action="admin-turno-select"], [data-action="admin-turno-clear-detail"], [data-action="admin-turno-assign"], [data-action="admin-turno-suplente"], [data-action="admin-turno-incident"], [data-action="admin-turno-block"], [data-action="admin-turno-filter-info"], [data-action="admin-turno-dia-toggle"], [data-action="admin-turno-modal-close"], [data-action="admin-vista-turnos"], [data-action="admin-period-prev"], [data-action="admin-period-next"], [data-action="admin-period-today"]'
+  const adminTurnoAction = target.closest<HTMLElement>(
+    '[data-action="admin-turno-select"], [data-action="admin-turno-clear-detail"], [data-action="admin-turno-assign"], [data-action="admin-turno-suplente"], [data-action="admin-turno-incident"], [data-action="admin-turno-block"], [data-action="admin-turno-filter-info"], [data-action="admin-turno-dia-toggle"], [data-action="admin-turno-modal-close"], [data-action="admin-vista-turnos"], [data-action="admin-period-prev"], [data-action="admin-period-next"], [data-action="admin-period-today"], [data-action="admin-turno-user"]'
   );
 
   if (adminTurnoAction) {
@@ -5148,6 +5155,7 @@ document.addEventListener('click', (event) => {
 
     if (action === 'admin-period-prev' || action === 'admin-period-next') {
       const direction = action === 'admin-period-next' ? 1 : -1;
+      adminTurnosNavegacionManual = true;
 
       if (adminVistaTurnos === 'diaria') {
         const nextDate = addDays(parseFecha(adminFechaTurnosSeleccionada), direction);
@@ -5165,6 +5173,7 @@ document.addEventListener('click', (event) => {
 
     if (action === 'admin-period-today') {
       const fechaDestino = getAdminFechaTurnosPrincipal();
+      adminTurnosNavegacionManual = false;
       adminFechaTurnosSeleccionada = fechaDestino;
       adminSemanaTurnosInicio = startOfWeekMonday(parseFecha(fechaDestino));
       adminTurnoSeleccionadoId = null;
@@ -5200,6 +5209,11 @@ document.addEventListener('click', (event) => {
     if (action === 'admin-turno-assign') {
       const turno = StorageDB.getTurnos().find((item) => item.id === adminTurnoAction.dataset.id);
       abrirModalAdminTurnoAsignacion(adminTurnoAction.dataset.id ?? null, turno ? getModoAsignacionParaTurno(turno) : 'reemplazar');
+      return;
+    }
+
+    if (action === 'admin-turno-user') {
+      abrirModalAdminUsuario(adminTurnoAction.dataset.userId ?? null);
       return;
     }
 
@@ -5520,6 +5534,11 @@ document.addEventListener('input', (event) => {
 document.addEventListener('change', (event) => {
   const select = event.target as HTMLSelectElement;
 
+  if (select.id === 'admin-turno-tipo-select') {
+    syncAdminTurnoUsuarioSelect(select.closest<HTMLFormElement>('.admin-turn-assign-form'));
+    return;
+  }
+
   if (select.id === 'admin-user-edit-role') {
     syncAdminUsuarioFrecuenciaField(select.closest<HTMLFormElement>('.admin-user-edit-form'));
     return;
@@ -5535,6 +5554,22 @@ document.addEventListener('change', (event) => {
 
   usuarioOrdenTurnos = select.value as UsuarioOrdenTurnos;
   renderUsuario();
+});
+
+document.addEventListener('keydown', (event) => {
+  const target = event.target as HTMLElement | null;
+  const turnoTrigger = target?.closest<HTMLElement>('.admin-calendar-turn-main[data-action="admin-turno-select"]');
+
+  if (!turnoTrigger) {
+    return;
+  }
+
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+
+  event.preventDefault();
+  turnoTrigger.click();
 });
 
 document.addEventListener('submit', (event) => {

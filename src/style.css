@@ -3308,6 +3308,13 @@ button:disabled {
   background: rgba(234, 246, 249, 0.86);
 }
 
+.admin-turn-member-button {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .admin-turn-member i {
   display: grid;
   width: 24px;
@@ -9288,6 +9295,14 @@ body,
   background: transparent;
 }
 
+.admin-lotes-view .admin-turn-member-button {
+  width: 100%;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .admin-lotes-view .admin-turn-member i {
   width: 14px;
   height: 14px;
@@ -9322,6 +9337,12 @@ body,
   font-size: 0.62rem;
   font-weight: 950;
   white-space: nowrap;
+}
+
+.admin-lotes-view .admin-turn-inline-action-button {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
 }
 
 .admin-lotes-view .admin-calendar-turn.is-sin-asignar .admin-turn-inline-action {
