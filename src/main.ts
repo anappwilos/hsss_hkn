@@ -3037,6 +3037,52 @@ function formatAdminPeriodoTurnos(): string {
     : formatAdminSemana(adminSemanaTurnosInicio);
 }
 
+function formatAdminHoyCorto(): string {
+  const hoy = new Date();
+  const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(hoy).replace('.', '');
+  const day = new Intl.DateTimeFormat('es-ES', { day: '2-digit' }).format(hoy);
+  const month = new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(hoy).replace('.', '');
+  return `Hoy ${capitalize(weekday)} ${day} ${capitalize(month)}`;
+}
+
+function getAdminFechaTurnosMasCercana(): string {
+  const hoy = fechaToInput(new Date());
+  const fechas = Array.from(new Set(getTurnosOrdenados().map((turno) => turno.dia))).toSorted();
+
+  if (fechas.length === 0) {
+    return hoy;
+  }
+
+  if (fechas.includes(hoy)) {
+    return hoy;
+  }
+
+  return fechas
+    .map((dia) => ({ dia, distancia: Math.abs(daysBetween(parseFecha(hoy), parseFecha(dia))) }))
+    .toSorted((a, b) => a.distancia - b.distancia || a.dia.localeCompare(b.dia))[0]?.dia ?? hoy;
+}
+
+function getAdminFechaTurnosPrincipal(): string {
+  const hoy = fechaToInput(new Date());
+  const turnos = getTurnosOrdenados();
+  const fechasDisponibles = Array.from(new Set(turnos.map((turno) => turno.dia))).toSorted();
+
+  if (fechasDisponibles.length === 0) {
+    return hoy;
+  }
+
+  const hoyTieneTurnosVigentes = turnos.some((turno) => turno.dia === hoy && !isTurnoPasado(turno));
+  if (hoyTieneTurnosVigentes) {
+    return hoy;
+  }
+
+  const proximaFechaConTurnos = fechasDisponibles.find((dia) =>
+    turnos.some((turno) => turno.dia === dia && !isTurnoPasado(turno))
+  );
+
+  return proximaFechaConTurnos ?? getAdminFechaTurnosMasCercana();
+}
+
 function isAdminPeriodoPast(): boolean {
   const hoy = fechaToInput(new Date());
 
@@ -3077,6 +3123,9 @@ function renderAdminTurnosCubiertos(): void {
     return;
   }
 
+  const hoy = new Date();
+  const hoyInput = fechaToInput(hoy);
+  const semanaActualInicio = startOfWeekMonday(hoy);
   const inicioSemana = adminSemanaTurnosInicio;
   const finSemana = addDays(inicioSemana, 6);
   const inicioSemanaInput = fechaToInput(inicioSemana);
@@ -3085,6 +3134,19 @@ function renderAdminTurnosCubiertos(): void {
   const turnosPeriodo = adminVistaTurnos === 'diaria'
     ? turnosSemana.filter((turno) => turno.dia === adminFechaTurnosSeleccionada)
     : turnosSemana;
+  const periodoAgotado = turnosPeriodo.length > 0 && turnosPeriodo.every((turno) => isTurnoPasado(turno));
+  const esVistaDiariaActual = adminVistaTurnos === 'diaria' && adminFechaTurnosSeleccionada === hoyInput;
+  const esVistaSemanalActual = adminVistaTurnos === 'semanal' && inicioSemanaInput === fechaToInput(semanaActualInicio);
+  const fechaPrincipal = getAdminFechaTurnosPrincipal();
+
+  if ((esVistaDiariaActual || esVistaSemanalActual) && periodoAgotado && fechaPrincipal !== adminFechaTurnosSeleccionada) {
+    adminFechaTurnosSeleccionada = fechaPrincipal;
+    adminSemanaTurnosInicio = startOfWeekMonday(parseFecha(fechaPrincipal));
+    adminTurnoSeleccionadoId = null;
+    renderAdminTurnosCubiertos();
+    return;
+  }
+
   const turnosFiltrados = turnosPeriodo.filter((turno) => matchesAdminTurnoFiltro(turno) && matchesAdminTurnoBusqueda(turno));
   const turnosSinAsignar = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'sin-asignar').length;
   const turnosSuplente = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'suplente').length;
@@ -3093,7 +3155,7 @@ function renderAdminTurnosCubiertos(): void {
   const turnosTotalPeriodo = turnosPeriodo.length;
   const turnosCubiertos = turnosTotalPeriodo - turnosSinAsignar;
   const cobertura = turnosTotalPeriodo > 0 ? Math.round((turnosCubiertos / turnosTotalPeriodo) * 100) : 0;
-  const periodoPast = isAdminPeriodoPast();
+  const periodoPast = periodoAgotado || isAdminPeriodoPast();
 
   if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && adminTurnoSeleccionadoId && !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId)) {
     adminTurnoSeleccionadoId = null;
@@ -3116,10 +3178,13 @@ function renderAdminTurnosCubiertos(): void {
           <button class="${adminVistaTurnos === 'semanal' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="semanal" aria-pressed="${adminVistaTurnos === 'semanal'}">Semana</button>
         </div>
 
-        <label class="admin-turn-search">
-          <span aria-hidden="true">⌕</span>
-          <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar adorador..." autocomplete="off" />
-        </label>
+        <div class="admin-turns-search-actions">
+          <label class="admin-turn-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar adorador..." autocomplete="off" />
+          </label>
+          <button class="admin-turn-today-button" type="button" data-action="admin-period-today">${escapeHtml(formatAdminHoyCorto())}</button>
+        </div>
 
         <div class="admin-turns-period-controls" aria-label="Vista de turnos">
           <div class="week-actions admin-period-actions" aria-label="Navegacion del periodo">
@@ -5061,7 +5126,7 @@ document.addEventListener('click', (event) => {
   }
 
   const adminTurnoAction = target.closest<HTMLButtonElement>(
-    '[data-action="admin-turno-select"], [data-action="admin-turno-clear-detail"], [data-action="admin-turno-assign"], [data-action="admin-turno-suplente"], [data-action="admin-turno-incident"], [data-action="admin-turno-block"], [data-action="admin-turno-filter-info"], [data-action="admin-turno-dia-toggle"], [data-action="admin-turno-modal-close"], [data-action="admin-vista-turnos"], [data-action="admin-period-prev"], [data-action="admin-period-next"]'
+    '[data-action="admin-turno-select"], [data-action="admin-turno-clear-detail"], [data-action="admin-turno-assign"], [data-action="admin-turno-suplente"], [data-action="admin-turno-incident"], [data-action="admin-turno-block"], [data-action="admin-turno-filter-info"], [data-action="admin-turno-dia-toggle"], [data-action="admin-turno-modal-close"], [data-action="admin-vista-turnos"], [data-action="admin-period-prev"], [data-action="admin-period-next"], [data-action="admin-period-today"]'
   );
 
   if (adminTurnoAction) {
@@ -5093,6 +5158,15 @@ document.addEventListener('click', (event) => {
         adminFechaTurnosSeleccionada = fechaToInput(adminSemanaTurnosInicio);
       }
 
+      adminTurnoSeleccionadoId = null;
+      renderAdminTurnosCubiertos();
+      return;
+    }
+
+    if (action === 'admin-period-today') {
+      const fechaDestino = getAdminFechaTurnosPrincipal();
+      adminFechaTurnosSeleccionada = fechaDestino;
+      adminSemanaTurnosInicio = startOfWeekMonday(parseFecha(fechaDestino));
       adminTurnoSeleccionadoId = null;
       renderAdminTurnosCubiertos();
       return;

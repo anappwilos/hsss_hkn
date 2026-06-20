@@ -8885,6 +8885,31 @@ body,
   background: rgba(255, 255, 255, 0.74);
 }
 
+.admin-lotes-view .admin-turns-search-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.admin-lotes-view .admin-turn-today-button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(120, 166, 182, 0.24);
+  border-radius: 999px;
+  padding: 0 14px;
+  color: #0d687b;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 7px 16px rgba(14, 83, 102, 0.05);
+  font-size: 0.76rem;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .admin-lotes-view .admin-turns-period-controls {
   justify-self: center;
   width: 100%;
@@ -9429,6 +9454,10 @@ body,
 
 @media (max-width: 1180px) {
   .admin-lotes-view .admin-turns-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-lotes-view .admin-turns-search-actions {
     grid-template-columns: 1fr;
   }
 
