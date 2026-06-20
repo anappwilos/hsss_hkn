@@ -3318,18 +3318,18 @@ function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail', i
     const inlineAction = variant === 'compact' && inlineActionLabel && index === 0
       ? `<button class="admin-turn-inline-action admin-turn-inline-action-button" type="button" data-action="admin-turno-assign" data-id="${turno.id}">${escapeHtml(inlineActionLabel)}</button>`
       : '';
-    const memberTag = usuario ? 'button' : 'span';
-    const memberAttributes = usuario
-      ? ` class="admin-turn-member admin-turn-member-button assignment-${tipo}" type="button" data-action="admin-turno-user" data-id="${turno.id}" data-user-id="${usuario.id}" data-assigned-name="${escapeHtml(inscrito)}" aria-label="Editar plaza cubierta de ${escapeHtml(inscrito)}"`
-      : ` class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}"`;
+    const avatarTag = usuario ? 'button' : 'i';
+    const avatarAttributes = usuario
+      ? ` class="admin-turn-member-avatar-button assignment-${tipo}" type="button" data-action="admin-turno-edit-slot" data-id="${turno.id}" data-user-id="${usuario.id}" data-assigned-name="${escapeHtml(inscrito)}" aria-label="Editar plaza cubierta de ${escapeHtml(inscrito)}"`
+      : ` class="admin-turn-member-avatar assignment-${tipo}" aria-hidden="true"`;
 
     return `
       <span class="${variant === 'compact' && inlineAction ? 'admin-turn-member-row' : ''}">
-        <${memberTag}${memberAttributes}>
-          <i aria-hidden="true">${escapeHtml(iniciales)}</i>
+        <span class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}">
+          <${avatarTag}${avatarAttributes}>${escapeHtml(iniciales)}</${avatarTag}>
           <b>${escapeHtml(inscrito)}</b>
           ${variant === 'detail' ? `<small>${escapeHtml(detalle)}</small>` : ''}
-        </${memberTag}>
+        </span>
         ${inlineAction}
       </span>
     `;
@@ -5203,8 +5203,30 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  const adminTurnoUserButton = target.closest<HTMLButtonElement>('.admin-turn-member-button[data-action="admin-turno-user"]');
+
+  if (adminTurnoUserButton) {
+    abrirModalAdminTurnoAsignacion(
+      adminTurnoUserButton.dataset.id ?? null,
+      'reemplazar',
+      adminTurnoUserButton.dataset.assignedName ?? null
+    );
+    return;
+  }
+
+  const adminTurnoEditSlotButton = target.closest<HTMLButtonElement>('[data-action="admin-turno-edit-slot"]');
+
+  if (adminTurnoEditSlotButton) {
+    abrirModalAdminTurnoAsignacion(
+      adminTurnoEditSlotButton.dataset.id ?? null,
+      'reemplazar',
+      adminTurnoEditSlotButton.dataset.assignedName ?? null
+    );
+    return;
+  }
+
   const adminTurnoAction = target.closest<HTMLElement>(
-    '[data-action="admin-turno-select"], [data-action="admin-turno-clear-detail"], [data-action="admin-turno-assign"], [data-action="admin-turno-suplente"], [data-action="admin-turno-incident"], [data-action="admin-turno-block"], [data-action="admin-turno-filter-info"], [data-action="admin-turno-dia-toggle"], [data-action="admin-turno-modal-close"], [data-action="admin-vista-turnos"], [data-action="admin-period-prev"], [data-action="admin-period-next"], [data-action="admin-period-today"], [data-action="admin-turno-user"]'
+    '[data-action="admin-turno-select"], [data-action="admin-turno-clear-detail"], [data-action="admin-turno-assign"], [data-action="admin-turno-suplente"], [data-action="admin-turno-incident"], [data-action="admin-turno-block"], [data-action="admin-turno-filter-info"], [data-action="admin-turno-dia-toggle"], [data-action="admin-turno-modal-close"], [data-action="admin-vista-turnos"], [data-action="admin-period-prev"], [data-action="admin-period-next"], [data-action="admin-period-today"], [data-action="admin-turno-user"], [data-action="admin-turno-edit-slot"]'
   );
 
   if (adminTurnoAction) {
