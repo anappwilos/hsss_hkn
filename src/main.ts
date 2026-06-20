@@ -2954,6 +2954,14 @@ function getAdminTurnoEstado(turno: Turno): AdminTurnoEstado {
   return turno.plazasDisponibles > 0 ? 'parcial' : 'asignado';
 }
 
+function getAdminTurnoEstadoVisual(turno: Turno): 'sin-asignar' | 'parcial' | 'asignado' {
+  if (turno.inscritos.length === 0) {
+    return 'sin-asignar';
+  }
+
+  return turno.plazasDisponibles > 0 ? 'parcial' : 'asignado';
+}
+
 function getAdminTurnoEstadoLabel(estado: AdminTurnoEstado): string {
   const labels: Record<AdminTurnoEstado, string> = {
     'sin-asignar': 'Sin asignar',
@@ -3103,14 +3111,6 @@ function renderAdminTurnosCubiertos(): void {
   adminTurnosCubiertos.innerHTML = `
     <div class="admin-turns-dashboard">
       <div class="admin-turns-controls" aria-label="Controles de turnos asignados">
-        <div class="admin-turns-period-controls" aria-label="Vista de turnos">
-          <div class="week-actions admin-period-actions" aria-label="Navegacion del periodo">
-            <button class="icon-round" type="button" data-action="admin-period-prev" aria-label="Periodo anterior">‹</button>
-            <div class="admin-week-picker ${periodoPast ? 'is-past' : ''}" aria-label="Periodo visible">${escapeHtml(formatAdminPeriodoTurnos())}</div>
-            <button class="icon-round" type="button" data-action="admin-period-next" aria-label="Periodo siguiente">›</button>
-          </div>
-        </div>
-
         <div class="view-toggle admin-view-toggle" role="group" aria-label="Cambiar vista de administracion">
           <button class="${adminVistaTurnos === 'diaria' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="diaria" aria-pressed="${adminVistaTurnos === 'diaria'}">D&iacute;a</button>
           <button class="${adminVistaTurnos === 'semanal' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="semanal" aria-pressed="${adminVistaTurnos === 'semanal'}">Semana</button>
@@ -3120,6 +3120,14 @@ function renderAdminTurnosCubiertos(): void {
           <span aria-hidden="true">⌕</span>
           <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar adorador..." autocomplete="off" />
         </label>
+
+        <div class="admin-turns-period-controls" aria-label="Vista de turnos">
+          <div class="week-actions admin-period-actions" aria-label="Navegacion del periodo">
+            <button class="icon-round" type="button" data-action="admin-period-prev" aria-label="Periodo anterior">‹</button>
+            <div class="admin-week-picker ${periodoPast ? 'is-past' : ''}" aria-label="Periodo visible">${escapeHtml(formatAdminPeriodoTurnos())}</div>
+            <button class="icon-round" type="button" data-action="admin-period-next" aria-label="Periodo siguiente">›</button>
+          </div>
+        </div>
       </div>
 
       <div class="admin-turns-layout">
@@ -3204,47 +3212,54 @@ function renderAdminTurnosCalendario(fechas: Date[], franjas: string[], turnos: 
 
 function renderAdminTurnoCalendarCard(turno: Turno): string {
   const estado = getAdminTurnoEstado(turno);
+  const estadoVisual = getAdminTurnoEstadoVisual(turno);
   const tipo = getTurnoAsignacionTipo(turno);
   const selected = adminTurnoSeleccionadoId === turno.id;
   const pasado = isTurnoPasado(turno);
-  const miembros = renderAdminTurnoMiembros(turno, 'compact');
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
   const necesitaAsignacion = turno.plazasDisponibles > 0;
   const siguientePlaza = Math.min(turno.plazasTotales, ocupadas + 1);
   const cardLabel = necesitaAsignacion
     ? `Asignar ${siguientePlaza}/${turno.plazasTotales}`
     : '';
+  const miembros = renderAdminTurnoMiembros(turno, 'compact', cardLabel);
 
   return `
-    <article class="admin-calendar-turn is-${estado} assignment-${tipo} ${necesitaAsignacion ? 'is-actionable' : ''} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
+    <article class="admin-calendar-turn is-${estadoVisual} assignment-${tipo} ${estado === 'suplente' ? 'has-suplente' : ''} ${necesitaAsignacion ? 'is-actionable' : ''} ${pasado ? 'is-past' : ''} ${selected ? 'is-selected' : ''}">
       <button class="admin-calendar-turn-main" type="button" data-action="admin-turno-select" data-id="${turno.id}" aria-label="Ver turno ${escapeHtml(formatFecha(turno.dia))} ${escapeHtml(turno.horaInicio)}">
-        ${cardLabel ? `<strong>${escapeHtml(cardLabel)}</strong>` : ''}
         ${miembros}
+        ${cardLabel && turno.inscritos.length === 0 ? `<strong>${escapeHtml(cardLabel)}</strong>` : ''}
       </button>
     </article>
   `;
 }
 
-function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail'): string {
+function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail', inlineActionLabel = ''): string {
   if (turno.inscritos.length === 0) {
     return variant === 'compact'
       ? ''
       : '<p class="admin-turn-members-empty">Sin miembros asignados.</p>';
   }
 
-  const items = turno.inscritos.map((inscrito) => {
+  const items = turno.inscritos.map((inscrito, index) => {
     const usuario = getUsuarioByNombre(inscrito);
     const tipo = getTurnoAsignacionTipo(turno, inscrito);
     const iniciales = usuario ? getInicialesUsuario(usuario) : inscrito.trim().charAt(0).toUpperCase() || 'A';
     const detalle = usuario
       ? `${formatRol(usuario.rol)} · ${getTurnoAsignacionRepeticion(turno, inscrito)}`
       : 'Perfil no encontrado';
+    const inlineAction = variant === 'compact' && inlineActionLabel && index === 0
+      ? `<span class="admin-turn-inline-action">${escapeHtml(inlineActionLabel)}</span>`
+      : '';
 
     return `
-      <span class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}">
-        <i aria-hidden="true">${escapeHtml(iniciales)}</i>
-        <b>${escapeHtml(inscrito)}</b>
-        ${variant === 'detail' ? `<small>${escapeHtml(detalle)}</small>` : ''}
+      <span class="${variant === 'compact' && inlineAction ? 'admin-turn-member-row' : ''}">
+        <span class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}">
+          <i aria-hidden="true">${escapeHtml(iniciales)}</i>
+          <b>${escapeHtml(inscrito)}</b>
+          ${variant === 'detail' ? `<small>${escapeHtml(detalle)}</small>` : ''}
+        </span>
+        ${inlineAction}
       </span>
     `;
   }).join('');
