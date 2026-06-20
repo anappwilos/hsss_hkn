@@ -1536,7 +1536,7 @@ button:disabled {
 }
 
 .empty-card.compact {
-  padding: 18px;
+  /* padding: 180px; */
 }
 
 .empty-card.compact h3 {

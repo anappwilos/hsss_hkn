@@ -2500,7 +2500,6 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
     return `
       <div class="empty-card compact">
         <h3>No hay resultados</h3>
-        <p>Ajusta la busqueda o cambia el filtro activo.</p>
       </div>
     `;
   }
