@@ -16,10 +16,10 @@ export function renderAdminView(): string {
       <div class="screen-content">
 
         <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
-          <button class="chip" type="button" data-admin-panel="lotes"><span aria-hidden="true">▧</span>Lotes</button>
-          <button class="chip" type="button" data-admin-panel="usuarios"><span aria-hidden="true">♙</span>Usuarios</button>
-          <button class="chip" type="button" data-admin-panel="catalogos"><span aria-hidden="true">▣</span>Catalogos</button>
-          <button class="chip is-active" type="button" data-admin-panel="turnos"><span aria-hidden="true">◫</span>Turnos asignados</button>
+          <button class="chip" type="button" data-admin-panel="lotes"><span aria-hidden="true"></span>Lotes</button>
+          <button class="chip" type="button" data-admin-panel="usuarios"><span aria-hidden="true"></span>Usuarios</button>
+          <button class="chip" type="button" data-admin-panel="catalogos"><span aria-hidden="true"></span>Catalogos</button>
+          <button class="chip is-active" type="button" data-admin-panel="turnos"><span aria-hidden="true"></span>Turnos asignados</button>
         </nav>
 
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
