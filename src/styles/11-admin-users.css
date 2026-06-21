@@ -429,6 +429,14 @@
   width: 100%;
 }
 
+.admin-user-edit-actions.is-create-mode [data-action="admin-user-close"] {
+  grid-column: 2;
+}
+
+.admin-user-edit-actions.is-create-mode [data-action="admin-user-save"] {
+  grid-column: 3;
+}
+
 .admin-user-create-note {
   display: grid;
   gap: 6px;

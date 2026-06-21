@@ -8,8 +8,15 @@
   border: 0;
   border-radius: 24px;
   padding: 0;
+  overflow: hidden;
+  scrollbar-width: none;
   color: var(--color-text);
   background: transparent;
+}
+
+.app-modal::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .app-modal::backdrop {
