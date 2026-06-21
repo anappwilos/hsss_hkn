@@ -104,6 +104,7 @@ let adminPanel: AdminPanel = 'lotes';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
 let adminUsuariosSubpanel: AdminUsuariosSubpanel = 'usuarios';
+let adminUsuariosPagina = 1;
 let adminUsuarioEditandoId: string | null = null;
 let adminFechaTurnosSeleccionada = fechaToInput(new Date());
 let adminSemanaTurnosInicio = startOfWeekMonday(new Date());
@@ -116,6 +117,7 @@ let adminTurnoAsignacionId: string | null = null;
 let adminTurnoAsignacionObjetivoNombre: string | null = null;
 let adminTurnosBusquedaTimeout = 0;
 let adminUsuariosBusquedaTimeout = 0;
+const ADMIN_USUARIOS_PAGE_SIZE = 10;
 const adminTurnosDiasColapsados = new Set<string>();
 let registroStep = 0;
 let turnoModalId: string | null = null;
@@ -2564,6 +2566,15 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
     `;
   }
 
+  const totalResultados = usuarios.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalResultados / ADMIN_USUARIOS_PAGE_SIZE));
+  adminUsuariosPagina = Math.min(Math.max(adminUsuariosPagina, 1), totalPaginas);
+
+  const inicio = (adminUsuariosPagina - 1) * ADMIN_USUARIOS_PAGE_SIZE;
+  const usuariosPagina = usuarios.slice(inicio, inicio + ADMIN_USUARIOS_PAGE_SIZE);
+  const desde = inicio + 1;
+  const hasta = inicio + usuariosPagina.length;
+
   return `
     <div class="admin-users-table-wrap">
       <table class="admin-users-table">
@@ -2577,16 +2588,16 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
           </tr>
         </thead>
         <tbody>
-          ${usuarios.map((usuario) => renderAdminUsuarioRow(usuario, selectedId)).join('')}
+          ${usuariosPagina.map((usuario) => renderAdminUsuarioRow(usuario, selectedId)).join('')}
         </tbody>
       </table>
     </div>
     <footer class="admin-users-pagination">
-      <span>Mostrando ${usuarios.length} de ${totalVisible} usuarios</span>
+      <span>Mostrando ${desde}-${hasta} de ${totalResultados} resultados${totalResultados === totalVisible ? '' : ` (${totalVisible} usuarios)`}</span>
       <div>
-        <button type="button" aria-label="Pagina anterior">‹</button>
-        <strong>1</strong>
-        <button type="button" aria-label="Pagina siguiente">›</button>
+        <button type="button" data-admin-user-page="prev" aria-label="Pagina anterior" ${adminUsuariosPagina <= 1 ? 'disabled' : ''}>‹</button>
+        <strong>${adminUsuariosPagina} / ${totalPaginas}</strong>
+        <button type="button" data-admin-user-page="next" aria-label="Pagina siguiente" ${adminUsuariosPagina >= totalPaginas ? 'disabled' : ''}>›</button>
       </div>
     </footer>
   `;
@@ -5345,6 +5356,7 @@ document.addEventListener('click', (event) => {
 
   if (adminUserFilterButton?.dataset.adminUserFilter) {
     adminUsuariosFiltro = adminUserFilterButton.dataset.adminUserFilter as AdminUsuarioFiltro;
+    adminUsuariosPagina = 1;
     adminUsuarioEditandoId = null;
     renderAdminUsuarios();
     return;
@@ -5355,7 +5367,16 @@ document.addEventListener('click', (event) => {
   if (adminUserSourceButton?.dataset.adminUserSource) {
     adminUsuariosSubpanel = adminUserSourceButton.dataset.adminUserSource as AdminUsuariosSubpanel;
     adminUsuariosFiltro = 'todos';
+    adminUsuariosPagina = 1;
     adminUsuarioEditandoId = null;
+    renderAdminUsuarios();
+    return;
+  }
+
+  const adminUserPageButton = target.closest<HTMLButtonElement>('[data-admin-user-page]');
+
+  if (adminUserPageButton?.dataset.adminUserPage) {
+    adminUsuariosPagina += adminUserPageButton.dataset.adminUserPage === 'next' ? 1 : -1;
     renderAdminUsuarios();
     return;
   }
@@ -5810,6 +5831,7 @@ document.addEventListener('input', (event) => {
 
   const caret = input.selectionStart ?? input.value.length;
   adminUsuariosBusqueda = input.value;
+  adminUsuariosPagina = 1;
 
   window.clearTimeout(adminUsuariosBusquedaTimeout);
   adminUsuariosBusquedaTimeout = window.setTimeout(() => {

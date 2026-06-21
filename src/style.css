@@ -4120,9 +4120,14 @@ button:disabled {
 }
 
 .admin-row-actions button:hover,
-.admin-users-pagination button:hover {
+.admin-users-pagination button:not(:disabled):hover {
   color: #ffffff;
   background: var(--color-primary);
+}
+
+.admin-users-pagination button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
 }
 
 .admin-users-pagination {
@@ -4143,10 +4148,11 @@ button:disabled {
 
 .admin-users-pagination strong {
   display: grid;
-  width: 34px;
+  min-width: 64px;
   height: 34px;
   place-items: center;
   border-radius: 999px;
+  padding: 0 12px;
   color: #ffffff;
   background: var(--color-primary);
 }
