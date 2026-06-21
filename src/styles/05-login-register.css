@@ -1,0 +1,556 @@
+/* =========================================================
+   5. LOGIN Y REGISTRO
+========================================================= */
+
+.admin-login-view,
+.registro-view {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.admin-login-view::before,
+.registro-view::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--landing-bg) center right / cover no-repeat;
+  content: "";
+}
+
+.admin-login-view::after,
+.registro-view::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(3, 32, 39, 0.66) 0%, rgba(7, 65, 76, 0.5) 48%, rgba(6, 44, 52, 0.38) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(3, 32, 39, 0.38));
+  content: "";
+  pointer-events: none;
+}
+
+.admin-login-view .auth-topbar,
+.registro-view .auth-topbar {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  padding: 18px 28px;
+  background: transparent;
+}
+
+.auth-topbar .back-button {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 40px;
+  padding: 0 10px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0.92;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.auth-topbar .back-button span:last-child {
+  white-space: nowrap;
+}
+.auth-topbar .auth-wordmark {
+  width: min(100%, 300px);
+  max-height: 54px;
+  justify-self: center;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 24px rgba(6, 69, 82, 0.16));
+}
+
+.admin-login-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(100%, 680px);
+  gap: 34px;
+  margin: 0 auto;
+  padding: 58px 28px 110px;
+}
+
+.auth-welcome {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.auth-logo-wrap {
+  position: relative;
+  display: grid;
+  width: 120px;
+  height: 120px;
+  place-items: center;
+  margin-bottom: 24px;
+  /* background: rgba(255, 255, 255, 0.5); */
+  /* border-radius: 999px; */
+}
+
+.auth-logo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+
+
+
+
+.auth-spark {
+  position: absolute;
+  top: 50%;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 1.15rem;
+}
+
+.auth-spark-left {
+  left: -58px;
+}
+
+.auth-spark-right {
+  right: -58px;
+}
+
+.auth-welcome h1,
+.auth-welcome h2,
+.section-heading h1 {
+  margin: 0;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: clamp(2.45rem, 6vw, 3.4rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  text-shadow: 0 14px 34px rgba(6, 69, 82, 0.18);
+}
+
+.auth-welcome p {
+  max-width: 390px;
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: clamp(1.1rem, 3vw, 1.35rem);
+  line-height: 1.45;
+}
+
+.auth-form-panel,
+.registro-content {
+  display: grid;
+  gap: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 22px;
+  padding: clamp(24px, 5vw, 42px);
+  background: rgba(244, 251, 253, 0.82);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(16px);
+}
+
+.auth-field,
+.registro-field,
+.field,
+.profile-edit-field {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-field {
+  gap: 12px;
+}
+
+.auth-field span,
+.registro-field span,
+.profile-edit-field span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--color-muted);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.profile-edit-field span {
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.auth-field em,
+.registro-field em,
+.profile-edit-field em {
+  border-radius: 999px;
+  padding: 3px 7px;
+  color: #168fa3;
+  background: #eaf6f9;
+  font-size: 0.62rem;
+  font-style: normal;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.auth-field input,
+.registro-field input,
+.registro-field select,
+.field input,
+.admin-user-edit-form input,
+.admin-user-edit-form select,
+.profile-edit-field input,
+.profile-edit-field select,
+.admin-user-catalog input,
+.admin-turn-assign-form select,
+.admin-turn-period-grid input,
+.admin-turn-lote-field select {
+  width: 100%;
+  min-height: 56px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  padding: 0 18px;
+  color: var(--color-ink);
+  background: rgba(244, 251, 253, 0.86);
+  outline: 3px solid transparent;
+  box-shadow: 0 8px 20px rgba(6, 69, 82, 0.05);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    outline-color 160ms ease;
+}
+
+.auth-field input {
+  min-height: 72px;
+  font-size: 1.08rem;
+}
+
+.registro-field input,
+.registro-field select {
+  min-height: 64px;
+  font-size: 1.05rem;
+}
+
+.auth-field input:focus,
+.registro-field input:focus,
+.registro-field select:focus,
+.field input:focus,
+.profile-edit-field input:focus,
+.profile-edit-field select:focus {
+  border-color: #39aac1;
+  outline-color: rgba(57, 170, 193, 0.28);
+  box-shadow: 0 0 0 4px rgba(57, 170, 193, 0.16);
+}
+
+.auth-field.has-error input,
+.registro-field.has-error input,
+.registro-field.has-error select,
+.profile-edit-field.has-error input,
+.profile-edit-field.has-error select {
+  border-color: var(--color-danger);
+  background: #fff5f7;
+}
+
+.registro-field.has-error span {
+  color: var(--color-danger);
+}
+
+.registro-field select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #4d7580 50%),
+    linear-gradient(135deg, #4d7580 50%, transparent 50%);
+  background-position: calc(100% - 28px) 50%, calc(100% - 20px) 50%;
+  background-repeat: no-repeat;
+  background-size: 8px 8px, 8px 8px;
+  padding-right: 52px;
+}
+
+.auth-icon-field {
+  position: relative;
+}
+
+.auth-icon-field input {
+  padding-left: 58px;
+}
+
+.auth-icon-field::before {
+  position: absolute;
+  top: 54px;
+  left: 24px;
+  color: #4d7580;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.auth-icon-email::before {
+  content: "✉";
+}
+
+.auth-icon-lock::before {
+  content: "▣";
+}
+
+.auth-password-field {
+  position: relative;
+}
+
+.auth-password-field input {
+  padding-right: 68px;
+}
+
+.auth-password-field button {
+  position: absolute;
+  top: 44px;
+  right: 18px;
+  width: 40px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #4d7580;
+  background: transparent;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.auth-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.auth-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-ink);
+  font-weight: 800;
+}
+
+.auth-remember input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--color-primary);
+}
+
+.auth-link-button,
+.auth-create-account button {
+  border: 0;
+  padding: 0;
+  color: var(--color-primary);
+  background: transparent;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.auth-submit {
+  width: 100%;
+  min-height: 66px;
+  margin-top: 0;
+  border-radius: 999px;
+  font-size: 1.18rem;
+}
+
+.auth-submit span {
+  margin-left: auto;
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  color: var(--color-primary);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  background: rgba(77, 117, 128, 0.18);
+  content: "";
+}
+
+.auth-divider span {
+  text-align: center;
+}
+
+.auth-create-account {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1rem;
+  text-align: center;
+}
+
+.field-error {
+  min-height: 16px;
+  color: var(--color-danger);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.field-error:empty {
+  display: none;
+}
+
+.registro-form {
+  min-height: calc(100vh - 74px);
+}
+
+.registro-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(100%, 680px);
+  margin: 0 auto;
+  padding: 42px 28px 110px;
+  gap: 34px;
+}
+
+.registro-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.registro-progress span {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dbeaf0;
+}
+
+.registro-progress span::before {
+  display: block;
+  width: var(--registro-progress, 25%);
+  height: 100%;
+  border-radius: inherit;
+  background: #21a0b7;
+  content: "";
+  transition: width 180ms ease;
+}
+
+.registro-slider {
+  display: grid;
+  overflow: hidden;
+}
+
+.registro-group {
+  display: grid;
+  gap: 20px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.registro-group header {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.registro-group header > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.registro-group h3 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1rem;
+}
+
+.registro-group p {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.registro-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.registro-message {
+  min-height: 22px;
+  margin: 2px 0 0;
+  border-radius: 10px;
+  padding: 0;
+  color: var(--color-danger);
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.registro-message:empty {
+  display: none;
+}
+
+.registro-privacy,
+.profile-edit-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.registro-submit {
+  display: inline-flex;
+  width: 100%;
+  min-height: 60px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.registro-submit span {
+  font-size: 1.1rem;
+}
+
+.registro-slider-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.registro-nav-button {
+  min-height: 60px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 999px;
+  color: #168fa3;
+  background: rgba(244, 251, 253, 0.9);
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+}

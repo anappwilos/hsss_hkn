@@ -1,0 +1,184 @@
+/* =========================================================
+   17. ADMIN TURNOS RESPONSIVE
+========================================================= */
+
+.admin-turns-main,
+.admin-turns-card {
+  min-width: 0;
+}
+
+.admin-turns-card {
+  overflow: hidden;
+}
+
+.admin-turn-detail-panel {
+  min-width: 0;
+}
+
+@media (max-width: 1180px) {
+  .admin-lotes-view .admin-turns-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-turn-detail-panel {
+    order: 2;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-lotes-view .admin-turns-hero {
+    display: grid;
+  }
+
+  .admin-lotes-view .admin-turns-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-lotes-view .coverage-metric {
+    grid-column: 1 / -1;
+  }
+
+  .admin-turns-tools {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .admin-turn-filter-button {
+    min-height: 44px;
+  }
+
+  .admin-turn-filters {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .admin-turn-filters button {
+    flex: 0 0 auto;
+    min-width: 150px;
+  }
+
+  .admin-assignment-board {
+    grid-template-columns: 62px repeat(var(--admin-calendar-days), minmax(132px, 1fr));
+    width: max(100%, calc(62px + var(--admin-calendar-days) * 132px));
+  }
+
+  .admin-calendar-time,
+  .admin-calendar-cell {
+    min-height: 102px;
+  }
+
+  .admin-calendar-turn {
+    border-radius: 15px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-lotes-view .admin-turns-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-lotes-view .admin-turns-metrics article,
+  .admin-lotes-view .admin-user-metrics article {
+    min-height: 76px;
+  }
+
+  .admin-lotes-view .admin-turns-card,
+  .admin-lotes-view .admin-turn-detail-panel {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .admin-assignment-scroll {
+    margin: 0 -4px;
+    padding: 0 4px 8px;
+  }
+
+  .admin-assignment-board {
+    grid-template-columns: 56px repeat(var(--admin-calendar-days), minmax(122px, 1fr));
+    width: max(100%, calc(56px + var(--admin-calendar-days) * 122px));
+    border-radius: 14px;
+  }
+
+  .admin-calendar-corner,
+  .admin-calendar-day-head {
+    min-height: 40px;
+  }
+
+  .admin-calendar-day-head span {
+    font-size: 0.66rem;
+  }
+
+  .admin-calendar-time {
+    min-height: 96px;
+    padding: 6px;
+  }
+
+  .admin-calendar-time strong {
+    font-size: 0.78rem;
+  }
+
+  .admin-calendar-cell {
+    min-height: 96px;
+    padding: 7px;
+  }
+
+  .admin-calendar-turn-main > strong {
+    font-size: 0.82rem;
+  }
+
+  .admin-calendar-turn-main small {
+    font-size: 0.68rem;
+  }
+
+  .admin-calendar-turn-action {
+    min-height: 30px;
+    font-size: 0.74rem;
+  }
+
+  .admin-calendar-turn .admin-turn-member {
+    grid-template-columns: 22px minmax(0, 1fr);
+    min-height: 28px;
+  }
+
+  .admin-calendar-turn .admin-turn-member i {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+@media (max-width: 700px) {
+  .landing-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero-adoracion {
+    justify-content: flex-end;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(122, 169, 182, 0.1) 0%,
+        rgba(161, 204, 215, 0.34) 34%,
+        rgba(33, 160, 183, 0.84) 100%
+      ),
+      url("../assets/a_solas.jpg") 58% center / cover no-repeat;
+  }
+
+  .hero-copy {
+    justify-items: end;
+    margin-left: auto;
+    margin-right: 0;
+    text-align: right;
+  }
+
+  .hero-copy h1,
+  .hero-copy p {
+    text-align: right;
+  }
+
+  .admin-users-card-head {
+    grid-template-columns: 1fr;
+  }
+}

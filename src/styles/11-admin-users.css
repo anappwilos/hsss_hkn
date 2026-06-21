@@ -1,0 +1,523 @@
+/* =========================================================
+   11. ADMIN USUARIOS
+========================================================= */
+
+.admin-panel-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 0 0 22px;
+  border-bottom: 1px solid rgba(32, 45, 61, 0.12);
+  background: rgba(244, 248, 252, 0.95);
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+}
+
+.admin-panel-tabs .chip {
+  width: 100%;
+  justify-content: center;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: rgba(32, 45, 61, 0.78);
+  padding: 14px 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.admin-panel-tabs .chip:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.admin-panel-tabs .chip.is-active {
+  color: #102a43;
+  background: #ffffff;
+  box-shadow: inset 0 -2px 0 0 var(--color-primary);
+}
+
+.admin-users-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-users-hero {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px;
+}
+
+.admin-users-hero h2,
+.admin-users-card h3 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: clamp(1.55rem, 3vw, 2.15rem);
+  line-height: 1.05;
+}
+
+.admin-users-hero p,
+.admin-users-card-head p {
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  line-height: 1.4;
+}
+
+.admin-user-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-users-card {
+  padding: 24px;
+}
+
+.admin-users-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.admin-user-search {
+  min-height: 48px;
+  padding: 0 12px;
+}
+
+.admin-user-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 22px;
+}
+
+.admin-user-filters button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.admin-user-filters span {
+  display: inline-grid;
+  min-width: 20px;
+  min-height: 20px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.68rem;
+}
+
+.admin-user-catalog {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+}
+
+.admin-user-catalog h3,
+.admin-user-catalog p {
+  margin: 0;
+}
+
+.admin-user-catalog > div p,
+.admin-user-catalog > p {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.admin-user-catalog form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.admin-user-catalog label,
+.admin-user-edit-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-user-catalog label span,
+.admin-user-edit-form label > span {
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.admin-user-edit-form {
+  gap: 18px;
+}
+
+.admin-user-edit-form label {
+  gap: 9px;
+}
+
+.admin-user-edit-form input,
+.admin-user-edit-form select {
+  min-height: 60px;
+  border-color: rgba(47, 199, 200, 0.22);
+  background: linear-gradient(180deg, rgba(248, 254, 254, 0.98), rgba(237, 248, 248, 0.96));
+  box-shadow:
+    0 10px 24px rgba(24, 92, 104, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.admin-user-edit-form input::placeholder {
+  color: #8ca5ad;
+}
+
+.admin-user-edit-form input:hover,
+.admin-user-edit-form select:hover {
+  border-color: rgba(47, 199, 200, 0.34);
+  background: linear-gradient(180deg, rgba(252, 255, 255, 1), rgba(240, 251, 250, 0.98));
+}
+
+.admin-user-edit-form input:focus,
+.admin-user-edit-form select:focus {
+  border-color: rgba(24, 178, 188, 0.82);
+  box-shadow:
+    0 0 0 4px rgba(47, 199, 200, 0.12),
+    0 14px 30px rgba(24, 92, 104, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.confirmation-modal-card {
+  width: min(100%, 520px);
+}
+
+.admin-users-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-users-table {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.admin-users-table th {
+  border-bottom: 1px solid rgba(77, 117, 128, 0.14);
+  padding: 14px 12px;
+  color: #4d7580;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.admin-users-table td {
+  border-bottom: 1px solid rgba(77, 117, 128, 0.1);
+  padding: 14px 12px;
+  vertical-align: middle;
+}
+
+.admin-users-table tr {
+  transition: background-color 140ms ease;
+}
+
+.admin-users-table tbody tr:hover,
+.admin-users-table tbody tr.is-selected {
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.admin-user-cell {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-user-cell strong,
+.admin-table-main {
+  display: block;
+  color: var(--color-ink);
+  font-size: 0.88rem;
+}
+
+.admin-user-name-button {
+  display: inline;
+  border: 0;
+  padding: 0;
+  color: var(--color-ink);
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 900;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-user-name-button:hover {
+  color: var(--color-primary);
+}
+
+.admin-users-table small {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.admin-user-avatar {
+  width: 42px;
+  height: 42px;
+  font-size: 0.74rem;
+}
+
+.admin-user-avatar.is-large {
+  width: 62px;
+  height: 62px;
+  font-size: 1rem;
+}
+
+.admin-role-chip {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #168fa3;
+  background: #dbeaf0;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.admin-row-actions button,
+.admin-users-pagination button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 999px;
+  color: var(--color-muted);
+  background: rgba(244, 251, 253, 0.86);
+  cursor: pointer;
+}
+
+.admin-row-actions button:hover,
+.admin-users-pagination button:not(:disabled):hover {
+  color: #ffffff;
+  background: var(--color-primary);
+}
+
+.admin-users-pagination button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.admin-users-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.admin-users-pagination div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-users-pagination strong {
+  display: grid;
+  min-width: 64px;
+  height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #ffffff;
+  background: var(--color-primary);
+}
+
+.admin-audit-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 24px;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(244, 251, 253, 0.82);
+  box-shadow: 0 16px 40px rgba(6, 69, 82, 0.06);
+  cursor: pointer;
+}
+
+.admin-audit-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--color-primary);
+  font-size: 1.4rem;
+}
+
+.admin-audit-row h4 {
+  margin: 0 0 4px;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-audit-row p,
+.admin-audit-row small {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+}
+
+.admin-audit-row small {
+  color: var(--color-primary);
+  font-weight: 900;
+}
+
+.admin-user-mini-profile {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.admin-user-mini-profile h4 {
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.admin-user-mini-profile p {
+  margin: 3px 0 8px;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.admin-user-edit-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.admin-user-edit-actions > * {
+  width: 100%;
+}
+
+.admin-user-edit-actions.is-create-mode [data-action="admin-user-close"] {
+  grid-column: 2;
+}
+
+.admin-user-edit-actions.is-create-mode [data-action="admin-user-save"] {
+  grid-column: 3;
+}
+
+.admin-user-create-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(47, 199, 200, 0.18);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(221, 247, 246, 0.62);
+}
+
+.admin-user-create-note strong {
+  color: var(--color-ink);
+  font-size: 0.86rem;
+}
+
+.admin-user-create-note p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.admin-user-edit-form.is-create-mode {
+  gap: 14px;
+}
+
+.admin-user-turns {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(244, 251, 253, 0.82);
+}
+
+.admin-user-turns header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-user-turns header strong {
+  color: var(--color-primary);
+}
+
+.admin-user-turns div {
+  display: grid;
+  gap: 8px;
+  max-height: 156px;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.admin-user-turns div::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.admin-user-turns article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 18px;
+  padding: 10px 12px;
+  background: rgba(234, 246, 249, 0.72);
+}
+
+.admin-user-turns article strong {
+  color: var(--color-ink);
+  font-size: 0.88rem;
+}
+
+.admin-user-turns article span,
+.admin-user-turns p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+}

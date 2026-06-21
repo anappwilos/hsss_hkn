@@ -1,0 +1,572 @@
+/* =========================================================
+   28. ADMIN VISUAL REFRESH - ESTILO PANEL CLARO
+========================================================= */
+
+/* .admin-lotes-view {
+  min-height: 100vh;
+  color: #06253a;
+  background:
+    radial-gradient(circle at 98% 30%, rgba(154, 226, 237, 0.5), transparent 31rem),
+    radial-gradient(circle at 4% 86%, rgba(176, 236, 239, 0.5), transparent 26rem),
+    linear-gradient(180deg, #f7fdff 0%, #dff8fb 52%, #ccf3f7 100%);
+} */
+
+.admin-lotes-view .mobile-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 64px;
+  border-bottom: 1px solid rgba(82, 177, 197, 0.25);
+  padding: 0 clamp(20px, 3vw, 34px);
+  background: rgba(248, 253, 255, 0.76);
+  box-shadow: 0 8px 28px rgba(7, 82, 104, 0.05);
+  backdrop-filter: blur(18px);
+}
+
+.admin-lotes-view .brand-button {
+  color: #75c6d7;
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+.admin-lotes-view .admin-logout-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(22, 164, 190, 0.28);
+  border-radius: 12px;
+  padding: 0 16px;
+  color: #0789a5;
+  background: rgba(244, 252, 254, 0.76);
+  box-shadow: none;
+  font-size: 0.88rem;
+}
+
+.admin-lotes-view .screen-content {
+  width: min(100%, 1760px);
+  max-width: none;
+  margin: 0 auto;
+  padding: 44px clamp(20px, 3.8vw, 72px) 72px;
+}
+
+.admin-lotes-view .admin-heading {
+  margin: 0 0 22px;
+}
+
+.admin-lotes-view .admin-heading h1 {
+  margin: 0 0 10px;
+  color: #061f34;
+  font-size: clamp(1.75rem, 2.4vw, 2.15rem);
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.admin-lotes-view .admin-heading p {
+  margin: 0;
+  color: #547082;
+  font-size: clamp(0.98rem, 1.25vw, 1.08rem);
+  font-weight: 600;
+}
+
+.admin-lotes-view .admin-panel-tabs {
+  display: flex;
+  width: 100%;
+  min-height: 56px;
+  align-items: stretch;
+  gap: 12px;
+  margin: 0 0 12px;
+  border: 1px solid rgba(114, 185, 200, 0.25);
+  border-radius: 12px;
+  padding: 0;
+  background: rgba(245, 253, 255, 0.52);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  overflow-x: auto;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip {
+  display: inline-flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 28px;
+  color: #071f32;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip span,
+.admin-lotes-view .chip-row .chip span {
+  color: #0aa5c0;
+  font-size: 1.1rem;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip.is-active {
+  position: relative;
+  color: #0789a5;
+  background: rgba(226, 248, 252, 0.6);
+  box-shadow: none;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: #0aa5c0;
+  content: "";
+}
+
+.admin-lotes-view #admin-panel-lotes {
+  border: 1px solid rgba(114, 185, 200, 0.22);
+  border-radius: 16px;
+  padding: 28px clamp(18px, 2vw, 30px) 30px;
+  background: rgba(248, 253, 255, 0.83);
+  box-shadow: 0 24px 70px rgba(16, 91, 112, 0.12);
+  backdrop-filter: blur(16px);
+}
+
+.admin-lotes-panel-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.admin-lotes-panel-head h2 {
+  margin: 0;
+  color: #061f34;
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  line-height: 1.1;
+}
+
+.admin-lotes-tools {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.admin-lote-search {
+  display: inline-flex;
+  width: min(38vw, 380px);
+  min-width: 260px;
+  height: 48px;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(83, 126, 153, 0.18);
+  border-radius: 9px;
+  padding: 0 16px;
+  color: #6a8295;
+  background: rgba(252, 254, 255, 0.88);
+  box-shadow: inset 0 1px 2px rgba(16, 91, 112, 0.04);
+}
+
+.admin-lote-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #09263b;
+  background: transparent;
+  font-size: 0.92rem;
+}
+
+.admin-lote-search input::placeholder {
+  color: #8398aa;
+}
+
+.admin-new-lote-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 7px;
+  padding: 0 25px;
+  background: linear-gradient(180deg, #0fb4c8, #0793aa);
+  box-shadow: 0 12px 24px rgba(9, 147, 170, 0.24);
+  font-size: 0.94rem;
+}
+
+.admin-new-lote-button span:first-child {
+  font-size: 1.6rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.admin-lotes-view #lote-filtros.chip-row {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 0;
+  overflow-x: auto;
+}
+
+.admin-lotes-view .chip-row .chip {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(88, 136, 165, 0.18);
+  border-radius: 7px;
+  padding: 0 21px;
+  color: #354d63;
+  background: rgba(250, 254, 255, 0.78);
+  box-shadow: none;
+  font-size: 0.87rem;
+  font-weight: 800;
+}
+
+.admin-lotes-view .chip-row .chip.is-active {
+  border-color: transparent;
+  color: #ffffff;
+  background: linear-gradient(180deg, #12b6ca, #0796ad);
+  box-shadow: 0 8px 18px rgba(9, 147, 170, 0.22);
+}
+
+.admin-lotes-view .chip-row .chip.is-active span {
+  color: #ffffff;
+}
+
+.admin-lotes-view .lotes-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-lotes-view .lote-card,
+.admin-lotes-view .empty-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  min-height: 146px;
+  overflow: visible;
+  border: 1px solid rgba(92, 138, 166, 0.18);
+  border-radius: 10px;
+  padding: 24px 30px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 12px 30px rgba(12, 67, 85, 0.11);
+  backdrop-filter: blur(12px);
+}
+
+.admin-lotes-view .lote-card::before {
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 10px 0 0 10px;
+  background: #0aa5c0;
+}
+
+.admin-lotes-view .lote-card--activo::before {
+  background: #18b964;
+}
+
+.admin-lotes-view .lote-card--programado::before {
+  background: #12aecd;
+}
+
+.admin-lotes-view .lote-card--finalizado::before {
+  background: #667789;
+}
+
+.admin-lotes-view .lote-date-mark {
+  display: grid;
+  width: 66px;
+  height: 66px;
+  place-items: center;
+  border-radius: 50%;
+  color: #0aa5c0;
+  background: #ddf7fb;
+  font-size: 1.95rem;
+}
+
+.admin-lotes-view .lote-card--activo .lote-date-mark {
+  color: #16a65a;
+  background: #ddf8e8;
+}
+
+.admin-lotes-view .lote-card--finalizado .lote-date-mark {
+  color: #667789;
+  background: #eef2f5;
+}
+
+.admin-lotes-view .lote-main {
+  min-width: 0;
+}
+
+.admin-lotes-view .lote-card h2,
+.admin-lotes-view .empty-card h2 {
+  margin: 0 0 14px;
+  color: #061f34;
+  font-size: clamp(1.15rem, 1.45vw, 1.42rem);
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.lote-meta-row,
+.lote-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px 16px;
+}
+
+.admin-lotes-view .lote-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #657d90;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.admin-lotes-view .lote-meta + .lote-meta {
+  padding-left: 16px;
+  border-left: 1px solid rgba(101, 125, 144, 0.2);
+}
+
+.admin-lotes-view .lote-stat-row {
+  margin-top: 12px;
+}
+
+.admin-lotes-view .lote-stat {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(75, 142, 170, 0.16);
+  border-radius: 7px;
+  padding: 0 12px;
+  color: #516b80;
+  background: rgba(243, 251, 253, 0.88);
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.admin-lotes-view .lote-stat span,
+.admin-lotes-view .lote-meta span {
+  color: #159eb8;
+}
+
+.admin-lotes-view .lote-actions {
+  display: grid;
+  min-width: 470px;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  align-items: start;
+  justify-items: end;
+  gap: 22px 16px;
+}
+
+.admin-lotes-view .lote-status {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 0 15px;
+  color: #087f8f;
+  background: #d8f5fa;
+  font-size: 0.88rem;
+  font-weight: 850;
+}
+
+.admin-lotes-view .lote-status--activo {
+  color: #15934f;
+  background: #daf8e6;
+}
+
+.admin-lotes-view .lote-status--finalizado {
+  color: #516274;
+  background: #e9eef3;
+}
+
+.admin-lotes-view .lote-status--borrador {
+  color: #946200;
+  background: #fff1cf;
+}
+
+.admin-lotes-view .dots-button {
+  width: 38px;
+  height: 38px;
+  color: #2e5069;
+  font-size: 1.55rem;
+}
+
+.admin-lotes-view .lote-menu {
+  top: 42px;
+  border: 1px solid rgba(87, 126, 151, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 38px rgba(12, 67, 85, 0.16);
+}
+
+.admin-lotes-view .lote-action-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(128px, 1fr));
+  justify-self: stretch;
+  gap: 18px;
+}
+
+.admin-lotes-view .lote-action-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid rgba(10, 165, 192, 0.3);
+  border-radius: 7px;
+  padding: 0 16px;
+  color: #0793ad;
+  background: rgba(252, 254, 255, 0.72);
+  font-size: 0.86rem;
+}
+
+.admin-lotes-view .fab {
+  display: none;
+}
+
+.admin-lotes-view .sync-status,
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-color: rgba(10, 165, 192, 0.28);
+  border-radius: 999px;
+  color: #0789a5;
+  background: rgba(244, 252, 254, 0.8);
+  box-shadow: 0 12px 30px rgba(12, 67, 85, 0.08);
+}
+
+.sync-status::before {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #0aa5c0;
+  border-radius: 50%;
+  content: "";
+}
+
+.sync-status::after {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #23b864;
+  content: "";
+}
+
+@media (max-width: 1180px) {
+  .admin-lotes-panel-head {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-lotes-tools {
+    justify-content: space-between;
+  }
+
+  .admin-lotes-view .lote-card {
+    grid-template-columns: 66px minmax(0, 1fr);
+  }
+
+  .admin-lotes-view .lote-actions {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-lotes-view .mobile-topbar {
+    height: 58px;
+    padding: 0 14px;
+  }
+
+  .admin-lotes-view .admin-logout-button {
+    min-height: 36px;
+    padding: 0 12px;
+  }
+
+  .admin-lotes-view .screen-content {
+    padding: 26px 12px 40px;
+  }
+
+  .admin-lotes-view .admin-panel-tabs {
+    gap: 0;
+    min-height: 48px;
+  }
+
+  .admin-lotes-view .admin-panel-tabs .chip {
+    min-height: 48px;
+    padding: 0 14px;
+    font-size: 0.78rem;
+  }
+
+  .admin-lotes-view #admin-panel-lotes {
+    border-radius: 14px;
+    padding: 16px 12px;
+  }
+
+  .admin-lotes-tools {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .admin-lote-search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-new-lote-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-lotes-view .chip-row .chip {
+    min-height: 38px;
+    padding: 0 13px;
+    font-size: 0.78rem;
+  }
+
+  .admin-lotes-view .lote-card,
+  .admin-lotes-view .empty-card {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 14px;
+    min-height: 0;
+    border-radius: 9px;
+    padding: 18px 14px;
+  }
+
+  .admin-lotes-view .lote-date-mark {
+    width: 52px;
+    height: 52px;
+    font-size: 1.45rem;
+  }
+
+  .admin-lotes-view .lote-meta + .lote-meta {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .admin-lotes-view .lote-actions {
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+  }
+
+  .admin-lotes-view .lote-action-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .admin-lotes-view .lote-action-button {
+    justify-content: center;
+  }
+}

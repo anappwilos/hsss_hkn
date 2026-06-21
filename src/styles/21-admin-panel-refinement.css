@@ -1,0 +1,109 @@
+/* =========================================================
+   21. REFINAMIENTO PANEL ADMIN
+========================================================= */
+
+.admin-lotes-view .screen-content {
+  width: min(100%, 1500px);
+  padding: 34px clamp(18px, 3vw, 42px) 56px;
+}
+
+.admin-heading {
+  margin: 0 auto 28px;
+  max-width: 980px;
+}
+
+.admin-heading h1 {
+  font-size: clamp(2.7rem, 4.2vw, 4rem);
+}
+
+.admin-lotes-view .admin-panel-tabs {
+  width: min(100%, 900px);
+  margin: 0 auto 34px;
+}
+
+.admin-lotes-view .admin-covered-panel {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 26px;
+}
+
+.admin-lotes-view .admin-turns-dashboard {
+  gap: 16px;
+}
+
+.admin-lotes-view .admin-turns-hero h2 {
+  font-size: clamp(2rem, 2.6vw, 2.6rem);
+  line-height: 1;
+}
+
+.admin-lotes-view .admin-turns-metrics {
+  grid-template-columns: repeat(5, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.admin-lotes-view .admin-turns-metrics article,
+.admin-lotes-view .admin-user-metrics article {
+  min-height: 88px;
+  border-radius: 15px;
+  padding: 14px 16px;
+}
+
+.admin-lotes-view .metric-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+}
+
+.admin-lotes-view .admin-turns-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 14px;
+}
+
+.admin-lotes-view .admin-turns-card,
+.admin-lotes-view .admin-turn-detail-panel {
+  padding: 18px;
+}
+
+.admin-lotes-view .admin-assignment-scroll {
+  border-radius: 18px;
+  background: rgba(244, 251, 253, 0.48);
+}
+
+.admin-lotes-view .admin-assignment-board {
+  grid-template-columns: 64px repeat(var(--admin-calendar-days), minmax(144px, 1fr));
+  width: max(100%, calc(64px + var(--admin-calendar-days) * 144px));
+}
+
+.admin-lotes-view .admin-calendar-time,
+.admin-lotes-view .admin-calendar-cell {
+  min-height: 102px;
+}
+
+.admin-lotes-view .admin-calendar-turn {
+  border-radius: 15px;
+  padding: 8px;
+}
+
+.admin-lotes-view .admin-calendar-turn-action {
+  min-height: 32px;
+}
+
+@media (max-width: 1280px) {
+  .admin-lotes-view .admin-turns-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-heading {
+    margin-bottom: 22px;
+  }
+
+  .admin-lotes-view .admin-panel-tabs {
+    margin-bottom: 24px;
+  }
+
+  .admin-lotes-view .admin-covered-panel {
+    padding: 16px;
+  }
+}

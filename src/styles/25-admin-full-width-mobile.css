@@ -1,0 +1,248 @@
+/* =========================================================
+   25. ADMIN FULL WIDTH Y RESPONSIVE MOVIL
+========================================================= */
+
+.admin-lotes-view .screen-content {
+  width: 100%;
+  max-width: none;
+  padding: 32px clamp(16px, 2vw, 32px) 56px;
+}
+
+.admin-lotes-view .admin-covered-panel,
+.admin-lotes-view .admin-turns-dashboard,
+.admin-lotes-view .admin-turns-layout,
+.admin-lotes-view .admin-turns-main,
+.admin-lotes-view .admin-turns-card,
+.admin-lotes-view .admin-assignment-scroll {
+  width: 100%;
+}
+
+.admin-lotes-view .admin-covered-panel {
+  margin: 0;
+}
+
+.admin-lotes-view .admin-heading {
+  max-width: none;
+  margin-bottom: 24px;
+}
+
+.admin-lotes-view .admin-panel-tabs {
+  width: min(100%, 980px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.admin-lotes-view .admin-turns-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+}
+
+.admin-lotes-view .admin-turns-layout:not(:has(.admin-turn-detail-panel)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-lotes-view .admin-assignment-board {
+  grid-template-columns: 62px repeat(var(--admin-calendar-days), minmax(150px, 1fr));
+  width: max(100%, calc(62px + var(--admin-calendar-days) * 150px));
+}
+
+@media (max-width: 1280px) {
+  .admin-lotes-view .admin-turns-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-lotes-view .admin-turn-detail-panel {
+    order: 2;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-lotes-view .mobile-topbar {
+    height: 58px;
+    padding: 10px 12px;
+  }
+
+  .admin-lotes-view .screen-content {
+    padding: 18px 10px 34px;
+  }
+
+  .admin-lotes-view .admin-heading {
+    margin-bottom: 16px;
+  }
+
+  .admin-lotes-view .admin-heading h1 {
+    font-size: clamp(1.85rem, 9vw, 2.7rem);
+    letter-spacing: 0.04em;
+  }
+
+  .admin-lotes-view .admin-panel-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  .admin-lotes-view .admin-panel-tabs .chip {
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 0.78rem;
+  }
+
+  .admin-lotes-view .admin-covered-panel,
+  .admin-lotes-view .admin-turns-card,
+  .admin-lotes-view .admin-turn-detail-panel,
+  .admin-lotes-view .admin-users-card,
+  .admin-lotes-view .admin-user-catalog {
+    border-radius: 16px;
+    padding: 12px;
+  }
+
+  .admin-lotes-view .admin-turns-dashboard {
+    gap: 12px;
+  }
+
+  .admin-lotes-view .admin-turns-hero {
+    gap: 8px;
+  }
+
+  .admin-lotes-view .admin-turns-title h2 {
+    font-size: clamp(1.85rem, 9vw, 2.6rem);
+  }
+
+  .admin-lotes-view .admin-turns-hero p:not(.section-kicker) {
+    display: none;
+  }
+
+  .admin-lotes-view .admin-week-picker,
+  .admin-lotes-view .admin-month-pill {
+    width: fit-content;
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 0.76rem;
+  }
+
+  .admin-lotes-view .admin-turns-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .admin-lotes-view .coverage-metric {
+    grid-column: 1 / -1;
+  }
+
+  .admin-lotes-view .admin-turns-metrics article,
+  .admin-lotes-view .admin-user-metrics article {
+    grid-template-columns: 34px minmax(0, 1fr);
+    min-height: 70px;
+    gap: 2px 9px;
+    padding: 10px;
+  }
+
+  .admin-lotes-view .metric-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+  }
+
+  .admin-lotes-view .admin-turns-metrics strong,
+  .admin-lotes-view .admin-user-metrics strong {
+    font-size: 1.25rem;
+  }
+
+  .admin-lotes-view .admin-turns-tools {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .admin-lotes-view .admin-turn-filter-button {
+    display: none;
+  }
+
+  .admin-lotes-view .admin-turn-filters {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    white-space: nowrap;
+  }
+
+  .admin-lotes-view .admin-turn-filters button {
+    flex: 0 0 auto;
+    min-width: 128px;
+    min-height: 36px;
+    font-size: 0.76rem;
+  }
+
+  .admin-lotes-view .admin-assignment-scroll {
+    margin: 0 -4px;
+    padding: 0 4px 8px;
+  }
+
+  .admin-lotes-view .admin-assignment-board {
+    grid-template-columns: 52px repeat(var(--admin-calendar-days), minmax(126px, 1fr));
+    width: max(100%, calc(52px + var(--admin-calendar-days) * 126px));
+    border-radius: 13px;
+  }
+
+  .admin-lotes-view .admin-calendar-corner,
+  .admin-lotes-view .admin-calendar-day-head {
+    min-height: 38px;
+  }
+
+  .admin-lotes-view .admin-calendar-day-head span {
+    font-size: 0.62rem;
+  }
+
+  .admin-lotes-view .admin-calendar-time,
+  .admin-lotes-view .admin-calendar-cell {
+    min-height: 88px;
+  }
+
+  .admin-lotes-view .admin-calendar-time {
+    padding: 6px;
+  }
+
+  .admin-lotes-view .admin-calendar-time strong {
+    font-size: 0.72rem;
+  }
+
+  .admin-lotes-view .admin-calendar-cell {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .admin-lotes-view .admin-calendar-turn {
+    border-radius: 12px;
+    padding: 7px;
+  }
+
+  .admin-lotes-view .admin-calendar-turn-main > strong,
+  .admin-lotes-view .admin-turn-member b {
+    font-size: 0.74rem;
+  }
+
+  .admin-lotes-view .admin-calendar-turn-main small {
+    font-size: 0.64rem;
+  }
+
+  .admin-lotes-view .admin-calendar-turn-action {
+    min-height: 28px;
+    font-size: 0.7rem;
+  }
+
+  .admin-lotes-view .admin-turn-detail-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-lotes-view .admin-panel-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-lotes-view .admin-turns-metrics {
+    grid-template-columns: 1fr;
+  }
+}

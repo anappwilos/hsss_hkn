@@ -154,7 +154,7 @@ export class StorageDB {
       }
 
       const remoteState = StorageDB.normalizeRemoteState(await StorageDB.readJsonResponse(response));
-      const remoteStateHash = JSON.stringify(remoteState);
+      const remoteStateHash = StorageDB.createRemoteDataHash(remoteState);
       const hasChanged = remoteStateHash !== StorageDB.lastRemoteStateHash;
 
       if (hasChanged) {
@@ -336,7 +336,7 @@ export class StorageDB {
         await StorageDB.putRemoteResource(resource);
       }
 
-      StorageDB.lastRemoteStateHash = null;
+      StorageDB.lastRemoteStateHash = StorageDB.createRemoteDataHash(StorageDB.getRemoteState());
       StorageDB.emitSync('online', 'Cambios guardados en PostgreSQL.');
     } catch {
       StorageDB.emitSync('offline', 'No se pudieron guardar los cambios. Revisa que el servidor este activo.');
@@ -386,6 +386,16 @@ export class StorageDB {
     } finally {
       StorageDB.applyingRemoteState = false;
     }
+  }
+
+  private static createRemoteDataHash(remoteState: RemoteStatePayload): string {
+    return JSON.stringify({
+      usuarios: remoteState.usuarios,
+      lotes: remoteState.lotes,
+      turnos: remoteState.turnos,
+      notificaciones: remoteState.notificaciones,
+      catalogoUsuarios: remoteState.catalogoUsuarios
+    });
   }
 
   private static normalizeRemoteState(value: unknown): RemoteStatePayload {

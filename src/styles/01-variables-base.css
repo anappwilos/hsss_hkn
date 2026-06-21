@@ -1,0 +1,138 @@
+/* =========================================================
+   1. VARIABLES Y BASE
+========================================================= */
+
+:root {
+  --color-bg: #a1ccd7;
+  --color-welcome: #b4dbe6;
+  --color-surface: rgba(244, 251, 253, 0.9);
+  --color-panel: rgba(244, 251, 253, 0.86);
+
+  --color-text: #0d3a44;
+  --color-ink: #082f38;
+  --color-muted: #4d7580;
+
+  --color-primary: #21a0b7;
+  --color-primary-2: #39aac1;
+  --color-primary-soft: #dbeaf0;
+  --color-selection: #18c6d4;
+  --color-selection-2: #56dce5;
+  --color-selection-dark: #078da0;
+
+  --color-success: #21a0b7;
+  --color-success-soft: #dbeaf0;
+
+  --color-danger: #d84b5f;
+  --color-danger-soft: #ffe8ed;
+
+  --color-accent: #168fa3;
+  --color-accent-soft: #eaf6f9;
+  --color-border: rgba(255, 255, 255, 0.48);
+
+  --shadow-sm: 0 8px 20px rgba(6, 69, 82, 0.08);
+  --shadow-md: 0 24px 58px rgba(6, 69, 82, 0.14);
+
+  --radius-sm: 14px;
+  --radius-md: 22px;
+  --radius-lg: 32px;
+
+  --font-sans: "Aptos", "Segoe UI Variable", "Segoe UI", "Avenir Next", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: var(--font-sans);
+  --font-display: var(--font-sans);
+
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--color-bg);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--color-text);
+  background:
+    radial-gradient(circle at 82% 18%, rgba(219, 234, 240, 0.7), transparent 32rem),
+    linear-gradient(135deg, #7aa9b6 0%, #a1ccd7 46%, #dbeaf0 100%);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(57, 170, 193, 0.36);
+  outline-offset: 3px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+#app,
+.app-shell,
+.view {
+  min-height: 100vh;
+}
+
+.app-shell {
+  width: 100%;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.admin-lotes-view,
+.admin-login-view,
+.config-view,
+.registro-view,
+.user-view {
+  background:
+    radial-gradient(circle at 82% 18%, rgba(219, 234, 240, 0.7), transparent 32rem),
+    linear-gradient(135deg, #7aa9b6 0%, #a1ccd7 46%, #dbeaf0 100%);
+}
+
+.screen-content {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: 42px 28px 56px;
+}
+
+.user-content {
+  display: grid;
+  gap: 20px;
+  padding-top: 24px;
+}
