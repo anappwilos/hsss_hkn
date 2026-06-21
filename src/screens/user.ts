@@ -6,7 +6,7 @@ export function renderUserView(): string {
         <div class="user-topbar-left">
         </div>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span>A solas</span> 
+          <img src="/src/assets/sola_letter_t.png" alt="A Solas" class="auth-wordmark logo">
         </button>
         <button id="btn-perfil-usuario" class="avatar-button profile-avatar-button" type="button" aria-label="Abrir mi perfil">
           <span class="avatar" aria-hidden="true">A</span>

@@ -4,10 +4,11 @@ export function renderAdminView(): string {
     <section id="vista-admin" class="view admin-lotes-view" style="display: none;">
       <header class="mobile-topbar">
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span>A SOLAS</span>
         </button>
+
+      <img src="/src/assets/sola_letter_t.png" alt="A Solas" class="auth-wordmark logo">
+
         <button class="topbar-text-button admin-logout-button" type="button" data-action="admin-logout">
-          <span aria-hidden="true">↪</span>
           <span>Salir</span>
         </button>
       </header>
