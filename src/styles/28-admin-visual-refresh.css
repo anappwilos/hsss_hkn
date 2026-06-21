@@ -2,14 +2,14 @@
    28. ADMIN VISUAL REFRESH - ESTILO PANEL CLARO
 ========================================================= */
 
-.admin-lotes-view {
+/* .admin-lotes-view {
   min-height: 100vh;
   color: #06253a;
   background:
     radial-gradient(circle at 98% 30%, rgba(154, 226, 237, 0.5), transparent 31rem),
     radial-gradient(circle at 4% 86%, rgba(176, 236, 239, 0.5), transparent 26rem),
     linear-gradient(180deg, #f7fdff 0%, #dff8fb 52%, #ccf3f7 100%);
-}
+} */
 
 .admin-lotes-view .mobile-topbar {
   position: sticky;

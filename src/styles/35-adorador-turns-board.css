@@ -81,9 +81,19 @@
   box-shadow: none;
 }
 
+.user-view .adorador-turnos-controls > .week-range {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  margin: 0 0 12px;
+}
+
 .booking-week-board-nav {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 40px auto minmax(188px, auto);
+  grid-template-columns: 40px minmax(0, 1fr) 40px auto;
   align-items: center;
   gap: 12px;
 }
@@ -99,7 +109,7 @@
   font-size: 1.25rem;
 }
 
-.user-view .booking-week-board-nav .week-range {
+.user-view .week-range {
   min-height: 36px;
   border: 1px solid var(--adoracion-border);
   border-radius: 10px;
@@ -339,8 +349,7 @@
     grid-template-columns: 38px minmax(0, 1fr) 38px;
   }
 
-  .user-view .user-today-button,
-  .user-view .booking-week-board-nav .week-range {
+  .user-view .user-today-button {
     grid-column: 1 / -1;
     width: fit-content;
     justify-self: center;

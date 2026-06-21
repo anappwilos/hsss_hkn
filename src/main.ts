@@ -130,12 +130,12 @@ const adminTurnosCubiertos = getElement<HTMLElement>('#admin-turnos-cubiertos');
 const usuarioDias = getElement<HTMLDivElement>('#usuario-dias');
 const usuarioTurnos = getElement<HTMLDivElement>('#usuario-turnos');
 const usuarioDiaLabel = getElement<HTMLSpanElement>('#usuario-dia-label');
-const usuarioSemanaLabel = getElement<HTMLParagraphElement>('#usuario-semana-label');
 const usuarioBookingStats = getElement<HTMLDivElement>('#usuario-booking-stats');
 const usuarioMisTurnos = getElement<HTMLElement>('#usuario-mis-turnos');
 const usuarioPanelTabs = getElement<HTMLElement>('#usuario-panel-tabs');
 const usuarioDisponiblesControles = getElement<HTMLElement>('#usuario-disponibles-controles');
 const usuarioDisponiblesTurnos = getElement<HTMLElement>('#usuario-disponibles-turnos');
+const usuarioSemanaLabel = usuarioDisponiblesControles.querySelector<HTMLParagraphElement>('.week-range');
 const btnPerfilUsuario = getElement<HTMLButtonElement>('#btn-perfil-usuario');
 const modalInscripcion = getElement<HTMLDialogElement>('#modal-inscripcion');
 const formInscripcionModal = getElement<HTMLFormElement>('#form-inscripcion-modal');
@@ -4192,7 +4192,9 @@ function renderUsuario(): void {
     `;
   }).join('');
 
-  usuarioSemanaLabel.textContent = formatRangoSemana(semanaUsuarioInicio);
+  if (usuarioSemanaLabel) {
+    usuarioSemanaLabel.textContent = formatRangoSemana(semanaUsuarioInicio);
+  }
   usuarioDiaLabel.textContent = vistaTurnos === 'diaria' ? 'Vista diaria' : 'Vista semanal';
 
   const hasWeekContent = turnosSemana.length > 0 || bloqueosSemana.length > 0;

@@ -33,14 +33,13 @@ export function renderUserView(): string {
 
         <section id="usuario-disponibles-controles" class="booking-controls adorador-turnos-controls" aria-label="Controles de reserva">
           <span id="usuario-dia-label" class="sr-only">Vista semanal</span>
+          
           <div class="booking-week-board-nav" aria-label="Navegacion semanal">
             <button class="icon-round" type="button" data-action="semana-prev" aria-label="Semana anterior">‹</button>
             <div id="usuario-dias" class="day-strip" aria-label="Dias disponibles"></div>
             <button class="icon-round" type="button" data-action="semana-next" aria-label="Semana siguiente">›</button>
             <button class="user-today-button" type="button" data-action="semana-hoy">Hoy</button>
-            <p id="usuario-semana-label" class="week-range">Semana actual</p>
           </div>
-
           <div id="usuario-booking-stats" class="booking-stats" aria-label="Resumen de disponibilidad semanal"></div>
         </section>
 
