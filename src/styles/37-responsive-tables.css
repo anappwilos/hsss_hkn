@@ -111,6 +111,16 @@
   line-height: 1.45;
 }
 
+.admin-lotes-view .admin-panel-tabs {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(150px, 220px);
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
 @media (max-width: 900px) {
   .admin-lotes-view .admin-turns-controls,
   .admin-lotes-view .admin-turns-search-actions,

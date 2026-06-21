@@ -362,6 +362,10 @@ function canAssignRootRole(): boolean {
   return getAdminSessionRole() === 'root';
 }
 
+function canAccessAdminPanel(panel: AdminPanel): boolean {
+  return panel !== 'catalogos' || canAssignRootRole();
+}
+
 function getStoredLastView(): Vista | null {
   const raw = localStorage.getItem(LAST_VIEW_KEY);
 
@@ -376,7 +380,8 @@ function getStoredLastView(): Vista | null {
 function getStoredAdminPanel(): AdminPanel | null {
   const raw = localStorage.getItem(LAST_ADMIN_PANEL_KEY);
   const validPanels: AdminPanel[] = ['lotes', 'usuarios', 'catalogos', 'turnos'];
-  return raw && validPanels.includes(raw as AdminPanel) ? (raw as AdminPanel) : null;
+  const panel = raw && validPanels.includes(raw as AdminPanel) ? (raw as AdminPanel) : null;
+  return panel && canAccessAdminPanel(panel) ? panel : null;
 }
 
 function getStoredUsuarioPanel(): UsuarioPanel | null {
@@ -1770,8 +1775,16 @@ function renderAdminPanel(): void {
     return;
   }
 
+  if (!canAccessAdminPanel(adminPanel)) {
+    adminPanel = 'lotes';
+    localStorage.setItem(LAST_ADMIN_PANEL_KEY, adminPanel);
+  }
+
   adminPanelTabs.querySelectorAll<HTMLButtonElement>('[data-admin-panel]').forEach((button) => {
-    const isActive = button.dataset.adminPanel === adminPanel;
+    const panel = button.dataset.adminPanel as AdminPanel | undefined;
+    const isVisible = panel ? canAccessAdminPanel(panel) : true;
+    const isActive = panel === adminPanel;
+    button.hidden = !isVisible;
     button.classList.toggle('is-active', isActive);
     button.setAttribute('aria-pressed', String(isActive));
   });
@@ -4734,7 +4747,11 @@ document.addEventListener('click', (event) => {
   const adminPanelButton = target.closest<HTMLButtonElement>('[data-admin-panel]');
 
   if (adminPanelButton?.dataset.adminPanel) {
-    adminPanel = adminPanelButton.dataset.adminPanel as AdminPanel;
+    const nextAdminPanel = adminPanelButton.dataset.adminPanel as AdminPanel;
+    if (!canAccessAdminPanel(nextAdminPanel)) {
+      return;
+    }
+    adminPanel = nextAdminPanel;
     localStorage.setItem(LAST_ADMIN_PANEL_KEY, adminPanel);
     adminUsuarioEditandoId = null;
     if (modalAdminUsuario.open) {
