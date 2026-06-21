@@ -294,11 +294,11 @@
 }
 
 .auth-icon-email::before {
-  content: "✉";
+  content: "✉️";
 }
 
 .auth-icon-lock::before {
-  content: "▣";
+  content:"👁️";
 }
 
 .auth-password-field {

@@ -263,11 +263,18 @@ function mostrarToast(notification: AppNotification): void {
   const toast = document.createElement('article');
   toast.className = `app-toast app-toast--${notification.tone ?? 'info'}`;
   toast.innerHTML = `
-    <strong>${escapeHtml(notification.title)}</strong>
-    <span>${escapeHtml(notification.message)}</span>
+    <div class="app-toast-content">
+      <strong>${escapeHtml(notification.title)}</strong>
+      <span>${escapeHtml(notification.message)}</span>
+    </div>
+    <button class="app-toast-close" type="button" aria-label="Cerrar">×</button>
   `;
   toastRegion.append(toast);
-  window.setTimeout(() => toast.remove(), 5200);
+  const timeoutId = window.setTimeout(() => toast.remove(), 5200);
+  toast.querySelector<HTMLButtonElement>('.app-toast-close')?.addEventListener('click', () => {
+    window.clearTimeout(timeoutId);
+    toast.remove();
+  });
 }
 
 let syncStatusTimeout = 0;

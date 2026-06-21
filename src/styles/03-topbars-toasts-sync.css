@@ -180,41 +180,101 @@
 
 .toast-region {
   position: fixed;
-  top: 92px;
   right: 18px;
+  bottom: 18px;
   z-index: 70;
   display: grid;
-  width: min(360px, calc(100vw - 36px));
-  gap: 10px;
+  width: min(380px, calc(100vw - 36px));
+  gap: 12px;
+  align-content: end;
   pointer-events: none;
 }
 
 .app-toast {
+  position: relative;
   display: grid;
-  gap: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  border-left: 5px solid var(--color-primary);
-  border-radius: 18px;
-  padding: 14px 16px;
-  background: rgba(244, 251, 253, 0.98);
-  box-shadow: var(--shadow-md);
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(126, 190, 204, 0.22);
+  border-radius: 16px;
+  padding: 16px 14px 16px 18px;
+  background: rgba(248, 253, 255, 0.96);
+  box-shadow: 0 18px 44px rgba(8, 47, 56, 0.16);
+  animation: toast-in 180ms ease-out both;
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+
+.app-toast-content {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
 }
 
 .app-toast strong {
   color: var(--color-ink);
-  font-size: 0.98rem;
+  font-size: 0.96rem;
+  line-height: 1.2;
 }
 
 .app-toast span {
   color: var(--color-muted);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   line-height: 1.35;
 }
 
+.app-toast-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  color: #52717c;
+  background: transparent;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.app-toast-close:hover,
+.app-toast-close:focus-visible {
+  color: var(--color-ink);
+  background: rgba(57, 170, 193, 0.12);
+  transform: translateY(-1px);
+}
+
 .app-toast--success {
-  border-left-color: var(--color-success);
+  border-color: rgba(28, 142, 108, 0.24);
 }
 
 .app-toast--error {
-  border-left-color: var(--color-danger);
+  border-color: rgba(216, 75, 95, 0.26);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 10px, 0) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (max-width: 560px) {
+  .toast-region {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+  }
 }
