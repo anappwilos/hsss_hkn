@@ -16,8 +16,7 @@ export function renderConfigurationView(diasSemana: WeekdayOption[]): string {
       <form id="form-lote" class="screen-content config-form">
         <section class="intro-card lote-intro-card">
           <div>
-            <h2>Lotes de turnos</h2>
-            <p>Configura fechas, horario y dias activos antes de generar los turnos.</p>
+            <h2>Crear un nuevo lotes de turnos</h2>
           </div>
         </section>
 
@@ -39,7 +38,6 @@ export function renderConfigurationView(diasSemana: WeekdayOption[]): string {
               <span>Meses a crear</span>
               <div id="lote-meses-selector" class="month-chip-grid" aria-label="Meses a crear"></div>
             </section>
-            <p class="form-note">Selecciona el a&ntilde;o con el campo superior y marca los meses concretos que quieres crear, por ejemplo junio y septiembre. Si ajustas fechas manualmente se creara un solo lote.</p>
             <div class="date-grid">
               <label class="field">
                 <span>Inicio</span>
