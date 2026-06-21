@@ -1998,8 +1998,9 @@ function renderAdminUsuarioFiltroButton(filter: AdminUsuarioFiltro, label: strin
 function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null, totalVisible = StorageDB.getUsuarios().length): string {
   if (usuarios.length === 0) {
     return `
-      <div class="empty-card compact">
+      <div class="empty-card compact admin-users-empty-state">
         <h3>No hay resultados</h3>
+        <p>Ajusta la busqueda o cambia el filtro para ver usuarios.</p>
       </div>
     `;
   }

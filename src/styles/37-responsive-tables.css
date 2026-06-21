@@ -84,6 +84,33 @@
   width: clamp(260px, 24vw, 420px);
 }
 
+.admin-users-empty-state.empty-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 8px;
+  min-height: 150px;
+  align-content: center;
+  padding: 28px 24px;
+  text-align: center;
+}
+
+.admin-users-empty-state h3 {
+  max-width: none;
+  margin: 0;
+  color: #061f34;
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  line-height: 1.1;
+}
+
+.admin-users-empty-state p {
+  max-width: 420px;
+  margin: 0;
+  color: #5f7f88;
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 900px) {
   .admin-lotes-view .admin-turns-controls,
   .admin-lotes-view .admin-turns-search-actions,
