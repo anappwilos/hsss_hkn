@@ -93,6 +93,7 @@ let diasConfig = new Set<number>([1, 2, 3, 4, 5]);
 let mesesLoteSeleccionados = new Set<string>();
 let interrupcionesConfig: InterrupcionLote[] = [];
 let interrupcionDiasConfig = new Set<number>([1, 2, 3, 4, 5]);
+let interrupcionEditandoId: string | null = null;
 let fechaUsuarioSeleccionada = fechaToInput(new Date());
 let semanaUsuarioInicio = startOfWeekMonday(new Date());
 let vistaTurnos: VistaTurnos = 'semanal';
@@ -294,28 +295,17 @@ app.innerHTML = `
 
         <section id="usuario-mis-turnos" class="my-turns-panel" aria-label="Turnos asignados"></section>
 
-        <section id="usuario-disponibles-controles" class="booking-controls" aria-label="Controles de reserva">
-          <div class="booking-heading">
-
-            <div class="booking-view-toggle">
-              <span id="usuario-dia-label" class="sr-only">Vista semanal</span>
-              <div class="view-toggle" role="group" aria-label="Cambiar vista de turnos">
-                <button class="is-active" type="button" data-action="vista-turnos" data-mode="diaria" aria-pressed="true">D&iacute;a</button>
-                <button type="button" data-action="vista-turnos" data-mode="semanal" aria-pressed="false">Semana</button>
-              </div>
-            </div>
-
-            <div class="booking-actions">
-              <div class="week-actions" aria-label="Navegacion semanal">
-                <button class="icon-round" type="button" data-action="semana-prev" aria-label="Semana anterior">‹</button>
-                <p id="usuario-semana-label" class="week-range">Semana actual</p>
-                <button class="icon-round" type="button" data-action="semana-next" aria-label="Semana siguiente">›</button>
-              </div>
-            </div>
+        <section id="usuario-disponibles-controles" class="booking-controls adorador-turnos-controls" aria-label="Controles de reserva">
+          <span id="usuario-dia-label" class="sr-only">Vista semanal</span>
+          <div class="booking-week-board-nav" aria-label="Navegacion semanal">
+            <button class="icon-round" type="button" data-action="semana-prev" aria-label="Semana anterior">‹</button>
+            <div id="usuario-dias" class="day-strip" aria-label="Dias disponibles"></div>
+            <button class="icon-round" type="button" data-action="semana-next" aria-label="Semana siguiente">›</button>
+            <button class="user-today-button" type="button" data-action="semana-hoy">Hoy</button>
+            <p id="usuario-semana-label" class="week-range">Semana actual</p>
           </div>
 
           <div id="usuario-booking-stats" class="booking-stats" aria-label="Resumen de disponibilidad semanal"></div>
-          <div id="usuario-dias" class="day-strip" aria-label="Dias disponibles"></div>
         </section>
 
         <section id="usuario-disponibles-turnos" class="turnos-section" aria-label="Turnos disponibles">
@@ -585,6 +575,7 @@ app.innerHTML = `
               <div id="interrupcion-dias" class="weekday-row"></div>
             </section>
             <button id="btn-add-interrupcion" class="button button-secondary" type="button">Agregar hora sin exposici&oacute;n</button>
+            <button id="btn-cancelar-editar-interrupcion" class="button button-secondary" type="button" hidden>Cancelar edici&oacute;n</button>
           </div>
           <div id="interrupciones-lista" class="interruption-list"></div>
         </div>
@@ -845,6 +836,7 @@ const interrupcionHoraInicio = getElement<HTMLInputElement>('#interrupcion-hora-
 const interrupcionHoraFin = getElement<HTMLInputElement>('#interrupcion-hora-fin');
 const interrupcionDias = getElement<HTMLDivElement>('#interrupcion-dias');
 const btnAddInterrupcion = getElement<HTMLButtonElement>('#btn-add-interrupcion');
+const btnCancelarEditarInterrupcion = getElement<HTMLButtonElement>('#btn-cancelar-editar-interrupcion');
 const interrupcionesLista = getElement<HTMLDivElement>('#interrupciones-lista');
 const syncStatus = getElement<HTMLDivElement>('#sync-status');
 const toastRegion = getElement<HTMLDivElement>('#toast-region');
@@ -2106,6 +2098,7 @@ function resetConfig(): void {
   diasConfig = new Set([1, 2, 3, 4, 5]);
   interrupcionDiasConfig = new Set(diasConfig);
   interrupcionesConfig = [];
+  interrupcionEditandoId = null;
   renderDiasConfig();
   renderMesesLoteSelector();
   renderInterrupciones();
@@ -2175,6 +2168,8 @@ function renderInterrupciones(): void {
   sinExposicionResumen.textContent = interrupcionesConfig.length === 0
     ? 'Sin horas sin exposicion configuradas.'
     : `${formatPlural(interrupcionesConfig.length, 'tramo sin exposicion configurado', 'tramos sin exposicion configurados')}.`;
+  btnAddInterrupcion.textContent = interrupcionEditandoId ? 'Guardar cambios' : 'Agregar hora sin exposición';
+  btnCancelarEditarInterrupcion.hidden = interrupcionEditandoId === null;
 
   if (interrupcionesConfig.length === 0) {
     interrupcionesLista.innerHTML = '<p class="empty-inline">Sin interrupciones configuradas.</p>';
@@ -2182,7 +2177,7 @@ function renderInterrupciones(): void {
   }
 
   interrupcionesLista.innerHTML = interrupcionesConfig.map((interrupcion) => `
-    <article class="interruption-item">
+    <article class="interruption-item ${interrupcionEditandoId === interrupcion.id ? 'is-editing' : ''}">
       <div>
         <strong>${escapeHtml(interrupcion.motivo)}</strong>
         <span>${interrupcion.fechaInicio === loteFechaInicio.value && interrupcion.fechaFin === loteFechaFin.value
@@ -2192,7 +2187,10 @@ function renderInterrupciones(): void {
         <span>Dias: ${escapeHtml((interrupcion.diasSemana ?? [...diasConfig]).map((day) => diasSemana.find((dia) => dia.value === day)?.label).filter(Boolean).join(', '))}</span>
         <span>${escapeHtml(interrupcion.horaInicio)} - ${escapeHtml(interrupcion.horaFin)}</span>
       </div>
-      <button class="text-link danger" type="button" data-action="eliminar-interrupcion" data-id="${interrupcion.id}">Eliminar</button>
+      <div class="interruption-actions">
+        <button class="text-link" type="button" data-action="editar-interrupcion" data-id="${interrupcion.id}">Editar</button>
+        <button class="text-link danger" type="button" data-action="eliminar-interrupcion" data-id="${interrupcion.id}">Eliminar</button>
+      </div>
     </article>
   `).join('');
 }
@@ -2204,7 +2202,25 @@ function limpiarFormularioInterrupcion(): void {
   interrupcionFechaFin.value = '';
   interrupcionHoraInicio.value = '';
   interrupcionHoraFin.value = '';
+  interrupcionEditandoId = null;
+  btnAddInterrupcion.textContent = 'Agregar hora sin exposición';
+  btnCancelarEditarInterrupcion.hidden = true;
   actualizarVisibilidadFechasInterrupcion();
+  renderDiasInterrupcion();
+}
+
+function cargarInterrupcionEnFormulario(interrupcion: InterrupcionLote): void {
+  interrupcionEditandoId = interrupcion.id;
+  interrupcionMotivo.value = interrupcion.motivo;
+  const usarFechasConcretas = interrupcion.fechaInicio !== loteFechaInicio.value || interrupcion.fechaFin !== loteFechaFin.value;
+  interrupcionFechasConcretas.checked = usarFechasConcretas;
+  interrupcionFechaInicio.value = usarFechasConcretas ? interrupcion.fechaInicio : '';
+  interrupcionFechaFin.value = usarFechasConcretas ? interrupcion.fechaFin : '';
+  interrupcionHoraInicio.value = interrupcion.horaInicio;
+  interrupcionHoraFin.value = interrupcion.horaFin;
+  interrupcionDiasConfig = new Set(interrupcion.diasSemana ?? [...diasConfig]);
+  actualizarVisibilidadFechasInterrupcion();
+  renderInterrupciones();
 }
 
 function agregarInterrupcion(): void {
@@ -2246,18 +2262,19 @@ function agregarInterrupcion(): void {
     return;
   }
 
-  interrupcionesConfig = [
-    ...interrupcionesConfig,
-    {
-      id: crearId(),
-      motivo,
-      fechaInicio,
-      fechaFin,
-      horaInicio,
-      horaFin,
-      diasSemana: diasSemanaInterrupcion
-    }
-  ];
+  const interrupcion: InterrupcionLote = {
+    id: interrupcionEditandoId ?? crearId(),
+    motivo,
+    fechaInicio,
+    fechaFin,
+    horaInicio,
+    horaFin,
+    diasSemana: diasSemanaInterrupcion
+  };
+
+  interrupcionesConfig = interrupcionEditandoId
+    ? interrupcionesConfig.map((item) => item.id === interrupcionEditandoId ? interrupcion : item)
+    : [...interrupcionesConfig, interrupcion];
 
   limpiarFormularioInterrupcion();
   renderInterrupciones();
@@ -4649,6 +4666,62 @@ function ordenarFranjasUsuario(franjas: string[], turnos: TurnoCalendario[]): st
   });
 }
 
+function crearFranjasDesdeHorario(horaInicio: string, horaFin: string, turnoMinutos: number): string[] {
+  const inicioMinutos = timeToMinutes(horaInicio);
+  let finMinutos = timeToMinutes(horaFin);
+
+  if (finMinutos <= inicioMinutos) {
+    finMinutos += 1440;
+  }
+
+  if (turnoMinutos <= 0 || turnoMinutos > finMinutos - inicioMinutos) {
+    return [];
+  }
+
+  const franjas: string[] = [];
+
+  for (let minuto = inicioMinutos; minuto + turnoMinutos <= finMinutos; minuto += turnoMinutos) {
+    franjas.push(`${minutesToTime(minuto)}|${minutesToTime(minuto + turnoMinutos)}`);
+
+    if (franjas.length >= 32) {
+      break;
+    }
+  }
+
+  return franjas;
+}
+
+function getFranjasUsuarioBase(fechas: Date[], turnosSemana: TurnoCalendario[], bloqueosSemana: BloqueoCalendario[]): string[] {
+  const franjasPublicadas = Array.from(new Set([
+    ...turnosSemana.map((turno) => `${turno.horaInicio}|${turno.horaFin}`),
+    ...bloqueosSemana.map((bloqueo) => `${bloqueo.horaInicio}|${bloqueo.horaFin}`)
+  ]));
+
+  if (franjasPublicadas.length > 0) {
+    return franjasPublicadas;
+  }
+
+  const inicioSemana = fechaToInput(fechas[0]);
+  const finSemana = fechaToInput(fechas[fechas.length - 1]);
+  const lotesSemana = StorageDB.getLotes()
+    .filter((lote) => lote.estado !== 'borrador')
+    .filter((lote) => lote.fechaInicio <= finSemana && lote.fechaFin >= inicioSemana)
+    .toSorted((a, b) => {
+      const byStart = a.fechaInicio.localeCompare(b.fechaInicio);
+      return byStart !== 0 ? byStart : a.horaInicio.localeCompare(b.horaInicio);
+    });
+
+  for (const lote of lotesSemana) {
+    const franjas = crearFranjasDesdeHorario(lote.horaInicio, lote.horaFin, lote.turnoMinutos);
+
+    if (franjas.length > 0) {
+      return franjas;
+    }
+  }
+
+  return crearFranjasDesdeHorario('08:00', '20:00', 60);
+}
+
 function renderListaTurnosDia(
   date: Date,
   turnos: TurnoCalendario[],
@@ -4716,11 +4789,9 @@ function renderUsuario(): void {
   const fechasRangoSet = new Set(fechasRango.map((date) => fechaToInput(date)));
   const turnosBaseSemana = StorageDB.getTurnos()
     .filter((turno) => fechasRangoSet.has(turno.dia));
-  const fechas = Array.from(new Set(turnosBaseSemana.map((turno) => turno.dia)))
-    .toSorted()
-    .map(parseFecha);
+  const fechas = fechasRango;
 
-  if (fechas.length > 0 && !fechas.some((date) => fechaToInput(date) === fechaUsuarioSeleccionada)) {
+  if (!fechas.some((date) => fechaToInput(date) === fechaUsuarioSeleccionada)) {
     fechaUsuarioSeleccionada = fechaToInput(fechas[0]);
   }
 
@@ -4729,10 +4800,7 @@ function renderUsuario(): void {
     .filter((turno) => fechasSemana.has(turno.dia))
   ).toSorted(compararTurnosUsuario);
   const bloqueosSemana = getBloqueosCalendario(fechas);
-  const franjas = ordenarFranjasUsuario(Array.from(new Set([
-    ...turnosSemana.map((turno) => `${turno.horaInicio}|${turno.horaFin}`),
-    ...bloqueosSemana.map((bloqueo) => `${bloqueo.horaInicio}|${bloqueo.horaFin}`)
-  ])), turnosSemana);
+  const franjas = ordenarFranjasUsuario(getFranjasUsuarioBase(fechas, turnosSemana, bloqueosSemana), turnosSemana);
   document.querySelectorAll<HTMLButtonElement>('[data-action="vista-turnos"]').forEach((button) => {
     const isActive = button.dataset.mode === vistaTurnos;
     button.classList.toggle('is-active', isActive);
@@ -4750,11 +4818,12 @@ function renderUsuario(): void {
   usuarioDias.innerHTML = fechas.map((date) => {
     const key = fechaToInput(date);
     const hoy = key === fechaToInput(new Date());
-    const label = hoy ? 'HOY' : new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '').toUpperCase();
+    const weekdayLong = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '');
+    const label = hoy ? 'Hoy' : capitalize(weekdayLong);
     const estado = getEstadoDiaCalendario(key, turnosSemana, bloqueosSemana);
     const estadoTexto = {
       disponible: 'Disponible',
-      completo: 'No disponible',
+      completo: 'Completo',
       'sin-exposicion': 'Sin exposicion',
       vacio: 'Sin turnos'
     }[estado];
@@ -4769,13 +4838,12 @@ function renderUsuario(): void {
     `;
   }).join('');
 
-  const mesesSemana = Array.from(new Set(fechas.map((date) => new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(date))));
-  usuarioSemanaLabel.textContent = mesesSemana.length === 1
-    ? `${formatRangoSemana(semanaUsuarioInicio)} · ${capitalize(mesesSemana[0])}`
-    : formatRangoSemana(semanaUsuarioInicio);
+  usuarioSemanaLabel.textContent = formatRangoSemana(semanaUsuarioInicio);
   usuarioDiaLabel.textContent = vistaTurnos === 'diaria' ? 'Vista diaria' : 'Vista semanal';
 
-  if (turnosSemana.length === 0 && bloqueosSemana.length === 0) {
+  const hasWeekContent = turnosSemana.length > 0 || bloqueosSemana.length > 0;
+
+  if (!hasWeekContent && vistaTurnos === 'diaria') {
     usuarioTurnos.innerHTML = `
       <div class="empty-card">
         <h2>No hay turnos publicados</h2>
@@ -4798,17 +4866,16 @@ function renderUsuario(): void {
   }
 
   usuarioTurnos.innerHTML = `
-    <div class="calendar-week" style="--calendar-days: ${fechas.length}; --calendar-min-width: ${96 + fechas.length * 142}px;">
+    <div class="calendar-week user-calendar-week" style="--calendar-days: ${fechas.length}; --calendar-min-width: ${88 + fechas.length * 132}px;">
       <div class="calendar-corner" aria-hidden="true"></div>
       ${fechas.map((date) => {
         const key = fechaToInput(date);
         const isToday = key === hoy;
         const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date).replace('.', '');
-        const month = new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(date);
 
         return `
           <button class="calendar-day-head ${key === fechaUsuarioSeleccionada ? 'is-active' : ''} ${isToday ? 'is-today' : ''}" type="button" data-dia="${key}">
-            <span>${escapeHtml(`${isToday ? 'Hoy' : weekday} ${date.getDate()} ${month}`.toUpperCase())}</span>
+            <span>${escapeHtml(`${capitalize(weekday)} ${date.getDate()}`)}</span>
           </button>
         `;
       }).join('')}
@@ -4826,7 +4893,7 @@ function renderUsuario(): void {
             const bloqueos = bloqueosSemana.filter((bloqueo) => bloqueo.dia === key && bloqueo.horaInicio === horaInicio && bloqueo.horaFin === horaFin);
 
             if (turnos.length === 0 && bloqueos.length === 0) {
-              return '<div class="calendar-cell is-empty"><span class="empty-slot"><span aria-hidden="true"></span><small>Sin turnos</small></span></div>';
+              return '<div class="calendar-cell is-empty"><span class="empty-slot"><small>Sin turno</small></span></div>';
             }
 
             return `
@@ -4850,10 +4917,8 @@ function renderUsuario(): void {
 function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
   return `
     <article class="calendar-event calendar-event--blocked">
-      <div class="calendar-event-top">
-        <strong>Sin Adoracion: ${escapeHtml(bloqueo.motivo || 'Sin motivo')}</strong>
-      </div>
-      <p>${escapeHtml(bloqueo.horaInicio)} - ${escapeHtml(bloqueo.horaFin)}</p>
+      <span class="calendar-event-status">${escapeHtml(bloqueo.motivo)}</span>
+      <small>${escapeHtml(bloqueo.horaInicio)} - ${escapeHtml(bloqueo.horaFin)}</small>
     </article>
   `;
 }
@@ -4865,22 +4930,21 @@ function renderTurnoCalendario(turno: TurnoCalendario, perfil: PerfilAdorador | 
   const ocupadas = turno.plazasTotales - turno.plazasDisponibles;
   const tipo = getTurnoAsignacionTipo(turno, perfil?.nombreCompleto);
   const estadoClase = pasado ? 'is-past' : propio ? 'is-mine' : completo ? 'is-covered' : ocupadas > 0 ? 'is-partial' : 'is-free';
-  const estadoVisible = pasado ? '' : propio ? 'Mi turno' : completo ? 'Completo' : '';
+  const estadoVisible = pasado
+    ? 'Pasado'
+    : propio
+      ? 'Mi turno'
+      : completo
+        ? 'Completo'
+        : ocupadas > 0
+          ? `Reservar ${turno.plazasDisponibles}/${turno.plazasTotales}`
+          : `Reservar`;
 
   return `
     <article class="calendar-event ${estadoClase} ${!pasado && (propio || completo) ? `assignment-${tipo}` : ''}">
-      ${!pasado && estadoVisible
-        ? `<div class="calendar-event-top"><strong>${escapeHtml(estadoVisible)}</strong></div>`
-        : ''
-      }
-      ${!pasado ? `
-        <div class="calendar-event-main">
-          <p class="calendar-event-time">${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</p>
-        </div>
-      ` : ''}
-      ${!pasado && (propio || completo)
-        ? `<span class="calendar-event-status assignment-badge assignment-badge-${tipo}">${propio ? escapeHtml(formatFrecuencia(tipo)) : 'Completo'}</span>`
-        : !pasado ? `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">Cubrir</button>` : ''
+      ${propio || completo || pasado
+        ? `<span class="calendar-event-status assignment-badge ${propio ? `assignment-badge-${tipo}` : ''}">${escapeHtml(estadoVisible)}</span>`
+        : `<button class="calendar-event-action" type="button" data-action="inscribir" data-id="${turno.id}">${escapeHtml(estadoVisible)}</button>`
       }
     </article>
   `;
@@ -5510,7 +5574,20 @@ document.addEventListener('click', (event) => {
   }
 
   if (target.closest('[data-action="cerrar-interrupciones"]')) {
+    limpiarFormularioInterrupcion();
     modalInterrupciones.close();
+    return;
+  }
+
+  const editarInterrupcionButton = target.closest<HTMLButtonElement>('[data-action="editar-interrupcion"]');
+
+  if (editarInterrupcionButton?.dataset.id) {
+    const interrupcion = interrupcionesConfig.find((item) => item.id === editarInterrupcionButton.dataset.id);
+
+    if (interrupcion) {
+      cargarInterrupcionEnFormulario(interrupcion);
+    }
+
     return;
   }
 
@@ -5518,6 +5595,9 @@ document.addEventListener('click', (event) => {
 
   if (eliminarInterrupcionButton?.dataset.id) {
     interrupcionesConfig = interrupcionesConfig.filter((interrupcion) => interrupcion.id !== eliminarInterrupcionButton.dataset.id);
+    if (interrupcionEditandoId === eliminarInterrupcionButton.dataset.id) {
+      limpiarFormularioInterrupcion();
+    }
     renderInterrupciones();
     actualizarResumenLote();
     return;
@@ -5553,13 +5633,8 @@ document.addEventListener('click', (event) => {
   }
 
   if (target.closest('[data-action="semana-prev"]')) {
-    const hoy = new Date();
-    const semanaAnterior = addDays(semanaUsuarioInicio, -7);
-    semanaUsuarioInicio = addDays(semanaAnterior, 6) < hoy ? startOfWeekMonday(hoy) : semanaAnterior;
+    semanaUsuarioInicio = addDays(semanaUsuarioInicio, -7);
     fechaUsuarioSeleccionada = fechaToInput(semanaUsuarioInicio);
-    if (fechaUsuarioSeleccionada < fechaToInput(hoy)) {
-      fechaUsuarioSeleccionada = fechaToInput(hoy);
-    }
     renderUsuario();
     return;
   }
@@ -5567,6 +5642,14 @@ document.addEventListener('click', (event) => {
   if (target.closest('[data-action="semana-next"]')) {
     semanaUsuarioInicio = addDays(semanaUsuarioInicio, 7);
     fechaUsuarioSeleccionada = fechaToInput(semanaUsuarioInicio);
+    renderUsuario();
+    return;
+  }
+
+  if (target.closest('[data-action="semana-hoy"]')) {
+    const hoy = new Date();
+    semanaUsuarioInicio = startOfWeekMonday(hoy);
+    fechaUsuarioSeleccionada = fechaToInput(hoy);
     renderUsuario();
     return;
   }
@@ -6062,6 +6145,10 @@ diasConfigEl.addEventListener('click', (event) => {
 });
 
 btnAddInterrupcion.addEventListener('click', agregarInterrupcion);
+btnCancelarEditarInterrupcion.addEventListener('click', () => {
+  limpiarFormularioInterrupcion();
+  renderInterrupciones();
+});
 
 interrupcionFechasConcretas.addEventListener('change', actualizarVisibilidadFechasInterrupcion);
 
