@@ -28,7 +28,12 @@ export function renderAdminView({ solaLetterUrl }: AdminViewAssets): string {
 
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
           <div class="admin-lotes-panel-head">
-            <h2></h2>
+            <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
+              <button class="chip is-active" type="button" data-filter="todos"><span aria-hidden="true">◎</span>Todos</button>
+              <button class="chip" type="button" data-filter="activo"><span aria-hidden="true">▷</span>Activos</button>
+              <button class="chip" type="button" data-filter="programado"><span aria-hidden="true">◷</span>Programados</button>
+              <button class="chip" type="button" data-filter="finalizado"><span aria-hidden="true">✓</span>Finalizados</button>
+            </div>
             <div class="admin-lotes-tools">
               <label class="admin-lote-search" for="lote-buscar">
                 <span aria-hidden="true">⌕</span>
@@ -39,12 +44,6 @@ export function renderAdminView({ solaLetterUrl }: AdminViewAssets): string {
                 <span>Nuevo lote</span>
               </button>
             </div>
-          </div>
-          <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
-            <button class="chip is-active" type="button" data-filter="todos"><span aria-hidden="true">◎</span>Todos</button>
-            <button class="chip" type="button" data-filter="activo"><span aria-hidden="true">▷</span>Activos</button>
-            <button class="chip" type="button" data-filter="programado"><span aria-hidden="true">◷</span>Programados</button>
-            <button class="chip" type="button" data-filter="finalizado"><span aria-hidden="true">✓</span>Finalizados</button>
           </div>
 
           <div id="lotes-lista" class="lotes-list"></div>

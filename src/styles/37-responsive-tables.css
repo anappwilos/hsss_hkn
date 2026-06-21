@@ -29,6 +29,32 @@
   white-space: nowrap;
 }
 
+.admin-lotes-view #admin-panel-lotes .admin-lotes-panel-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.admin-lotes-view #admin-panel-lotes #lote-filtros.chip-row {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  flex-wrap: nowrap;
+}
+
+.admin-lotes-view #admin-panel-lotes .admin-lotes-tools {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.admin-lotes-view #admin-panel-lotes .admin-lote-search {
+  width: clamp(260px, 24vw, 420px);
+}
+
 @media (max-width: 900px) {
   .admin-lotes-view .admin-turns-controls,
   .admin-lotes-view .admin-turns-search-actions,
@@ -70,6 +96,24 @@
 
   .admin-lotes-view .admin-turn-filters button {
     min-width: max-content;
+  }
+
+  .admin-lotes-view #admin-panel-lotes .admin-lotes-panel-head {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .admin-lotes-view #admin-panel-lotes #lote-filtros.chip-row {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .admin-lotes-view #admin-panel-lotes .admin-lotes-tools {
+    justify-content: stretch;
+  }
+
+  .admin-lotes-view #admin-panel-lotes .admin-lote-search {
+    width: 100%;
   }
 
   .admin-lotes-view .admin-assignment-board {
