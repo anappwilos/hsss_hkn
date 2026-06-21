@@ -54,7 +54,7 @@ export function renderAdminLoginView({ logoUrl, solaLetterUrl, adoracionHeroUrl 
 
           <button class="button button-primary auth-submit" type="submit">Iniciar sesion <span aria-hidden="true"></span></button>
 
-          <div class="auth-divider" aria-hidden="true"><span>✚</span></div>
+          <div class="auth-divider" aria-hidden="true"><span>ó</span></div>
 
           <p class="auth-create-account">¿No tienes cuenta? <button type="button" data-view="registro-adorador">Crear cuenta</button></p>
         </section>
@@ -178,7 +178,7 @@ export function renderRegisterView({ logoUrl, solaLetterUrl, adoracionHeroUrl }:
               <button id="registro-submit" class="registro-submit" type="submit" disabled hidden>Finalizar</span></button>
             </div>
 
-            <div class="auth-divider" aria-hidden="true"><span>✚</span></div>
+            <div class="auth-divider" aria-hidden="true"><span>ó</span></div>
 
             <p class="auth-create-account">¿Ya tienes cuenta? <button type="button" data-view="admin-login">Iniciar sesion</button></p>
           </div>
