@@ -270,9 +270,21 @@ function mostrarToast(notification: AppNotification): void {
 }
 
 let syncStatusTimeout = 0;
+const SYNC_STATUS_SILENT_MESSAGES = new Set([
+  'Cargando datos desde PostgreSQL...',
+  'Sincronizado con el servidor. No hay cambios nuevos.'
+]);
 
 function actualizarEstadoPersistencia(status: SyncStatus, message: string): void {
   window.clearTimeout(syncStatusTimeout);
+
+  if (SYNC_STATUS_SILENT_MESSAGES.has(message)) {
+    syncStatus.hidden = true;
+    syncStatus.textContent = '';
+    syncStatus.dataset.status = '';
+    return;
+  }
+
   syncStatus.hidden = false;
   syncStatus.textContent = message;
   syncStatus.dataset.status = status;
@@ -2595,8 +2607,6 @@ function renderAdminTurnosCubiertos(): void {
               ${renderAdminTurnoFiltroButton('libres', 'Libres', turnosSinAsignar)}
               ${renderAdminTurnoFiltroButton('parciales', 'Parciales', turnosParciales)}
               ${renderAdminTurnoFiltroButton('completos', 'Completos', turnosCompletos)}
-              ${renderAdminTurnoFiltroButton('con-suplente', 'Con suplente', turnosSuplente)}
-              ${renderAdminTurnoFiltroButton('sin-turno', 'Sin turno', turnosSinTurno)}
             </div>
           </div>
 
