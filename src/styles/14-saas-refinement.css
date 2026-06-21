@@ -393,12 +393,25 @@ body,
 
 .admin-user-filters,
 .admin-turn-filters {
+  display: flex;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
   gap: 6px;
   margin-bottom: 14px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-user-filters::-webkit-scrollbar,
+.admin-turn-filters::-webkit-scrollbar {
+  display: none;
 }
 
 .admin-user-filters button,
 .admin-turn-filters button {
+  flex: 0 0 auto;
+  min-width: max-content;
   min-height: 44px;
   border: 1px solid var(--color-border);
   border-radius: 7px;
@@ -444,14 +457,24 @@ body,
 
   .admin-panel-tabs,
   .user-panel-tabs {
+    display: flex;
     width: 100%;
-    grid-auto-flow: initial;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
 
-  .user-panel-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    border-radius: var(--radius-md);
+  .admin-panel-tabs::-webkit-scrollbar,
+  .user-panel-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-panel-tabs .chip,
+  .user-panel-tabs button {
+    flex: 0 0 auto;
+    min-width: max-content;
   }
 
   .hero-adoracion {
@@ -555,5 +578,23 @@ body,
 
   .admin-catalog-card form {
     grid-template-columns: 1fr;
+  }
+}
+
+/* User catalog mobile refinements */
+@media (max-width: 600px) {
+  .admin-user-catalog form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .admin-user-catalog .button-primary {
+    width: 100%;
+    order: 2;
+  }
+
+  .admin-user-search {
+    order: 1;
   }
 }
