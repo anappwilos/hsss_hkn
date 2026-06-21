@@ -109,6 +109,9 @@ export class StorageDB {
   private static readonly PERFIL_ADORADOR_CACHE_KEY = 'hsss_perfil_adorador_cache';
   private static applyingRemoteState = false;
   private static lastRemoteStateHash: string | null = null;
+  private static localChangeVersion = 0;
+  private static localSyncDirty = false;
+  private static remoteSaveInFlight = false;
   private static remotePollHandle: number | null = null;
   private static syncQueue: Promise<void> = Promise.resolve();
   private static pendingRemoteResources = new Set<RemoteResource>();
@@ -141,6 +144,11 @@ export class StorageDB {
       return false;
     }
 
+    if (StorageDB.hasPendingLocalSync()) {
+      return true;
+    }
+
+    const loadStartedAtVersion = StorageDB.localChangeVersion;
     StorageDB.emitSync('syncing', 'Cargando datos desde PostgreSQL...');
 
     try {
@@ -156,6 +164,10 @@ export class StorageDB {
       const remoteState = StorageDB.normalizeRemoteState(await StorageDB.readJsonResponse(response));
       const remoteStateHash = StorageDB.createRemoteDataHash(remoteState);
       const hasChanged = remoteStateHash !== StorageDB.lastRemoteStateHash;
+
+      if (StorageDB.hasPendingLocalSync(loadStartedAtVersion)) {
+        return true;
+      }
 
       if (hasChanged) {
         StorageDB.applyRemoteState(remoteState);
@@ -208,13 +220,16 @@ export class StorageDB {
       StorageDB.pendingRemoteResources = new Set(['usuarios', 'lotes', 'turnos', 'notificaciones', 'catalogoUsuarios']);
     }
 
+    StorageDB.localChangeVersion += 1;
+    StorageDB.localSyncDirty = true;
     StorageDB.emitSync('syncing', 'Guardando cambios en PostgreSQL...');
     StorageDB.syncQueue = StorageDB.syncQueue
       .catch(() => undefined)
       .then(() => {
         const resources = [...StorageDB.pendingRemoteResources];
+        const saveVersion = StorageDB.localChangeVersion;
         StorageDB.pendingRemoteResources.clear();
-        return StorageDB.saveRemoteResources(resources);
+        return StorageDB.saveRemoteResources(resources, saveVersion);
       });
     void StorageDB.syncQueue.catch(() => undefined);
   }
@@ -266,6 +281,13 @@ export class StorageDB {
 
   private static emitSync(status: SyncStatus, message: string): void {
     StorageDB.syncListeners.forEach((listener) => listener(status, message));
+  }
+
+  private static hasPendingLocalSync(sinceVersion = StorageDB.localChangeVersion): boolean {
+    return StorageDB.remoteSaveInFlight ||
+      StorageDB.localSyncDirty ||
+      StorageDB.pendingRemoteResources.size > 0 ||
+      StorageDB.localChangeVersion !== sinceVersion;
   }
 
   private static readPerfilAdoradorSession(): string | null {
@@ -323,7 +345,7 @@ export class StorageDB {
     }
   }
 
-  private static async saveRemoteResources(resources: RemoteResource[]): Promise<void> {
+  private static async saveRemoteResources(resources: RemoteResource[], saveVersion: number): Promise<void> {
     if (resources.length === 0) {
       return;
     }
@@ -332,15 +354,21 @@ export class StorageDB {
     const uniqueResources = resourceOrder.filter((resource) => resources.includes(resource));
 
     try {
+      StorageDB.remoteSaveInFlight = true;
       for (const resource of uniqueResources) {
         await StorageDB.putRemoteResource(resource);
       }
 
       StorageDB.lastRemoteStateHash = StorageDB.createRemoteDataHash(StorageDB.getRemoteState());
+      if (StorageDB.localChangeVersion === saveVersion && StorageDB.pendingRemoteResources.size === 0) {
+        StorageDB.localSyncDirty = false;
+      }
       StorageDB.emitSync('online', 'Cambios guardados en PostgreSQL.');
     } catch {
       StorageDB.emitSync('offline', 'No se pudieron guardar los cambios. Revisa que el servidor este activo.');
       throw new Error('PostgreSQL sync failed');
+    } finally {
+      StorageDB.remoteSaveInFlight = false;
     }
   }
 
