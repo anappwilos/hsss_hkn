@@ -74,7 +74,7 @@ body,
 .admin-panel-tabs .chip,
 .user-panel-tabs button,
 .chip {
-  min-height: 38px;
+  min-height: 52px;
   border: 0;
   border-radius: 7px;
   padding: 0 14px;
@@ -192,7 +192,7 @@ body,
 .search-box,
 .admin-user-search,
 .admin-turn-search {
-  min-height: 44px;
+  min-height: 56px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: #ffffff;
@@ -285,7 +285,7 @@ body,
 }
 
 .button {
-  min-height: 44px;
+  min-height: 56px;
   border-radius: var(--radius-md);
   padding: 0 16px;
   font-size: 0.9rem;
@@ -399,7 +399,7 @@ body,
 
 .admin-user-filters button,
 .admin-turn-filters button {
-  min-height: 32px;
+  min-height: 44px;
   border: 1px solid var(--color-border);
   border-radius: 7px;
   background: #ffffff;
@@ -439,7 +439,7 @@ body,
 
 @media (max-width: 560px) {
   .screen-content {
-    padding: 18px 14px 42px;
+    padding: 18px 16px 42px;
   }
 
   .admin-panel-tabs,
@@ -533,7 +533,7 @@ body,
 
 .admin-catalog-chip-list span {
   display: inline-flex;
-  min-height: 30px;
+  min-height: 44px;
   align-items: center;
   border: 1px solid var(--color-border);
   border-radius: 999px;

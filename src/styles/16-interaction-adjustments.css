@@ -29,13 +29,13 @@
 }
 
 .hero-adoracion {
-  justify-content: flex-end;
+  justify-content: flex-start;
   background:
     linear-gradient(
       90deg,
-      rgba(122, 169, 182, 0.2) 0%,
-      rgba(161, 204, 215, 0.5) 42%,
-      rgba(33, 160, 183, 0.78) 100%
+      rgba(122, 169, 182, 0.86) 0%,
+      rgba(161, 204, 215, 0.66) 42%,
+      rgba(33, 160, 183, 0.26) 100%
     ),
     url("../assets/a_solas.jpg") center / cover no-repeat;
 }
@@ -47,14 +47,14 @@
 }
 
 .hero-copy {
-  justify-items: end;
+  justify-items: start;
   margin: 0 0 0 auto;
-  text-align: right;
+  text-align: left;
 }
 
 .hero-copy h1,
 .hero-copy p {
-  text-align: right;
+  text-align: left;
 }
 
 .booking-stats[hidden] {

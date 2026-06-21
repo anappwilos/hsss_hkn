@@ -126,9 +126,9 @@ button:disabled {
 }
 
 .screen-content {
-  width: min(100%, 720px);
+  width: min(100%, 1180px);
   margin: 0 auto;
-  padding: 42px 28px 56px;
+  padding: 42px 24px 56px;
 }
 
 .user-content {
