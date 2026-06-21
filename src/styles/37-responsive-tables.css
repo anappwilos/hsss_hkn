@@ -71,6 +71,7 @@
   max-width: 100%;
   margin: 0;
   flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .admin-lotes-view #admin-panel-lotes .admin-lotes-tools {
@@ -119,6 +120,46 @@
   width: fit-content;
   max-width: 100%;
   margin-inline: auto;
+}
+
+.admin-lotes-view #admin-panel-lotes #lote-filtros.chip-row .chip {
+  flex: 0 0 auto;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+.admin-lotes-view #admin-panel-lotes #lote-filtros.chip-row .chip span {
+  flex: 0 0 auto;
+}
+
+.admin-lotes-view .admin-user-avatar {
+  border: 0;
+  color: #ffffff;
+  background: #20b9c8;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.42),
+    0 8px 18px rgba(10, 165, 192, 0.22);
+}
+
+.admin-lotes-view .admin-turn-member i,
+.admin-lotes-view .admin-turn-member-avatar {
+  border: 0;
+  color: #0789a5;
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-lotes-view .admin-turn-member i::before,
+.admin-lotes-view .admin-turn-member-avatar::before {
+  content: "✎";
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.admin-lotes-view .admin-turn-member {
+  min-height: 20px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 7px;
 }
 
 @media (max-width: 900px) {

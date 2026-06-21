@@ -2791,15 +2791,10 @@ function renderAdminTurnoMiembros(turno: Turno, variant: 'compact' | 'detail'): 
     const detalle = usuario
       ? `${formatRol(usuario.rol)} · ${getTurnoAsignacionRepeticion(turno, inscrito)}`
       : 'Perfil no encontrado';
-    const avatarTag = usuario ? 'button' : 'i';
-    const avatarAttributes = usuario
-      ? ` class="admin-turn-member-avatar-button assignment-${tipo}" type="button" data-action="admin-turno-edit-slot" data-id="${turno.id}" data-user-id="${usuario.id}" data-assigned-name="${escapeHtml(inscrito)}" aria-label="Editar plaza cubierta de ${escapeHtml(inscrito)}"`
-      : ` class="admin-turn-member-avatar assignment-${tipo}" aria-hidden="true"`;
-
     return `
       <span>
         <span class="admin-turn-member assignment-${tipo} ${usuario ? '' : 'is-missing'}">
-          <${avatarTag}${avatarAttributes}>${escapeHtml(iniciales)}</${avatarTag}>
+          <i class="admin-turn-member-avatar assignment-${tipo}" aria-hidden="true">${escapeHtml(iniciales)}</i>
           <b>${escapeHtml(inscrito)}</b>
           ${variant === 'detail' ? `<small>${escapeHtml(detalle)}</small>` : ''}
         </span>

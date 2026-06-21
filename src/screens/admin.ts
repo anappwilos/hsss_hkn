@@ -29,7 +29,7 @@ export function renderAdminView({ solaLetterUrl }: AdminViewAssets): string {
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
           <div class="admin-lotes-panel-head">
             <div id="lote-filtros" class="chip-row" aria-label="Filtros de lotes">
-              <button class="chip is-active" type="button" data-filter="todos"><span aria-hidden="true">◎</span>Todos</button>
+              <button class="chip is-active" type="button" data-filter="todos"><span aria-hidden="true">●</span>Todos</button>
               <button class="chip" type="button" data-filter="activo"><span aria-hidden="true">▷</span>Activos</button>
               <button class="chip" type="button" data-filter="programado"><span aria-hidden="true">◷</span>Programados</button>
               <button class="chip" type="button" data-filter="finalizado"><span aria-hidden="true">✓</span>Finalizados</button>
