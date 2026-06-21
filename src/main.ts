@@ -3692,15 +3692,15 @@ function renderLotes(): void {
 
   lotesLista.innerHTML = filtrados.map((lote) => `
     <article class="lote-card lote-card--${lote.estado}">
-      <div class="lote-date-mark" aria-hidden="true">◫</div>
+      <div class="lote-date-mark" aria-hidden="true">📆</div>
       <div class="lote-main">
         <h2>${escapeHtml(lote.nombre)}</h2>
         <div class="lote-meta-row">
-          <p class="lote-meta"><span aria-hidden="true">◫</span>${escapeHtml(formatFecha(lote.fechaInicio))} - ${escapeHtml(formatFecha(lote.fechaFin))}</p>
-          <p class="lote-meta"><span aria-hidden="true">◷</span>${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</p>
+          <p class="lote-meta"><span aria-hidden="true"></span>${escapeHtml(formatFecha(lote.fechaInicio))} - ${escapeHtml(formatFecha(lote.fechaFin))}</p>
+          <p class="lote-meta"><span aria-hidden="true">🕛</span>${escapeHtml(lote.horaInicio)} - ${escapeHtml(lote.horaFin)}</p>
         </div>
         <div class="lote-stat-row">
-          <span class="lote-stat"><span aria-hidden="true">◫</span>${formatPlural(daysBetween(parseFecha(lote.fechaInicio), parseFecha(lote.fechaFin)) + 1, 'dia', 'dias')}</span>
+          <span class="lote-stat"><span aria-hidden="true">🗒️</span>${formatPlural(daysBetween(parseFecha(lote.fechaInicio), parseFecha(lote.fechaFin)) + 1, 'dia', 'dias')}</span>
           ${(lote.interrupciones?.length ?? 0) > 0 ? `<span class="lote-stat"><span aria-hidden="true">⌁</span>${formatPlural(lote.interrupciones.length, 'interrupcion', 'interrupciones')}</span>` : ''}
           <span class="lote-stat"><span aria-hidden="true">♙</span>${formatPlural(turnos.filter((turno) => turno.loteId === lote.id).length, 'turno', 'turnos')}</span>
         </div>
