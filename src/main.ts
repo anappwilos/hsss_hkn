@@ -2,6 +2,9 @@ import './style.css';
 import logoUrl from './assets/logo_t.png';
 import solaLetterUrl from './assets/sola_letter_t.png';
 import adoracionHeroUrl from './assets/a_solas.jpg';
+import { renderCountChip } from './components/chips';
+import { renderConfirmationModalContent } from './components/confirmationModal';
+import { escapeHtml } from './components/html';
 import { paginateAdminUsers, renderAdminUserChip, renderAdminUsersPagination } from './components/adminUsers';
 import { NotificationService, type AppNotification } from './notifications';
 import { renderAppShell } from './screens/appShell';
@@ -878,15 +881,6 @@ function minutesToTime(totalMinutes: number): string {
   const hours = Math.floor(normalized / 60);
   const minutes = normalized % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
 }
 
 function formatFecha(value: string): string {
@@ -2340,20 +2334,7 @@ function eliminarAdminUsuario(id: string | null): void {
 }
 
 function abrirConfirmacion(options: { titulo: string; mensaje: string; confirmarTexto: string; onConfirm: () => void }): void {
-  modalConfirmacionCard.innerHTML = `
-    <header class="modal-header">
-      <div>
-        <p class="modal-kicker">Confirmacion</p>
-        <h2>${escapeHtml(options.titulo)}</h2>
-        <p>${escapeHtml(options.mensaje)}</p>
-      </div>
-      <button class="icon-only modal-close" type="button" data-action="confirmacion-close" aria-label="Cerrar">×</button>
-    </header>
-    <footer class="modal-actions">
-      <button class="button button-secondary" type="button" data-action="confirmacion-close">Cancelar</button>
-      <button class="button button-danger" type="button" data-action="confirmacion-accept">${escapeHtml(options.confirmarTexto)}</button>
-    </footer>
-  `;
+  modalConfirmacionCard.innerHTML = renderConfirmationModalContent(options);
   modalConfirmacion.dataset.pendingAction = 'usuario-delete';
   pendingConfirmation = options.onConfirm;
   modalConfirmacion.showModal();
@@ -3705,12 +3686,14 @@ function compareLotesPorCercania(a: LoteExposicion, b: LoteExposicion): number {
 }
 
 function renderLoteFiltroButton(filter: FiltroLote, label: string, count: number): string {
-  return `
-    <button class="chip ${filtroLote === filter ? 'is-active' : ''}" type="button" data-filter="${filter}">
-      ${escapeHtml(label)}
-      <span>${count}</span>
-    </button>
-  `;
+  return renderCountChip({
+    active: filtroLote === filter,
+    attribute: 'data-filter',
+    value: filter,
+    label,
+    count,
+    className: 'chip'
+  });
 }
 
 function abrirTurnosAsignadosDeLote(lote: LoteExposicion): void {

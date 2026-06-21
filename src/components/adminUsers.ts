@@ -1,3 +1,5 @@
+import { renderCountChip } from './chips';
+
 export type AdminUserChipOptions = {
   active: boolean;
   attribute: 'data-admin-user-filter' | 'data-admin-user-source';
@@ -24,15 +26,6 @@ export type AdminUsersPaginationOptions = {
   totalVisible: number;
 };
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
 export function paginateAdminUsers<T>(items: T[], requestedPage: number, pageSize: number): AdminUsersPage<T> {
   // Centraliza los limites de paginacion para que filtros y busquedas no dejen paginas fuera de rango.
   const totalResults = items.length;
@@ -53,12 +46,7 @@ export function paginateAdminUsers<T>(items: T[], requestedPage: number, pageSiz
 
 export function renderAdminUserChip({ active, attribute, value, label, count }: AdminUserChipOptions): string {
   // Componente minimo para los chips del panel; recibe datos ya calculados por la pantalla.
-  return `
-    <button class="${active ? 'is-active' : ''}" type="button" ${attribute}="${escapeHtml(value)}">
-      ${escapeHtml(label)}
-      <span>${count}</span>
-    </button>
-  `;
+  return renderCountChip({ active, attribute, value, label, count });
 }
 
 export function renderAdminUsersPagination(options: AdminUsersPaginationOptions): string {
