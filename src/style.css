@@ -658,6 +658,13 @@ button:disabled {
   text-align: center;
 }
 
+.welcome-wordmark {
+  width: min(100%, 560px);
+  max-height: 170px;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 36px rgba(5, 45, 56, 0.16));
+}
+
 .welcome-eyebrow {
   display: inline-flex;
   min-height: 32px;
@@ -804,15 +811,30 @@ button:disabled {
   pointer-events: none;
 }
 
-.admin-login-view .mobile-topbar,
-.registro-view .mobile-topbar {
+.admin-login-view .auth-topbar,
+.registro-view .auth-topbar {
   position: relative;
   z-index: 2;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  padding: 18px 28px;
   background: transparent;
 }
 
-.admin-login-view .brand-button {
-  opacity: 0.88;
+.auth-topbar .back-button {
+  justify-self: start;
+  opacity: 0.92;
+}
+
+.auth-topbar .auth-wordmark {
+  width: min(100%, 300px);
+  max-height: 54px;
+  justify-self: center;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 24px rgba(6, 69, 82, 0.16));
 }
 
 .admin-login-card {
@@ -1146,17 +1168,6 @@ button:disabled {
 
 .field-error:empty {
   display: none;
-}
-
-.registro-topbar {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 48px;
-}
-
-.registro-topbar h1 {
-  color: #ffffff;
-  font-size: clamp(1.55rem, 5vw, 2rem);
-  font-weight: 900;
 }
 
 .registro-form {
@@ -4712,14 +4723,9 @@ button:disabled {
     background-position: 66% center;
   }
 
-  .welcome-mark {
-    width: 104px;
-    height: 104px;
-  }
-
-  .welcome-mark svg {
-    width: 68px;
-    height: 68px;
+  .welcome-wordmark {
+    width: min(100%, 420px);
+    max-height: 132px;
   }
 
   .landing-actions {
@@ -4744,12 +4750,18 @@ button:disabled {
   }
 
   .mobile-topbar,
-  .user-topbar {
+  .user-topbar,
+  .auth-topbar {
     background: rgba(161, 204, 215, 0.74);
   }
 
   .mobile-topbar {
     padding: 16px 22px;
+  }
+
+  .auth-topbar {
+    min-height: 64px;
+    padding: 14px 18px;
   }
 
   .user-topbar {
@@ -4771,6 +4783,11 @@ button:disabled {
   .user-topbar .brand-button {
     gap: 6px;
     font-size: clamp(1.1rem, 6vw, 1.55rem);
+  }
+
+  .auth-topbar .auth-wordmark {
+    width: min(100%, 220px);
+    max-height: 44px;
   }
 
   .user-title-mark {

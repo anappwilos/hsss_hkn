@@ -1,5 +1,6 @@
 import './style.css';
 import logoUrl from './assets/logo_t.png';
+import solaLetterUrl from './assets/sola_letter_t.png';
 import adoracionHeroUrl from './assets/a_solas.jpg';
 import { NotificationService, type AppNotification } from './notifications';
 import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type TurnoAsignacionTipo, type Usuario, type UsuarioFrecuencia, type UsuarioRol } from './storage';
@@ -138,7 +139,9 @@ app.innerHTML = `
       <button class="landing-sound-button" type="button" data-action="toggle-landing-sound" aria-label="Activar sonido del video" aria-pressed="false" hidden>Sonido</button>
       <div class="welcome-screen">
         <header class="welcome-copy">
-          <h1>A Solas</h1>
+          <h1 class="sr-only">A Solas</h1>
+          <img src="${solaLetterUrl}" alt="A Solas" class="welcome-wordmark" />
+          <p>Adoraci&oacute;n organizada, turnos claros y horas sin exposici&oacute;n en un solo lugar.</p>
         </header>
 
         <div class="landing-actions">
@@ -156,17 +159,17 @@ app.innerHTML = `
       <video class="auth-bg-video optional-bg-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
         <source src="/landing-video.mp4" type="video/mp4" />
       </video>
-      <header class="">
-        <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
-        <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-        </button>
+      <header class="auth-topbar">
+        <button class="icon-only back-button auth-back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+        <img src="${solaLetterUrl}" alt="A Solas" class="auth-wordmark" />
+        <span aria-hidden="true"></span>
       </header>
 
       <form id="form-admin-login" class="admin-login-card" novalidate>
         <section class="auth-welcome" aria-label="Inicio de sesion">
-          <div class="auth-logo-wrap" aria-hidden="true">
+         <!-- <div class="auth-logo-wrap" aria-hidden="true">
             <img src="${logoUrl}" alt="Logo A Solas" class="auth-logo" />
-          </div>
+          </div>-->
             <h1>Iniciar sesion</h1>
         </section>
 
@@ -317,17 +320,18 @@ app.innerHTML = `
       <video class="auth-bg-video optional-bg-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
         <source src="/landing-video.mp4" type="video/mp4" />
       </video>
-      <header class=" registro-topbar">
-        <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+      <header class="auth-topbar registro-topbar">
+        <button class="icon-only back-button auth-back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+        <img src="${solaLetterUrl}" alt="A Solas" class="auth-wordmark" />
         <span aria-hidden="true"></span>
       </header>
 
       <form id="form-registro-adorador" class="registro-form" novalidate>
         <div class="registro-shell">
           <section class="auth-welcome registro-welcome" aria-label="Crear cuenta">
-            <div class="auth-logo-wrap" aria-hidden="true">
+            <!--<div class="auth-logo-wrap" aria-hidden="true">
               <img src="${logoUrl}" alt="Logo A Solas" class="auth-logo" />
-            </div>
+            </div> -->
             <h1>Crea tu cuenta</h1>
           </section>
 
