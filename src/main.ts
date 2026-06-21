@@ -67,7 +67,7 @@ const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase(
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
 const SUPERADMIN_EMAIL = (import.meta.env.VITE_SUPERADMIN_EMAIL ?? 'root@root.com').trim().toLowerCase();
 const SUPERADMIN_PASSWORD = import.meta.env.VITE_SUPERADMIN_PASSWORD ?? 'root';
-const APP_VERSION = '0.6.0';
+export const APP_VERSION = '0.6.0';
 
 if (!app) {
   throw new Error('No se encontro el contenedor #app');
@@ -132,49 +132,51 @@ const historialVistas: Vista[] = [];
 
 app.innerHTML = `
   <main class="app-shell">
-    <section id="vista-inicio" class="view welcome-view" style="--landing-bg: url('${adoracionHeroUrl}')">
-      <video id="landing-video" class="welcome-video optional-bg-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
-        <source src="/landing-video.mp4" type="video/mp4" />
-      </video>
-      <button class="landing-sound-button" type="button" data-action="toggle-landing-sound" aria-label="Activar sonido del video" aria-pressed="false" hidden>Sonido</button>
+    <section id="vista-inicio" class="view welcome-view">
       <div class="welcome-screen">
-        <header class="welcome-copy">
-          <h1 class="sr-only">A Solas</h1>
-          <img src="${solaLetterUrl}" alt="A Solas" class="welcome-wordmark" />
-          <p>Adoraci&oacute;n organizada, turnos claros y horas sin exposici&oacute;n en un solo lugar.</p>
+        <header class="welcome-header">
+          <img src="${logoUrl}" alt="A Solas" class="welcome-logo" />
+          <h1 class="welcome-title">A SOLAS</h1>
+          <p class="welcome-subtitle">Capilla de Adoración Permanente</p>
         </header>
 
-        <div class="landing-actions">
-          <button class="button button-primary landing-primary" type="button" data-view="admin-login">Iniciar sesion <span aria-hidden="true"></span></button>
-          <button class="button button-secondary landing-secondary" type="button" data-view="registro-adorador">Crear cuenta</button>
+        <div class="welcome-actions landing-actions">
+          <button class="button button-primary" type="button" data-view="admin-login">Iniciar sesión</button>
+          <button class="button button-secondary" type="button" data-view="registro-adorador">Crear cuenta</button>
         </div>
 
         <footer class="welcome-footer">
-          <strong class="app-version">v${APP_VERSION}</strong>
+          <p>“Venid a mí todos los que estáis cansados y agobiados, y yo os aliviaré”</p>
         </footer>
       </div>
     </section>
 
-    <section id="vista-admin-login" class="view admin-login-view" style="--landing-bg: url('${adoracionHeroUrl}'); display: none;">
-      <video class="auth-bg-video optional-bg-video" autoplay muted loop playsinline preload="auto" poster="${adoracionHeroUrl}" aria-hidden="true">
-        <source src="/landing-video.mp4" type="video/mp4" />
-      </video>
-      <header class="auth-topbar">
-        <button class="icon-only back-button auth-back-button" type="button" data-view="inicio" aria-label="Volver">
-          <span aria-hidden="true">‹</span>
-          <span>Volver</span>
-        </button>
-        <img src="${solaLetterUrl}" alt="A Solas" class="auth-wordmark" />
-        <span aria-hidden="true"></span>
-      </header>
+    <section id="vista-admin-login" class="view auth-view" style="display: none;">
+      <div class="auth-container">
+        <header class="auth-header">
+          <img src="${logoUrl}" alt="A Solas" class="auth-logo" />
+          <h1>Bienvenido</h1>
+          <p>Gestiona tus turnos de adoración de forma sencilla.</p>
+        </header>
 
-      <form id="form-admin-login" class="admin-login-card" novalidate>
-        <section class="auth-welcome" aria-label="Inicio de sesion">
-         <!-- <div class="auth-logo-wrap" aria-hidden="true">
-            <img src="${logoUrl}" alt="Logo A Solas" class="auth-logo" />
-          </div>-->
-            <h1>Iniciar sesion</h1>
-        </section>
+        <form id="form-admin-login" class="auth-form card">
+          <div class="auth-field">
+            <label for="admin-email">Correo electrónico</label>
+            <input id="admin-email" type="email" autocomplete="email" placeholder="tu@email.com" required />
+          </div>
+          <div class="auth-field">
+            <label for="admin-password">Contraseña</label>
+            <input id="admin-password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+          </div>
+
+          <button type="submit" class="button button-primary w-full">Entrar</button>
+
+          <div class="auth-footer">
+            <p>¿No tienes cuenta? <button type="button" data-view="registro-adorador" class="text-link">Regístrate</button></p>
+          </div>
+        </form>
+      </div>
+    </section>
 
         <section class="auth-form-panel" aria-label="Credenciales de acceso">
           <label class="auth-field auth-icon-field auth-icon-email" data-field="admin-email">
@@ -211,22 +213,27 @@ app.innerHTML = `
 
     <section id="vista-admin" class="view admin-lotes-view" style="display: none;">
       <header class="mobile-topbar">
-        <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span>A SOLAS</span>
-        </button>
-        <button class="topbar-text-button admin-logout-button" type="button" data-action="admin-logout">
-          <span aria-hidden="true">↪</span>
-          <span>Salir</span>
-        </button>
+        <h1 class="brand-title">A Solas Admin</h1>
       </header>
 
       <div class="screen-content">
-
-        <nav id="admin-panel-tabs" class="admin-panel-tabs" aria-label="Secciones de administracion">
-          <button class="chip" type="button" data-admin-panel="lotes"><span aria-hidden="true">▧</span>Lotes</button>
-          <button class="chip" type="button" data-admin-panel="usuarios"><span aria-hidden="true">♙</span>Usuarios</button>
-          <button class="chip" type="button" data-admin-panel="catalogos"><span aria-hidden="true">▣</span>Catalogos</button>
-          <button class="chip is-active" type="button" data-admin-panel="turnos"><span aria-hidden="true">◫</span>Turnos asignados</button>
+        <nav id="admin-panel-tabs" class="admin-tabs mobile-nav" aria-label="Secciones de administración">
+          <button class="nav-item is-active" type="button" data-admin-panel="lotes">
+            <span>◫</span>
+            <span>Lotes</span>
+          </button>
+          <button class="nav-item" type="button" data-admin-panel="turnos">
+            <span>🕒</span>
+            <span>Turnos</span>
+          </button>
+          <button class="nav-item" type="button" data-admin-panel="usuarios">
+            <span>👥</span>
+            <span>Usuarios</span>
+          </button>
+          <button class="nav-item" type="button" data-admin-panel="catalogos">
+            <span>⚙️</span>
+            <span>Ajustes</span>
+          </button>
         </nav>
 
         <section id="admin-panel-lotes" class="admin-panel-section" aria-label="Panel de lotes">
@@ -270,29 +277,23 @@ app.innerHTML = `
     </section>
 
     <section id="vista-usuario" class="view user-view" style="display: none;">
-      <header class="mobile-topbar user-topbar">
-        <div class="user-topbar-left">
-        </div>
-        <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <span>A solas</span> 
-        </button>
-        <button id="btn-perfil-usuario" class="avatar-button profile-avatar-button" type="button" aria-label="Abrir mi perfil">
-          <span class="avatar" aria-hidden="true">A</span>
+      <header class="mobile-topbar">
+        <h1 class="brand-title">A Solas</h1>
+        <button id="btn-perfil-usuario" class="avatar-button" type="button" aria-label="Perfil">
+          <span class="avatar">A</span>
         </button>
       </header>
 
-      <div class="screen-content user-content">
-        <section class="adorador-heading" aria-labelledby="adorador-heading-title">
-        </section>
-        <section class="hero-adoracion" aria-label="Invitacion a la adoracion">
-          <div class="hero-copy">
-            <h1>Velar una hora juntos</h1>
-            <p>&ldquo;&iquest;No hab&eacute;is podido velar una hora conmigo?&rdquo;</p>
-          </div>
-        </section>
-        <nav id="usuario-panel-tabs" class="user-panel-tabs" aria-label="Secciones del adorador">
-          <button class="is-active" type="button" data-user-panel="disponibles">Turnos disponibles</button>
-          <button type="button" data-user-panel="asignados">Turnos asignados</button>
+      <div class="screen-content">
+        <nav id="usuario-panel-tabs" class="user-tabs mobile-nav" aria-label="Secciones">
+          <button class="nav-item is-active" type="button" data-user-panel="disponibles">
+            <span>🔍</span>
+            <span>Buscar</span>
+          </button>
+          <button class="nav-item" type="button" data-user-panel="asignados">
+            <span>✅</span>
+            <span>Mis Turnos</span>
+          </button>
         </nav>
 
 
@@ -2600,7 +2601,7 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
 
   return `
     <tr class="${selectedId === usuario.id ? 'is-selected' : ''}">
-      <td>
+      <td data-label="Nombre">
         <div class="admin-user-cell">
           <span class="admin-user-avatar">${escapeHtml(getInicialesUsuario(usuario))}</span>
           <div>
@@ -2611,19 +2612,19 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
           </div>
         </div>
       </td>
-      <td>
+      <td data-label="Frecuencia">
         ${frecuenciaCell}
       </td>
-      <td><span class="admin-role-chip">${escapeHtml(formatRol(usuario.rol))}</span></td>
-      <td>
+      <td data-label="Rol"><span class="admin-role-chip">${escapeHtml(formatRol(usuario.rol))}</span></td>
+      <td data-label="Contacto">
         <small>${escapeHtml(maskEmail(usuario.email))}</small>
         <small>${escapeHtml(maskPhone(usuario.telefono))}</small>
       </td>
-      <td>
+      <td data-label="Acciones">
         <div class="admin-row-actions">
-          <button type="button" data-action="admin-user-edit" data-id="${usuario.id}" aria-label="Editar usuario ${escapeHtml(usuario.nombreCompleto)}">✎</button>
-          <button type="button" data-action="admin-user-focus" data-id="${usuario.id}" aria-label="Ver usuario ${escapeHtml(usuario.nombreCompleto)}">◉</button>
-          ${canDelete ? `<button type="button" data-action="admin-user-delete" data-id="${usuario.id}" aria-label="Eliminar usuario ${escapeHtml(usuario.nombreCompleto)}">×</button>` : ''}
+          <button type="button" class="icon-button" data-action="admin-user-edit" data-id="${usuario.id}" title="Editar">✎</button>
+          <button type="button" class="icon-button" data-action="admin-user-focus" data-id="${usuario.id}" title="Ver">◉</button>
+          ${canDelete ? `<button type="button" class="icon-button danger" data-action="admin-user-delete" data-id="${usuario.id}" title="Eliminar">×</button>` : ''}
         </div>
       </td>
     </tr>
@@ -3215,9 +3216,6 @@ function renderAdminTurnosCubiertos(): void {
   const turnosSuplente = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'suplente').length;
   const turnosParciales = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'parcial').length;
   const turnosCompletos = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'asignado').length;
-  const turnosTotalPeriodo = turnosPeriodo.length;
-  const turnosCubiertos = turnosTotalPeriodo - turnosSinAsignar;
-  const cobertura = turnosTotalPeriodo > 0 ? Math.round((turnosCubiertos / turnosTotalPeriodo) * 100) : 0;
   const periodoPast = periodoAgotado || isAdminPeriodoPast();
 
   if (adminTurnoSeleccionadoId !== ADMIN_TURNO_DETAIL_CLOSED && adminTurnoSeleccionadoId && !turnosFiltrados.some((turno) => turno.id === adminTurnoSeleccionadoId)) {
@@ -3231,60 +3229,49 @@ function renderAdminTurnosCubiertos(): void {
   const fechasPeriodo = diasPeriodo.map(parseFecha);
   const franjasPeriodo = Array.from(new Set(turnosPeriodo.map((turno) => `${turno.horaInicio}|${turno.horaFin}`)))
     .toSorted((a, b) => a.localeCompare(b));
-  const turnosSinTurno = Math.max(0, fechasPeriodo.length * franjasPeriodo.length - turnosPeriodo.length);
 
   adminTurnosCubiertos.innerHTML = `
     <div class="admin-turns-dashboard">
-      <div class="admin-turns-controls" aria-label="Controles de turnos asignados">
-        <div class="view-toggle admin-view-toggle" role="group" aria-label="Cambiar vista de administracion">
-          <button class="${adminVistaTurnos === 'diaria' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="diaria" aria-pressed="${adminVistaTurnos === 'diaria'}">D&iacute;a</button>
-          <button class="${adminVistaTurnos === 'semanal' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="semanal" aria-pressed="${adminVistaTurnos === 'semanal'}">Semana</button>
+      <header class="admin-turns-header">
+        <div class="admin-turns-nav">
+          <div class="view-toggle admin-view-toggle">
+            <button class="${adminVistaTurnos === 'diaria' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="diaria">D&iacute;a</button>
+            <button class="${adminVistaTurnos === 'semanal' ? 'is-active' : ''}" type="button" data-action="admin-vista-turnos" data-mode="semanal">Semana</button>
+          </div>
+          <button class="today-chip" type="button" data-action="admin-period-today">${escapeHtml(formatAdminHoyCorto())}</button>
         </div>
 
-        <div class="admin-turns-search-actions">
-          <label class="admin-turn-search">
-            <span aria-hidden="true">⌕</span>
+        <div class="admin-turns-search-row">
+          <div class="search-box">
+            <span class="search-icon">⌕</span>
             <input id="admin-turnos-buscar" type="search" value="${escapeHtml(adminTurnosBusqueda)}" placeholder="Buscar adorador..." autocomplete="off" />
-          </label>
-          <button class="admin-turn-today-button" type="button" data-action="admin-period-today">${escapeHtml(formatAdminHoyCorto())}</button>
-        </div>
-
-        <div class="admin-turns-period-controls" aria-label="Vista de turnos">
-          <div class="week-actions admin-period-actions" aria-label="Navegacion del periodo">
-            <button class="icon-round" type="button" data-action="admin-period-prev" aria-label="Periodo anterior">‹</button>
-            <div class="admin-week-picker ${periodoPast ? 'is-past' : ''}" aria-label="Periodo visible">${escapeHtml(formatAdminPeriodoTurnos())}</div>
-            <button class="icon-round" type="button" data-action="admin-period-next" aria-label="Periodo siguiente">›</button>
           </div>
         </div>
-      </div>
 
-      <div class="admin-turns-layout">
-        <section class="admin-turns-main">
-   
-          <div class="admin-turns-tools">
-            <div class="admin-turn-filters" aria-label="Filtros de turnos">
-              ${renderAdminTurnoFiltroButton('todos', 'Total', turnosPeriodo.length, {
-                coverage: cobertura,
-                tooltip: `Cobertura: ${cobertura}%`,
-                className: 'admin-turn-filter-total'
-              })}
-              ${renderAdminTurnoFiltroButton('libres', 'Libres', turnosSinAsignar)}
-              ${renderAdminTurnoFiltroButton('parciales', 'Parciales', turnosParciales)}
-              ${renderAdminTurnoFiltroButton('completos', 'Completos', turnosCompletos)}
-              ${renderAdminTurnoFiltroButton('con-suplente', 'Con suplente', turnosSuplente)}
-              ${renderAdminTurnoFiltroButton('sin-turno', 'Sin turno', turnosSinTurno)}
-            </div>
-          </div>
+        <div class="admin-period-nav">
+          <button class="nav-arrow" type="button" data-action="admin-period-prev" aria-label="Anterior">‹</button>
+          <div class="period-label ${periodoPast ? 'is-past' : ''}">${escapeHtml(formatAdminPeriodoTurnos())}</div>
+          <button class="nav-arrow" type="button" data-action="admin-period-next" aria-label="Siguiente">›</button>
+        </div>
+      </header>
 
-          <div class="admin-turns-card ${periodoPast ? 'is-past' : ''}">
-            ${turnosPeriodo.length > 0
-              ? `<div class="admin-assignment-scroll ${periodoPast ? 'is-past' : ''}">${renderAdminTurnosCalendario(fechasPeriodo, franjasPeriodo, turnosFiltrados)}</div>`
-              : `<div class="empty-card compact"><p>No hay turnos</p></div>`
-            }
-          </div>
-        </section>
+      <div class="admin-turns-content">
+        <div class="admin-turn-filters">
+          ${renderAdminTurnoFiltroButton('todos', 'Total', turnosPeriodo.length)}
+          ${renderAdminTurnoFiltroButton('libres', 'Libres', turnosSinAsignar)}
+          ${renderAdminTurnoFiltroButton('parciales', 'Parciales', turnosParciales)}
+          ${renderAdminTurnoFiltroButton('completos', 'Completos', turnosCompletos)}
+          ${renderAdminTurnoFiltroButton('con-suplente', 'Suplente', turnosSuplente)}
+        </div>
 
-        <aside class="admin-turn-detail-panel" aria-label="Detalle del turno">
+        <div class="admin-turns-grid-container ${periodoPast ? 'is-past' : ''}">
+          ${turnosPeriodo.length > 0
+            ? `<div class="admin-calendar-wrapper">${renderAdminTurnosCalendario(fechasPeriodo, franjasPeriodo, turnosFiltrados)}</div>`
+            : `<div class="empty-state"><p>No hay turnos programados</p></div>`
+          }
+        </div>
+
+        <aside class="admin-turn-detail-drawer">
           ${renderAdminTurnoDetail(selectedTurno)}
         </aside>
       </div>
