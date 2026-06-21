@@ -75,7 +75,10 @@
   }
 
   .admin-lotes-view .admin-panel-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
     gap: 8px;
     margin-bottom: 18px;
   }
@@ -239,7 +242,7 @@
 
 @media (max-width: 420px) {
   .admin-lotes-view .admin-panel-tabs {
-    grid-template-columns: 1fr;
+    display: flex;
   }
 
   .admin-lotes-view .admin-turns-metrics {

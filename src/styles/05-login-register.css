@@ -35,11 +35,11 @@
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
   min-height: 74px;
-  padding: 18px 28px;
+  padding: clamp(12px, 3vw, 18px) clamp(16px, 4vw, 28px);
   background: transparent;
 }
 
@@ -80,7 +80,7 @@
   width: min(100%, 680px);
   gap: 34px;
   margin: 0 auto;
-  padding: 58px 28px 110px;
+  padding: clamp(24px, 5vh, 58px) 18px 80px;
 }
 
 .auth-welcome {
@@ -153,7 +153,7 @@
   gap: 20px;
   border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 22px;
-  padding: clamp(24px, 5vw, 42px);
+  padding: clamp(16px, 4vw, 32px);
   background: rgba(244, 251, 253, 0.82);
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(16px);

@@ -366,3 +366,24 @@
     min-width: max(100%, calc(48px + var(--calendar-days) * 92px));
   }
 }
+
+/* Additional scrolling refinements */
+.admin-assignment-scroll,
+.user-view .slot-list,
+.admin-users-table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) transparent;
+}
+
+.admin-assignment-scroll::-webkit-scrollbar,
+.user-view .slot-list::-webkit-scrollbar,
+.admin-users-table-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+
+.admin-assignment-scroll::-webkit-scrollbar-thumb,
+.user-view .slot-list::-webkit-scrollbar-thumb,
+.admin-users-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 10px;
+}
