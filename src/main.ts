@@ -1814,10 +1814,6 @@ function syncRegistroFrecuencias(): void {
   }
 }
 
-function getTurnosUsuario(usuario: Usuario): Turno[] {
-  return getTurnosOrdenados().filter((turno) => estaInscrito(turno, usuario.nombreCompleto));
-}
-
 function matchesAdminUsuarioFiltro(usuario: Usuario): boolean {
   if (adminUsuariosFiltro === 'todos') {
     return true;
@@ -1994,19 +1990,13 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
 
 function renderAdminUsuarioModal(usuario: Usuario): string {
   const isNew = !StorageDB.getUsuarios().some((item) => item.id === usuario.id);
-  const turnosAsignados = isNew ? [] : getTurnosUsuario(usuario);
   const rolesEditables = getRolesEditables(usuario);
   const mostrarFrecuencia = rolTieneFrecuencia(usuario.rol);
   const readOnlyEnv = esUsuarioEnv(usuario);
   const disabledEnv = readOnlyEnv ? 'disabled' : '';
   const saveLabel = isNew ? 'Crear usuario' : 'Guardar cambios';
-  const title = isNew ? '' : usuario.nombreCompleto;
   const kicker = readOnlyEnv ? 'Usuario del sistema' : isNew ? 'Crear usuario' : 'Editar usuario';
-  const subtitle = readOnlyEnv
-    ? 'Este perfil viene definido desde backend/.env.'
-    : isNew
-      ? ''
-      : '';
+
 
   return `
       <header class="modal-header admin-user-modal-head">
@@ -2548,7 +2538,6 @@ function renderAdminTurnosCubiertos(): void {
 
   const turnosFiltrados = turnosPeriodo.filter((turno) => matchesAdminTurnoFiltro(turno) && matchesAdminTurnoBusqueda(turno));
   const turnosSinAsignar = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'sin-asignar').length;
-  const turnosSuplente = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'suplente').length;
   const turnosParciales = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'parcial').length;
   const turnosCompletos = turnosPeriodo.filter((turno) => getAdminTurnoEstado(turno) === 'asignado').length;
   const turnosTotalPeriodo = turnosPeriodo.length;
@@ -2567,7 +2556,6 @@ function renderAdminTurnosCubiertos(): void {
   const fechasPeriodo = diasPeriodo.map(parseFecha);
   const franjasPeriodo = Array.from(new Set(turnosPeriodo.map((turno) => `${turno.horaInicio}|${turno.horaFin}`)))
     .toSorted((a, b) => a.localeCompare(b));
-  const turnosSinTurno = Math.max(0, fechasPeriodo.length * franjasPeriodo.length - turnosPeriodo.length);
 
   adminTurnosCubiertos.innerHTML = `
     <div class="admin-turns-dashboard">
