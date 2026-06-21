@@ -1,7 +1,7 @@
 import './style.css';
 import logoUrl from './assets/logo_t.png';
 import solaLetterUrl from './assets/sola_letter_t.png';
-import adoracionHeroUrl from './assets/a_solas.jpg';
+import adoracionHeroUrl from './assets/an_solas.jpg';
 import { renderCountChip } from './components/chips';
 import { renderConfirmationModalContent } from './components/confirmationModal';
 import { escapeHtml } from './components/html';

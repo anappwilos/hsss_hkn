@@ -19,7 +19,7 @@
       rgba(161, 204, 215, 0.66) 48%,
       rgba(219, 234, 240, 0.26) 100%
     ),
-    url("../assets/a_solas.jpg") center / cover no-repeat;
+    url("../assets/an_solas.jpg") center / cover no-repeat;
   box-shadow: var(--shadow-md);
 }
 
