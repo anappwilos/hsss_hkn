@@ -11,7 +11,6 @@ export function renderConfigurationView(diasSemana: WeekdayOption[]): string {
         <header class="modal-header config-modal-header">
           <div>
             <p class="modal-kicker">Lotes</p>
-            <h2>Configurar lote de turnos</h2>
           </div>
           <button class="icon-only modal-close" type="button" data-view="admin" aria-label="Cerrar">×</button>
         </header>
@@ -24,6 +23,7 @@ export function renderConfigurationView(diasSemana: WeekdayOption[]): string {
 
         <div class="config-layout">
           <section class="config-main-panel">
+            <br>
             <label class="field">
               <span>Nombre del lote</span>
               <input id="lote-nombre" type="text" placeholder="Ej. Semana Santa 2026" required />

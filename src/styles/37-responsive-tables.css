@@ -29,6 +29,35 @@
   white-space: nowrap;
 }
 
+.admin-sort-header {
+  display: inline-flex;
+  width: 100%;
+  min-height: 32px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 8px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-sort-header:hover,
+.admin-sort-header.is-active {
+  color: #0789a5;
+  background: rgba(221, 247, 251, 0.72);
+}
+
+.admin-sort-header i {
+  color: currentColor;
+  font-style: normal;
+  opacity: 0.72;
+}
+
 .admin-lotes-view #admin-panel-lotes .admin-lotes-panel-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -9,7 +9,7 @@ import { paginateAdminUsers, renderAdminUserChip, renderAdminUsersPagination } f
 import { NotificationService, type AppNotification } from './notifications';
 import { renderAppShell } from './screens/appShell';
 import { StorageDB, type InterrupcionLote, type LoteEstado, type LoteExposicion, type PerfilAdorador, type SyncStatus, type Turno, type TurnoAsignacionTipo, type Usuario, type UsuarioFrecuencia, type UsuarioRol } from './storage';
-import type { AdminAsignacionModo, AdminPanel, AdminTurnoEstado, AdminTurnoFiltro, AdminUsuarioFiltro, AdminUsuariosSubpanel, BloqueoCalendario, FiltroLote, ModalInscripcionPaso, NotificationPersistenceOptions, TipoAnotacion, TurnoCalendario, UsuarioOrdenTurnos, UsuarioPanel, Vista, VistaTurnos } from './types/app';
+import type { AdminAsignacionModo, AdminPanel, AdminTurnoEstado, AdminTurnoFiltro, AdminUsuarioFiltro, AdminUsuarioOrden, AdminUsuariosSubpanel, BloqueoCalendario, FiltroLote, ModalInscripcionPaso, NotificationPersistenceOptions, TipoAnotacion, TurnoCalendario, UsuarioOrdenTurnos, UsuarioPanel, Vista, VistaTurnos } from './types/app';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 const ADMIN_SESSION_KEY = 'hsss_admin_session';
@@ -74,6 +74,7 @@ let adminPanel: AdminPanel = 'lotes';
 let adminUsuariosBusqueda = '';
 let adminUsuariosFiltro: AdminUsuarioFiltro = 'todos';
 let adminUsuariosSubpanel: AdminUsuariosSubpanel = 'usuarios';
+let adminUsuariosOrden: AdminUsuarioOrden = 'nombre-asc';
 let adminUsuariosPagina = 1;
 let adminUsuarioEditandoId: string | null = null;
 let adminFechaTurnosSeleccionada = fechaToInput(new Date());
@@ -1865,6 +1866,55 @@ function matchesAdminUsuariosSubpanel(usuario: Usuario): boolean {
   return adminUsuariosSubpanel === 'env' ? esUsuarioEnv(usuario) : !esUsuarioEnv(usuario);
 }
 
+function ordenarAdminUsuarios(usuarios: Usuario[]): Usuario[] {
+  return [...usuarios].sort((a, b) => {
+    const direction = adminUsuariosOrden.endsWith('-desc') ? -1 : 1;
+
+    if (adminUsuariosOrden === 'nombre-desc') {
+      return b.nombreCompleto.localeCompare(a.nombreCompleto);
+    }
+
+    if (adminUsuariosOrden === 'frecuencia-asc' || adminUsuariosOrden === 'frecuencia-desc') {
+      const byFrecuencia = formatFrecuencia(a.frecuencia).localeCompare(formatFrecuencia(b.frecuencia));
+      return (byFrecuencia || a.nombreCompleto.localeCompare(b.nombreCompleto)) * direction;
+    }
+
+    if (adminUsuariosOrden === 'rol-asc' || adminUsuariosOrden === 'rol-desc') {
+      const byRol = formatRol(a.rol).localeCompare(formatRol(b.rol));
+      return (byRol || a.nombreCompleto.localeCompare(b.nombreCompleto)) * direction;
+    }
+
+    if (adminUsuariosOrden === 'contacto-asc' || adminUsuariosOrden === 'contacto-desc') {
+      const byEmail = a.email.localeCompare(b.email);
+      return (byEmail || a.nombreCompleto.localeCompare(b.nombreCompleto)) * direction;
+    }
+
+    return a.nombreCompleto.localeCompare(b.nombreCompleto);
+  });
+}
+
+function getNextAdminUsuarioOrden(column: 'nombre' | 'frecuencia' | 'rol' | 'contacto'): AdminUsuarioOrden {
+  const asc = `${column}-asc` as AdminUsuarioOrden;
+  const desc = `${column}-desc` as AdminUsuarioOrden;
+  return adminUsuariosOrden === asc ? desc : asc;
+}
+
+function renderAdminUsuarioSortHeader(column: 'nombre' | 'frecuencia' | 'rol' | 'contacto', label: string): string {
+  const isActive = adminUsuariosOrden.startsWith(`${column}-`);
+  const direction = adminUsuariosOrden.endsWith('-desc') ? 'desc' : 'asc';
+  const nextOrden = getNextAdminUsuarioOrden(column);
+  const ariaSort = isActive ? (direction === 'desc' ? 'descending' : 'ascending') : 'none';
+
+  return `
+    <th aria-sort="${ariaSort}">
+      <button class="admin-sort-header ${isActive ? 'is-active' : ''}" type="button" data-admin-user-sort="${nextOrden}">
+        <span>${label}</span>
+        <i aria-hidden="true">${isActive && direction === 'desc' ? '↓' : '↑'}</i>
+      </button>
+    </th>
+  `;
+}
+
 function renderAdminUsuariosSubtab(value: AdminUsuariosSubpanel, label: string, count: number): string {
   return renderAdminUserChip({
     active: adminUsuariosSubpanel === value,
@@ -1876,11 +1926,14 @@ function renderAdminUsuariosSubtab(value: AdminUsuariosSubpanel, label: string, 
 }
 
 function renderAdminUsuarios(): void {
-  const usuarios = StorageDB.getUsuarios().toSorted((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto));
+  const usuarios = ordenarAdminUsuarios(StorageDB.getUsuarios());
   const usuariosEnv = usuarios.filter(esUsuarioEnv);
   const usuariosNormales = usuarios.filter((usuario) => !esUsuarioEnv(usuario));
   const usuariosVisibles = usuarios.filter(matchesAdminUsuariosSubpanel);
-  const filtrados = usuariosVisibles.filter((usuario) => matchesAdminUsuarioFiltro(usuario) && matchesAdminUsuarioBusqueda(usuario));
+  const filtrados = usuariosVisibles.filter((usuario) =>
+    matchesAdminUsuarioFiltro(usuario) &&
+    matchesAdminUsuarioBusqueda(usuario)
+  );
   const usuariosConFrecuencia = usuariosVisibles.filter(usuarioTieneFrecuencia);
   const selectedId = adminUsuarioEditandoId;
 
@@ -1944,10 +1997,10 @@ function renderAdminUsuariosTable(usuarios: Usuario[], selectedId: string | null
       <table class="admin-users-table">
         <thead>
           <tr>
-            <th>Nombre</th>
-            <th>Frecuencia</th>
-            <th>Rol</th>
-            <th>Contacto</th>
+            ${renderAdminUsuarioSortHeader('nombre', 'Nombre')}
+            ${renderAdminUsuarioSortHeader('frecuencia', 'Frecuencia')}
+            ${renderAdminUsuarioSortHeader('rol', 'Rol')}
+            ${renderAdminUsuarioSortHeader('contacto', 'Contacto')}
             <th>Acciones</th>
           </tr>
         </thead>
@@ -4700,6 +4753,15 @@ document.addEventListener('click', (event) => {
     adminUsuariosFiltro = 'todos';
     adminUsuariosPagina = 1;
     adminUsuarioEditandoId = null;
+    renderAdminUsuarios();
+    return;
+  }
+
+  const adminUserSortButton = target.closest<HTMLButtonElement>('[data-admin-user-sort]');
+
+  if (adminUserSortButton?.dataset.adminUserSort) {
+    adminUsuariosOrden = adminUserSortButton.dataset.adminUserSort as AdminUsuarioOrden;
+    adminUsuariosPagina = 1;
     renderAdminUsuarios();
     return;
   }

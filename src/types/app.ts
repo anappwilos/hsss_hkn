@@ -8,6 +8,7 @@ export type VistaTurnos = 'diaria' | 'semanal';
 export type AdminPanel = 'lotes' | 'usuarios' | 'turnos' | 'catalogos';
 export type AdminUsuarioFiltro = 'todos' | 'administrador' | (string & {});
 export type AdminUsuariosSubpanel = 'usuarios' | 'env';
+export type AdminUsuarioOrden = 'nombre-asc' | 'nombre-desc' | 'frecuencia-asc' | 'frecuencia-desc' | 'rol-asc' | 'rol-desc' | 'contacto-asc' | 'contacto-desc';
 export type AdminTurnoFiltro = 'todos' | 'libres' | 'parciales' | 'completos' | 'con-suplente' | 'sin-turno';
 export type AdminTurnoEstado = 'sin-asignar' | 'asignado' | 'suplente' | 'parcial';
 export type UsuarioPanel = 'disponibles' | 'asignados';
