@@ -160,7 +160,10 @@ app.innerHTML = `
         <source src="/landing-video.mp4" type="video/mp4" />
       </video>
       <header class="auth-topbar">
-        <button class="icon-only back-button auth-back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+        <button class="icon-only back-button auth-back-button" type="button" data-view="inicio" aria-label="Volver">
+          <span aria-hidden="true">‹</span>
+          <span>Volver</span>
+        </button>
         <img src="${solaLetterUrl}" alt="A Solas" class="auth-wordmark" />
         <span aria-hidden="true"></span>
       </header>
@@ -321,7 +324,10 @@ app.innerHTML = `
         <source src="/landing-video.mp4" type="video/mp4" />
       </video>
       <header class="auth-topbar registro-topbar">
-        <button class="icon-only back-button auth-back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
+        <button class="icon-only back-button auth-back-button" type="button" data-view="inicio" aria-label="Volver">
+          <span aria-hidden="true">‹</span>
+          <span>Volver</span>
+        </button>
         <img src="${solaLetterUrl}" alt="A Solas" class="auth-wordmark" />
         <span aria-hidden="true"></span>
       </header>
