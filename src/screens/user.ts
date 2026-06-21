@@ -1,4 +1,8 @@
-export function renderUserView(): string {
+export type UserViewAssets = {
+  solaLetterUrl: string;
+};
+
+export function renderUserView({ solaLetterUrl }: UserViewAssets): string {
   // Ventana del adorador: deja contenedores vacios para turnos disponibles y asignados.
   return `
     <section id="vista-usuario" class="view user-view" style="display: none;">
@@ -6,7 +10,7 @@ export function renderUserView(): string {
         <div class="user-topbar-left">
         </div>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
-          <img src="/src/assets/sola_letter_t.png" alt="A Solas" class="auth-wordmark logo">
+          <img src="${solaLetterUrl}" alt="A Solas" class="auth-wordmark logo">
         </button>
         <button id="btn-perfil-usuario" class="avatar-button profile-avatar-button" type="button" aria-label="Abrir mi perfil">
           <span class="avatar" aria-hidden="true">A</span>

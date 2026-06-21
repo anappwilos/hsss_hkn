@@ -1,4 +1,8 @@
-export function renderAdminView(): string {
+export type AdminViewAssets = {
+  solaLetterUrl: string;
+};
+
+export function renderAdminView({ solaLetterUrl }: AdminViewAssets): string {
   // Pestanas principales de administracion; cada panel interno se renderiza dinamicamente.
   return `
     <section id="vista-admin" class="view admin-lotes-view" style="display: none;">
@@ -6,7 +10,7 @@ export function renderAdminView(): string {
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
         </button>
 
-      <img src="/src/assets/sola_letter_t.png" alt="A Solas" class="auth-wordmark logo">
+      <img src="${solaLetterUrl}" alt="A Solas" class="auth-wordmark logo">
 
         <button class="topbar-text-button admin-logout-button" type="button" data-action="admin-logout">
           <span>Salir</span>

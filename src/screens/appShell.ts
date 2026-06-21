@@ -19,8 +19,8 @@ export function renderAppShell(assets: AppShellAssets): string {
   <main class="app-shell">
     ${renderWelcomeView(assets)}
     ${renderAdminLoginView(assets)}
-    ${renderAdminView()}
-    ${renderUserView()}
+    ${renderAdminView(assets)}
+    ${renderUserView(assets)}
     ${renderRegisterView(assets)}
     ${renderModalShells()}
     ${renderConfigurationView(assets.diasSemana)}
