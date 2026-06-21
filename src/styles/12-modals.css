@@ -29,6 +29,14 @@
 .admin-user-modal-card {
   width: min(100%, 620px);
   gap: 22px;
+  max-height: none;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.admin-user-modal-card::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .profile-edit-modal-card {

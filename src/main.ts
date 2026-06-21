@@ -1988,12 +1988,21 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
   const mostrarFrecuencia = rolTieneFrecuencia(usuario.rol);
   const readOnlyEnv = esUsuarioEnv(usuario);
   const disabledEnv = readOnlyEnv ? 'disabled' : '';
+  const saveLabel = isNew ? 'Crear usuario' : 'Guardar cambios';
+  const title = isNew ? 'Nuevo perfil' : usuario.nombreCompleto;
+  const kicker = readOnlyEnv ? 'Usuario del sistema' : isNew ? 'Crear usuario' : 'Editar usuario';
+  const subtitle = readOnlyEnv
+    ? 'Este perfil viene definido desde backend/.env.'
+    : isNew
+      ? 'Completa los datos principales para dar de alta un nuevo adorador.'
+      : 'Actualiza los datos, el rol y la frecuencia de este perfil.';
 
   return `
       <header class="modal-header admin-user-modal-head">
         <div>
-          <p class="modal-kicker">${isNew ? '' : 'Editar usuario'}</p>
-          <h3>${escapeHtml(isNew ? 'Nuevo perfil' : usuario.nombreCompleto)}</h3>
+          <p class="modal-kicker">${escapeHtml(kicker)}</p>
+          <h3>${escapeHtml(title)}</h3>
+          <p>${escapeHtml(subtitle)}</p>
         </div>
         <button class="icon-only modal-close" type="button" data-action="admin-user-close" aria-label="Cerrar">×</button>
       </header>
@@ -2001,12 +2010,12 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
       <section class="admin-user-mini-profile">
         <span class="admin-user-avatar is-large">${escapeHtml(getInicialesUsuario(usuario))}</span>
         <div>
-          <h4>${escapeHtml(usuario.nombreCompleto)}</h4>
-          <p>ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}${esUsuarioEnv(usuario) ? ' · definido en .env' : ''}</p>
+          <h4>${escapeHtml(isNew ? 'Perfil en preparacion' : usuario.nombreCompleto)}</h4>
+          <p>${isNew ? 'El identificador se asignara cuando guardes el perfil.' : `ID: ${escapeHtml(usuario.id.slice(0, 8).toUpperCase())}${esUsuarioEnv(usuario) ? ' · definido en .env' : ''}`}</p>
         </div>
       </section>
 
-      <form class="admin-user-edit-form" data-admin-user-form="${usuario.id}" data-admin-user-readonly="${readOnlyEnv}">
+      <form class="admin-user-edit-form ${isNew ? 'is-create-mode' : 'is-edit-mode'}" data-admin-user-form="${usuario.id}" data-admin-user-readonly="${readOnlyEnv}">
         <label>
           <span>Nombre completo</span>
           <input id="admin-user-edit-name" type="text" value="${escapeHtml(usuario.nombreCompleto)}" required ${disabledEnv} />
@@ -2032,24 +2041,30 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
             ${rolesEditables.map((value) => `<option value="${value}" ${usuario.rol === value ? 'selected' : ''}>${escapeHtml(formatRol(value))}</option>`).join('')}
           </select>
         </label>
-        <section class="admin-user-turns">
-          <header>
-            <span>Turnos asignados</span>
-            <strong>${turnosAsignados.length}</strong>
-          </header>
-          ${turnosAsignados.length > 0
-            ? `<div>${turnosAsignados.map((turno) => `
-                <article>
-                  <strong>${escapeHtml(formatFecha(turno.dia))}</strong>
-                  <span>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
-                </article>
-              `).join('')}</div>`
-            : '<p>No tiene turnos asignados.</p>'
-          }
-        </section>
+        ${isNew
+          ? `<section class="admin-user-create-note">
+              <strong>Alta manual</strong>
+              <p>El nuevo perfil quedara disponible en usuarios en cuanto guardes los datos.</p>
+            </section>`
+          : `<section class="admin-user-turns">
+              <header>
+                <span>Turnos asignados</span>
+                <strong>${turnosAsignados.length}</strong>
+              </header>
+              ${turnosAsignados.length > 0
+                ? `<div>${turnosAsignados.map((turno) => `
+                    <article>
+                      <strong>${escapeHtml(formatFecha(turno.dia))}</strong>
+                      <span>${escapeHtml(turno.horaInicio)} - ${escapeHtml(turno.horaFin)}</span>
+                    </article>
+                  `).join('')}</div>`
+                : '<p>No tiene turnos asignados.</p>'
+              }
+            </section>`
+        }
         <div class="admin-user-edit-actions">
-          ${readOnlyEnv ? '<p class="modal-message" data-tone="info">Definido en backend/.env. Edita SEED_USERS o las credenciales administrativas para cambiarlo.</p>' : '<button class="button button-primary" type="submit" data-action="admin-user-save">Guardar cambios</button>'}
-          ${canManageUsers() && !isRolProtegido(usuario.rol) && !esUsuarioEnv(usuario) ? `<button class="button button-danger" type="button" data-action="admin-user-delete" data-id="${usuario.id}">Eliminar usuario</button>` : ''}
+          ${readOnlyEnv ? '<p class="modal-message" data-tone="info">Definido en backend/.env. Edita SEED_USERS o las credenciales administrativas para cambiarlo.</p>' : `<button class="button button-primary" type="submit" data-action="admin-user-save">${saveLabel}</button>`}
+          ${!isNew && canManageUsers() && !isRolProtegido(usuario.rol) && !esUsuarioEnv(usuario) ? `<button class="button button-danger" type="button" data-action="admin-user-delete" data-id="${usuario.id}">Eliminar usuario</button>` : ''}
           <button class="button button-secondary" type="button" data-action="admin-user-close">Cancelar</button>
         </div>
       </form>

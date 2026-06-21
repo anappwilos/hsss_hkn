@@ -159,6 +159,43 @@
   text-transform: uppercase;
 }
 
+.admin-user-edit-form {
+  gap: 18px;
+}
+
+.admin-user-edit-form label {
+  gap: 9px;
+}
+
+.admin-user-edit-form input,
+.admin-user-edit-form select {
+  min-height: 60px;
+  border-color: rgba(47, 199, 200, 0.22);
+  background: linear-gradient(180deg, rgba(248, 254, 254, 0.98), rgba(237, 248, 248, 0.96));
+  box-shadow:
+    0 10px 24px rgba(24, 92, 104, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.admin-user-edit-form input::placeholder {
+  color: #8ca5ad;
+}
+
+.admin-user-edit-form input:hover,
+.admin-user-edit-form select:hover {
+  border-color: rgba(47, 199, 200, 0.34);
+  background: linear-gradient(180deg, rgba(252, 255, 255, 1), rgba(240, 251, 250, 0.98));
+}
+
+.admin-user-edit-form input:focus,
+.admin-user-edit-form select:focus {
+  border-color: rgba(24, 178, 188, 0.82);
+  box-shadow:
+    0 0 0 4px rgba(47, 199, 200, 0.12),
+    0 14px 30px rgba(24, 92, 104, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
 .confirmation-modal-card {
   width: min(100%, 520px);
 }
@@ -378,12 +415,43 @@
 .admin-user-mini-profile p {
   margin: 3px 0 8px;
   font-size: 0.78rem;
+  color: var(--color-muted);
 }
 
 .admin-user-edit-actions {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   padding-top: 8px;
+}
+
+.admin-user-edit-actions > * {
+  width: 100%;
+}
+
+.admin-user-create-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(47, 199, 200, 0.18);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(221, 247, 246, 0.62);
+}
+
+.admin-user-create-note strong {
+  color: var(--color-ink);
+  font-size: 0.86rem;
+}
+
+.admin-user-create-note p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.admin-user-edit-form.is-create-mode {
+  gap: 14px;
 }
 
 .admin-user-turns {
@@ -414,8 +482,14 @@
 .admin-user-turns div {
   display: grid;
   gap: 8px;
-  max-height: 220px;
+  max-height: 156px;
   overflow: auto;
+  scrollbar-width: none;
+}
+
+.admin-user-turns div::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .admin-user-turns article {
