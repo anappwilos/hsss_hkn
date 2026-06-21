@@ -1,0 +1,239 @@
+/* =========================================================
+   33. USER WEEK BOARD REFRESH
+========================================================= */
+
+.user-view .booking-controls {
+  gap: 18px;
+  padding: 20px 22px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.user-view .booking-heading {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 14px 18px;
+}
+
+.user-view .booking-view-toggle {
+  justify-self: start;
+}
+
+.user-view .booking-actions {
+  justify-content: flex-end;
+}
+
+.user-view .week-actions {
+  gap: 12px;
+}
+
+.user-view .icon-round {
+  width: 42px;
+  height: 42px;
+  border-color: rgba(33, 160, 183, 0.12);
+  background: #ffffff;
+  color: #5e7d87;
+  font-size: 1.45rem;
+}
+
+.user-view .week-range {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 14px;
+  color: #57717c;
+  background: #ffffff;
+  border-color: rgba(33, 160, 183, 0.12);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.user-view .day-strip {
+  grid-template-columns: repeat(7, minmax(84px, 1fr));
+  gap: 10px;
+  overflow: visible;
+}
+
+.user-view .day-card {
+  min-width: 0;
+  min-height: 98px;
+  gap: 4px;
+  justify-items: start;
+  align-content: start;
+  padding: 14px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 24px rgba(10, 65, 82, 0.06);
+  text-align: left;
+}
+
+.user-view .day-card span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: none;
+}
+
+.user-view .day-card strong {
+  font-size: 1.7rem;
+}
+
+.user-view .day-card small {
+  font-size: 0.72rem;
+  text-transform: none;
+}
+
+.user-view .day-card em {
+  margin-top: auto;
+  font-size: 0.72rem;
+}
+
+.user-view .user-calendar-week {
+  border: 1px solid rgba(33, 160, 183, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 18px 40px rgba(8, 47, 56, 0.08);
+}
+
+.user-view .calendar-corner,
+.user-view .calendar-day-head,
+.user-view .calendar-time,
+.user-view .calendar-cell {
+  border-color: rgba(118, 173, 188, 0.14);
+}
+
+.user-view .calendar-corner,
+.user-view .calendar-day-head,
+.user-view .calendar-time {
+  background: rgba(250, 253, 255, 0.96);
+}
+
+.user-view .calendar-day-head {
+  min-height: 52px;
+  padding: 8px 6px;
+}
+
+.user-view .calendar-day-head span {
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: #698491;
+  text-transform: uppercase;
+}
+
+.user-view .calendar-day-head.is-active {
+  background: rgba(231, 247, 251, 0.92);
+}
+
+.user-view .calendar-time {
+  min-height: 76px;
+  padding: 8px 6px;
+}
+
+.user-view .calendar-time strong {
+  font-size: 0.74rem;
+  color: #7a8e97;
+}
+
+.user-view .calendar-cell {
+  min-height: 76px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.user-view .calendar-cell.is-selected-day {
+  background: rgba(238, 249, 252, 0.88);
+}
+
+.user-view .calendar-cell.is-empty {
+  background: rgba(250, 252, 253, 0.72);
+}
+
+.user-view .empty-slot {
+  gap: 0;
+}
+
+.user-view .empty-slot small {
+  color: #a0b1b8;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.user-view .calendar-event {
+  min-height: 0;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(170, 205, 216, 0.22);
+  background: transparent;
+  box-shadow: none;
+}
+
+.user-view .calendar-event-action,
+.user-view .calendar-event-status {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.user-view .calendar-event-action {
+  border-color: rgba(33, 160, 183, 0.1);
+  color: #4d9ad0;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.user-view .calendar-event.is-covered,
+.user-view .calendar-event.is-partial,
+.user-view .calendar-event.is-free,
+.user-view .calendar-event.is-mine,
+.user-view .calendar-event.is-past {
+  background: transparent;
+  box-shadow: none;
+}
+
+.user-view .calendar-event.is-covered .calendar-event-status {
+  color: #8f9da5;
+  background: rgba(245, 245, 245, 0.96);
+}
+
+.user-view .calendar-event.is-mine .calendar-event-status {
+  color: #087f8f;
+  background: rgba(228, 251, 253, 0.98);
+}
+
+.user-view .calendar-event.is-past .calendar-event-status {
+  color: #71828a;
+  background: rgba(239, 243, 245, 0.96);
+}
+
+.user-view .turnos-section {
+  gap: 14px;
+  padding: 20px 0 0;
+}
+
+@media (max-width: 700px) {
+  .user-view .booking-heading {
+    grid-template-columns: 1fr;
+  }
+
+  .user-view .booking-actions {
+    justify-content: stretch;
+  }
+
+  .user-view .week-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .user-view .day-strip {
+    grid-template-columns: repeat(7, minmax(92px, 1fr));
+    overflow-x: auto;
+  }
+
+  .user-view .user-calendar-week {
+    display: none;
+  }
+
+}
