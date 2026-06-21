@@ -19,7 +19,7 @@ const LAST_VIEW_KEY = 'hsss_last_view';
 const LAST_ADMIN_PANEL_KEY = 'hsss_last_admin_panel';
 const LAST_USER_PANEL_KEY = 'hsss_last_user_panel';
 const ADMIN_TURNO_DETAIL_CLOSED = '__closed__';
-const ROLES_PROTEGIDOS = new Set<UsuarioRol>(['root', 'admin']);
+const ROLES_PROTEGIDOS = new Set<UsuarioRol>(['root']);
 const ROLES_ADMINISTRATIVOS = new Set<UsuarioRol>(['root', 'admin']);
 const ROLES_SIN_FRECUENCIA = new Set<UsuarioRol>(['root', 'admin', 'sacerdote']);
 const FRECUENCIA_LABELS: Record<string, string> = {
@@ -524,6 +524,14 @@ function isAdminRol(rol: UsuarioRol): rol is Extract<UsuarioRol, 'root' | 'admin
 
 function isRolProtegido(rol: UsuarioRol): boolean {
   return ROLES_PROTEGIDOS.has(rol);
+}
+
+function canDeleteUsuario(usuario: Usuario): boolean {
+  if (!canManageUsers() || esUsuarioEnv(usuario) || isRolProtegido(usuario.rol)) {
+    return false;
+  }
+
+  return !isAdminRol(usuario.rol) || getAdminSessionRole() === 'root';
 }
 
 function rolTieneFrecuencia(rol: UsuarioRol): boolean {
@@ -2024,7 +2032,7 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
   const frecuenciaCell = usuarioTieneFrecuencia(usuario)
     ? `<strong class="admin-table-main">${escapeHtml(formatFrecuencia(usuario.frecuencia))}</strong><small>${escapeHtml(getFrecuenciaDetalle(usuario.frecuencia))}</small>`
     : '<strong class="admin-table-main">No aplica</strong><small>Rol sin frecuencia asociada</small>';
-  const canDelete = canManageUsers() && !isRolProtegido(usuario.rol) && !esUsuarioEnv(usuario);
+  const canDelete = canDeleteUsuario(usuario);
 
   return `
     <tr class="${selectedId === usuario.id ? 'is-selected' : ''}">
@@ -2105,7 +2113,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
 
         <div class="admin-user-edit-actions ${isNew ? 'is-create-mode' : 'is-edit-mode'}">
           ${readOnlyEnv ? '<p class="modal-message" data-tone="info">Definido en backend/.env. Edita SEED_USERS o las credenciales administrativas para cambiarlo.</p>' : ''}
-          ${!isNew && canManageUsers() && !isRolProtegido(usuario.rol) && !esUsuarioEnv(usuario) ? `<button class="button button-danger" type="button" data-action="admin-user-delete" data-id="${usuario.id}">Eliminar usuario</button>` : ''}
+          ${!isNew && canDeleteUsuario(usuario) ? `<button class="button button-danger" type="button" data-action="admin-user-delete" data-id="${usuario.id}">Eliminar usuario</button>` : ''}
           <button class="button button-secondary" type="button" data-action="admin-user-close">Cancelar</button>
           ${!readOnlyEnv ? `<button class="button button-primary" type="submit" data-action="admin-user-save">${saveLabel}</button>` : ''}
         </div>
@@ -2355,13 +2363,8 @@ function eliminarAdminUsuario(id: string | null): void {
     return;
   }
 
-  if (isRolProtegido(usuario.rol)) {
-    mostrarAviso('Accion no permitida', 'Los perfiles Admin y Root no se pueden eliminar.', 'error');
-    return;
-  }
-
-  if (esUsuarioEnv(usuario)) {
-    mostrarAviso('Accion no permitida', 'Este usuario viene de backend/.env. Edita SEED_USERS para quitarlo.', 'error');
+  if (!canDeleteUsuario(usuario)) {
+    mostrarAviso('Accion no permitida', isAdminRol(usuario.rol) ? 'Solo Root puede eliminar perfiles Admin. El perfil Root no se puede eliminar.' : 'No tienes permisos para eliminar este usuario.', 'error');
     return;
   }
 
