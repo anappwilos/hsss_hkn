@@ -266,7 +266,6 @@ app.innerHTML = `
     <section id="vista-usuario" class="view user-view" style="display: none;">
       <header class="mobile-topbar user-topbar">
         <div class="user-topbar-left">
-          <button class="icon-only back-button" type="button" data-view="inicio" aria-label="Volver">‹</button>
         </div>
         <button class="brand-button" type="button" data-view="inicio" aria-label="Volver al inicio">
           <span>A solas</span> 
@@ -283,7 +282,6 @@ app.innerHTML = `
           <div class="hero-copy">
             <h1>Velar una hora juntos</h1>
             <p>&ldquo;&iquest;No hab&eacute;is podido velar una hora conmigo?&rdquo;</p>
-            <span aria-hidden="true"></span>
           </div>
         </section>
         <nav id="usuario-panel-tabs" class="user-panel-tabs" aria-label="Secciones del adorador">
