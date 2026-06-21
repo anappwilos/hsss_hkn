@@ -110,7 +110,7 @@ const vistaAdminLogin = getElement<HTMLElement>('#vista-admin-login');
 const vistaAdmin = getElement<HTMLElement>('#vista-admin');
 const vistaUsuario = getElement<HTMLElement>('#vista-usuario');
 const vistaRegistroAdorador = getElement<HTMLElement>('#vista-registro-adorador');
-const vistaConfiguracion = getElement<HTMLElement>('#vista-configuracion');
+const vistaConfiguracion = getElement<HTMLDialogElement>('#vista-configuracion');
 const formAdminLogin = getElement<HTMLFormElement>('#form-admin-login');
 const adminEmail = getElement<HTMLInputElement>('#admin-email');
 const adminPassword = getElement<HTMLInputElement>('#admin-password');
@@ -613,12 +613,19 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean; bypassSe
   cancelarConfirmacionEliminarLote();
   vistaInicio.style.display = nextView === 'inicio' ? 'grid' : 'none';
   vistaAdminLogin.style.display = nextView === 'admin-login' ? 'block' : 'none';
-  vistaAdmin.style.display = nextView === 'admin' ? 'block' : 'none';
+  vistaAdmin.style.display = nextView === 'admin' || nextView === 'configuracion' ? 'block' : 'none';
   vistaUsuario.style.display = nextView === 'usuario' ? 'block' : 'none';
   vistaRegistroAdorador.style.display = nextView === 'registro-adorador' ? 'block' : 'none';
-  vistaConfiguracion.style.display = nextView === 'configuracion' ? 'block' : 'none';
 
-  if (nextView === 'admin') {
+  if (nextView === 'configuracion') {
+    if (!vistaConfiguracion.open) {
+      vistaConfiguracion.showModal();
+    }
+  } else if (vistaConfiguracion.open) {
+    vistaConfiguracion.close();
+  }
+
+  if (nextView === 'admin' || nextView === 'configuracion') {
     renderAdminPanel();
   }
 
@@ -646,6 +653,11 @@ function mostrarVista(vista: Vista, options: { recordHistory?: boolean; bypassSe
 }
 
 function volverAtras(): void {
+  if (vistaConfiguracion.open) {
+    mostrarVista('admin', { recordHistory: false });
+    return;
+  }
+
   if (modalInscripcion.open) {
     retrocederModalInscripcion();
     return;
@@ -1478,6 +1490,10 @@ function resetConfig(): void {
 }
 
 function abrirConfig(lote?: LoteExposicion): void {
+  if (vistaActual !== 'admin') {
+    mostrarVista('admin');
+  }
+
   resetConfig();
 
   if (lote) {
@@ -1502,7 +1518,7 @@ function abrirConfig(lote?: LoteExposicion): void {
   }
 
   actualizarResumenLote();
-  mostrarVista('configuracion');
+  mostrarVista('configuracion', { recordHistory: false });
 }
 
 function renderDiasConfig(): void {
@@ -5580,6 +5596,12 @@ formLote.addEventListener('submit', (event) => {
 
 window.addEventListener(NotificationService.EVENT_NAME, (event) => {
   mostrarToast((event as CustomEvent<AppNotification>).detail);
+});
+
+vistaConfiguracion.addEventListener('close', () => {
+  if (vistaActual === 'configuracion') {
+    mostrarVista('admin', { recordHistory: false });
+  }
 });
 
 NotificationService.init();

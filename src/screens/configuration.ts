@@ -4,19 +4,21 @@ export type WeekdayOption = {
 };
 
 export function renderConfigurationView(diasSemana: WeekdayOption[]): string {
-  // Ventana de configuracion de lotes; los dias llegan como dato para no depender de globals.
+  // Modal de configuracion de lotes; los dias llegan como dato para no depender de globals.
   return `
-    <section id="vista-configuracion" class="view config-view" style="display: none;">
-      <header class="mobile-topbar">
-        <button class="icon-only" type="button" data-view="admin" aria-label="Volver">‹</button>
-        <h1>Lotes</h1>
-        <div class="avatar" aria-hidden="true"></div>
-      </header>
+    <dialog id="vista-configuracion" class="app-modal config-view config-modal">
+      <form id="form-lote" class="modal-card config-modal-card config-form">
+        <header class="modal-header config-modal-header">
+          <div>
+            <p class="modal-kicker">Lotes</p>
+            <h2>Configurar lote de turnos</h2>
+          </div>
+          <button class="icon-only modal-close" type="button" data-view="admin" aria-label="Cerrar">×</button>
+        </header>
 
-      <form id="form-lote" class="screen-content config-form">
         <section class="intro-card lote-intro-card">
           <div>
-            <h2>Crear un nuevo lotes de turnos</h2>
+            <h2>Crear un nuevo lote de turnos</h2>
           </div>
         </section>
 
@@ -102,6 +104,6 @@ export function renderConfigurationView(diasSemana: WeekdayOption[]): string {
           </div>
       </form>
 
-    </section>
+    </dialog>
   `;
 }

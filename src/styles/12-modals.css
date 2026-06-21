@@ -33,6 +33,32 @@
   background: rgba(244, 251, 253, 0.98);
 }
 
+.config-modal {
+  width: min(96vw, 1180px);
+  max-height: min(92vh, 920px);
+}
+
+.config-modal-card {
+  width: 100%;
+  max-height: min(92vh, 920px);
+  padding: 24px;
+}
+
+.config-modal-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: -24px -24px 0;
+  border-bottom: 1px solid var(--color-border);
+  padding: 20px 24px;
+  background: rgba(244, 251, 253, 0.96);
+  backdrop-filter: blur(14px);
+}
+
+.config-modal .lote-intro-card {
+  display: none;
+}
+
 .admin-user-modal-card {
   width: min(100%, 620px);
   gap: 22px;
@@ -269,4 +295,21 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .config-modal {
+    width: min(96vw, 720px);
+    max-height: 94vh;
+  }
+
+  .config-modal-card {
+    max-height: 94vh;
+    padding: 16px;
+  }
+
+  .config-modal-header {
+    margin: -16px -16px 0;
+    padding: 16px;
+  }
 }
