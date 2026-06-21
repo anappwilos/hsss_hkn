@@ -1,0 +1,258 @@
+/* =========================================================
+   37. RESPONSIVE TABLES AND BOARDS
+========================================================= */
+
+.admin-users-table-wrap,
+.admin-assignment-scroll,
+.user-view .slot-list {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-assignment-board,
+.user-view .user-calendar-week,
+.calendar-week {
+  max-width: none;
+}
+
+.admin-users-table th,
+.admin-users-table td {
+  overflow-wrap: anywhere;
+}
+
+.admin-users-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .admin-lotes-view .admin-turns-controls,
+  .admin-lotes-view .admin-turns-search-actions,
+  .admin-lotes-view .admin-turns-layout,
+  .admin-lotes-view .admin-users-card-head,
+  .admin-user-catalog form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-lotes-view .admin-turns-search-actions {
+    align-items: stretch;
+  }
+
+  .admin-lotes-view .admin-turn-today-button,
+  .admin-lotes-view .admin-user-search,
+  .admin-lotes-view .admin-turn-search {
+    width: 100%;
+  }
+
+  .admin-lotes-view .admin-turns-tools {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .admin-lotes-view .admin-turn-filters,
+  .admin-user-filters,
+  .admin-panel-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-lotes-view .admin-turn-filters {
+    justify-content: flex-start;
+    padding-bottom: 6px;
+  }
+
+  .admin-lotes-view .admin-turn-filters button {
+    min-width: max-content;
+  }
+
+  .admin-lotes-view .admin-assignment-board {
+    grid-template-columns: 48px repeat(var(--admin-calendar-days), minmax(118px, 1fr));
+    width: max(100%, calc(48px + var(--admin-calendar-days) * 118px));
+  }
+
+  .user-view .user-calendar-week,
+  .calendar-week {
+    grid-template-columns: 56px repeat(var(--calendar-days), minmax(104px, 1fr));
+    min-width: max(100%, calc(56px + var(--calendar-days) * 104px));
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-users-table-wrap {
+    overflow: visible;
+  }
+
+  .admin-users-table,
+  .admin-users-table thead,
+  .admin-users-table tbody,
+  .admin-users-table tr,
+  .admin-users-table th,
+  .admin-users-table td {
+    display: block;
+  }
+
+  .admin-users-table {
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .admin-users-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .admin-users-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .admin-users-table tr {
+    border: 1px solid rgba(120, 166, 182, 0.22);
+    border-radius: 14px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 10px 24px rgba(6, 69, 82, 0.05);
+  }
+
+  .admin-users-table td {
+    display: grid;
+    grid-template-columns: minmax(82px, 0.34fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(77, 117, 128, 0.1);
+    padding: 10px 0;
+  }
+
+  .admin-users-table td::before {
+    color: #4d7580;
+    content: attr(data-label);
+    font-size: 0.68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .admin-users-table td:first-child {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 0;
+  }
+
+  .admin-users-table td:first-child::before {
+    display: none;
+  }
+
+  .admin-users-table td:last-child {
+    width: auto;
+    border-bottom: 0;
+    padding-bottom: 0;
+    white-space: normal;
+  }
+
+  .admin-row-actions {
+    justify-content: flex-end;
+  }
+
+  .admin-lotes-view .admin-assignment-scroll {
+    margin-inline: -8px;
+    padding-inline: 8px;
+  }
+
+  .admin-lotes-view .admin-assignment-board {
+    grid-template-columns: 44px repeat(var(--admin-calendar-days), minmax(104px, 1fr));
+    width: max(100%, calc(44px + var(--admin-calendar-days) * 104px));
+  }
+
+  .admin-lotes-view .admin-calendar-day-head,
+  .admin-lotes-view .admin-calendar-time,
+  .admin-lotes-view .admin-calendar-cell {
+    min-height: 54px;
+  }
+
+  .admin-lotes-view .admin-calendar-cell {
+    padding: 5px;
+  }
+
+  .admin-lotes-view .admin-calendar-turn-main {
+    min-height: 36px;
+    padding: 6px;
+  }
+
+  .admin-lotes-view .admin-turn-detail-panel {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-lotes-view .admin-panel-tabs {
+    display: flex;
+    gap: 6px;
+    border-radius: 12px;
+    padding-bottom: 4px;
+  }
+
+  .admin-lotes-view .admin-panel-tabs .chip {
+    flex: 0 0 auto;
+    min-width: 118px;
+  }
+
+  .admin-lotes-view .admin-turns-metrics,
+  .admin-lotes-view .admin-user-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-users-table td {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 5px;
+  }
+
+  .admin-users-table td::before {
+    font-size: 0.64rem;
+  }
+
+  .admin-user-cell {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .admin-user-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .admin-lotes-view .admin-assignment-board {
+    grid-template-columns: 40px repeat(var(--admin-calendar-days), minmax(96px, 1fr));
+    width: max(100%, calc(40px + var(--admin-calendar-days) * 96px));
+  }
+
+  .user-view .booking-week-board-nav {
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    gap: 8px;
+  }
+
+  .user-view .booking-week-board-nav .day-strip {
+    grid-template-columns: repeat(7, minmax(64px, 1fr));
+  }
+
+  .user-view .booking-week-board-nav .day-card {
+    min-width: 64px;
+    min-height: 72px;
+  }
+
+  .user-view .user-calendar-week,
+  .calendar-week {
+    grid-template-columns: 48px repeat(var(--calendar-days), minmax(92px, 1fr));
+    min-width: max(100%, calc(48px + var(--calendar-days) * 92px));
+  }
+}

@@ -1959,7 +1959,7 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
 
   return `
     <tr class="${selectedId === usuario.id ? 'is-selected' : ''}">
-      <td>
+      <td data-label="Nombre">
         <div class="admin-user-cell">
           <span class="admin-user-avatar">${escapeHtml(getInicialesUsuario(usuario))}</span>
           <div>
@@ -1970,15 +1970,15 @@ function renderAdminUsuarioRow(usuario: Usuario, selectedId: string | null): str
           </div>
         </div>
       </td>
-      <td>
+      <td data-label="Frecuencia">
         ${frecuenciaCell}
       </td>
-      <td><span class="admin-role-chip">${escapeHtml(formatRol(usuario.rol))}</span></td>
-      <td>
+      <td data-label="Rol"><span class="admin-role-chip">${escapeHtml(formatRol(usuario.rol))}</span></td>
+      <td data-label="Contacto">
         <small>${escapeHtml(maskEmail(usuario.email))}</small>
         <small>${escapeHtml(maskPhone(usuario.telefono))}</small>
       </td>
-      <td>
+      <td data-label="Acciones">
         <div class="admin-row-actions">
           <button type="button" data-action="admin-user-edit" data-id="${usuario.id}" aria-label="Editar usuario ${escapeHtml(usuario.nombreCompleto)}">✏️</button>
           ${canDelete ? `<button type="button" data-action="admin-user-delete" data-id="${usuario.id}" aria-label="Eliminar usuario ${escapeHtml(usuario.nombreCompleto)}">🗑️</button>` : ''}
