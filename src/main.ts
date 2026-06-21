@@ -1863,20 +1863,14 @@ function renderAdminUsuarios(): void {
   adminUsuariosLista.innerHTML = `
     <div class="admin-users-screen">
       <section class="admin-users-main">
-        <header class="admin-users-hero">
-          <div>
-            ${adminUsuariosSubpanel === 'usuarios' ? '<button id="btn-admin-user-create" class="button button-primary button-small" type="button">Crear usuario</button>' : ''}
-          </div>
-        </header>
-
-        <section class="admin-users-card">
+           <section class="admin-users-card">
           <div class="admin-users-card-head">
             <label class="admin-user-search">
               <span aria-hidden="true">⌕</span>
               <input id="admin-usuarios-buscar" type="search" value="${escapeHtml(adminUsuariosBusqueda)}" placeholder="Buscar por nombre, email o telefono" autocomplete="off" />
             </label>
+            ${adminUsuariosSubpanel === 'usuarios' ? '<button id="btn-admin-user-create" class="button button-primary button-small" type="button">Crear usuario</button>' : ''}
           </div>
-
           <div class="admin-user-filters admin-user-subtabs" aria-label="Origen de usuarios">
             ${renderAdminUsuariosSubtab('usuarios', 'Usuarios', usuariosNormales.length)}
             ${renderAdminUsuariosSubtab('env', 'Pringados', usuariosEnv.length)}
@@ -1998,7 +1992,7 @@ function renderAdminUsuarioModal(usuario: Usuario): string {
   return `
       <header class="modal-header admin-user-modal-head">
         <div>
-          <p class="modal-kicker">${isNew ? 'Crear usuario' : 'Editar usuario'}</p>
+          <p class="modal-kicker">${isNew ? '' : 'Editar usuario'}</p>
           <h3>${escapeHtml(isNew ? 'Nuevo perfil' : usuario.nombreCompleto)}</h3>
         </div>
         <button class="icon-only modal-close" type="button" data-action="admin-user-close" aria-label="Cerrar">×</button>
