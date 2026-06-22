@@ -1,0 +1,257 @@
+/* =========================================================
+   36. LANDING POLISH
+========================================================= */
+
+.welcome-view {
+  min-height: 100svh;
+  padding: clamp(22px, 4vw, 46px);
+  background: #061e24;
+}
+
+.welcome-view::before {
+  background-position: center center;
+  filter: saturate(0.82) contrast(1.04) brightness(0.9);
+  transform: scale(1.01);
+}
+
+.welcome-video {
+  object-position: center center;
+  filter: saturate(0.82) contrast(1.04) brightness(0.9);
+}
+
+.welcome-view::after {
+  background:
+    linear-gradient(90deg, rgba(2, 24, 31, 0.82) 0%, rgba(5, 42, 50, 0.62) 42%, rgba(8, 35, 40, 0.42) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.24) 0%, rgba(3, 25, 31, 0.36) 58%, rgba(2, 18, 24, 0.58) 100%);
+}
+
+.welcome-screen {
+  width: min(100%, 760px);
+  min-height: calc(100svh - clamp(44px, 8vw, 92px));
+  align-content: center;
+  justify-items: center;
+  gap: clamp(24px, 3.5vw, 38px);
+  padding-top: clamp(26px, 8vh, 78px);
+}
+
+.welcome-copy {
+  gap: 30px;
+}
+
+.welcome-wordmark {
+  width: min(72vw, 620px);
+  max-height: 118px;
+  filter:
+    drop-shadow(0 0 18px rgba(24, 198, 212, 0.16))
+    drop-shadow(0 18px 38px rgba(1, 18, 24, 0.34));
+}
+
+.welcome-copy::after {
+  display: block;
+  width: min(270px, 52vw);
+  height: 1px;
+  margin-top: -12px;
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(32, 204, 216, 0.78) 42%, transparent 42%, transparent 58%, rgba(32, 204, 216, 0.78) 58%, transparent 100%);
+  box-shadow: 0 0 14px rgba(32, 204, 216, 0.32);
+  content: "+";
+  color: #25d3dd;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 0;
+  text-align: center;
+}
+
+.welcome-copy p {
+  max-width: 680px;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: clamp(1.45rem, 2.35vw, 2rem);
+  font-weight: 400;
+  line-height: 1.38;
+  text-wrap: balance;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.42);
+}
+
+.landing-actions {
+  gap: clamp(16px, 2vw, 26px);
+  margin-top: 0;
+}
+
+.landing-actions .button {
+  min-width: min(304px, calc(50vw - 34px));
+  min-height: 74px;
+  border-radius: 999px;
+  padding: 0 42px;
+  font-size: clamp(1rem, 1.5vw, 1.28rem);
+  font-weight: 850;
+}
+
+.landing-primary {
+  border-color: rgba(66, 235, 244, 0.38);
+  background:
+    linear-gradient(180deg, rgba(45, 205, 216, 0.98), rgba(20, 168, 184, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22) inset,
+    0 0 28px rgba(24, 198, 212, 0.45),
+    0 22px 48px rgba(1, 25, 32, 0.32);
+}
+
+.landing-secondary {
+  color: #344754;
+  border-color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 0 0 1px rgba(26, 64, 74, 0.05) inset,
+    0 18px 42px rgba(2, 22, 28, 0.25);
+}
+
+.landing-primary:hover,
+.landing-secondary:hover {
+  transform: translateY(-2px);
+}
+
+.welcome-footer {
+  margin-top: clamp(24px, 5vh, 54px);
+}
+
+.app-version {
+  min-height: 42px;
+  border-color: rgba(255, 255, 255, 0.42);
+  padding: 0 18px;
+  color: rgba(255, 255, 255, 0.94);
+  background: rgba(16, 45, 52, 0.46);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 12px 28px rgba(0, 0, 0, 0.2);
+  font-size: 1rem;
+  letter-spacing: 0;
+  backdrop-filter: blur(16px);
+}
+
+.app-shell:has(#vista-inicio:not([style*="display: none"])) .sync-status {
+  right: clamp(14px, 2.4vw, 34px);
+  bottom: clamp(14px, 2.4vw, 26px);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(390px, calc(100vw - 28px));
+  min-height: 50px;
+  border-color: rgba(255, 255, 255, 0.26);
+  border-radius: 999px;
+  padding: 0 18px;
+  color: #ffffff;
+  background: rgba(21, 41, 47, 0.62);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 18px 44px rgba(0, 0, 0, 0.25);
+  font-size: 0.95rem;
+  backdrop-filter: blur(18px);
+}
+
+.app-shell:has(#vista-inicio:not([style*="display: none"])) .sync-status::before {
+  content: "♡";
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.app-shell:has(#vista-inicio:not([style*="display: none"])) .sync-status::after {
+  width: 10px;
+  height: 10px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: #1fe174;
+  box-shadow: 0 0 12px rgba(31, 225, 116, 0.64);
+  content: "";
+}
+
+.app-shell:has(#vista-inicio:not([style*="display: none"])) .sync-status[data-status="offline"] {
+  color: #ffffff;
+  border-color: rgba(255, 120, 143, 0.34);
+  background: rgba(70, 30, 42, 0.7);
+}
+
+.app-shell:has(#vista-inicio:not([style*="display: none"])) .sync-status[data-status="offline"]::after {
+  background: #ff687d;
+  box-shadow: 0 0 12px rgba(255, 104, 125, 0.56);
+}
+
+.app-shell:has(#vista-inicio:not([style*="display: none"])) .sync-status[data-status="syncing"] {
+  color: #ffffff;
+  border-color: rgba(57, 220, 235, 0.34);
+  background: rgba(17, 60, 68, 0.68);
+}
+
+.app-shell:has(#vista-inicio:not([style*="display: none"])) .sync-status[data-status="syncing"]::after {
+  background: #28d8e5;
+  box-shadow: 0 0 12px rgba(40, 216, 229, 0.62);
+}
+
+@media (max-width: 700px) {
+  .welcome-view {
+    padding: 22px 18px;
+  }
+
+  .welcome-view::before,
+  .welcome-video {
+    background-position: center center;
+    object-position: center center;
+  }
+
+  .welcome-view::after {
+    background:
+      linear-gradient(180deg, rgba(2, 21, 28, 0.64) 0%, rgba(3, 29, 36, 0.58) 48%, rgba(2, 16, 22, 0.76) 100%),
+      linear-gradient(90deg, rgba(2, 24, 31, 0.64), rgba(2, 24, 31, 0.36));
+  }
+
+  .welcome-screen {
+    min-height: calc(100svh - 44px);
+    gap: 24px;
+    padding-top: 8vh;
+  }
+
+  .welcome-wordmark {
+    width: min(88vw, 430px);
+    max-height: 92px;
+  }
+
+  .welcome-copy {
+    gap: 24px;
+  }
+
+  .welcome-copy p {
+    max-width: 24rem;
+    font-size: clamp(1.18rem, 5.5vw, 1.55rem);
+  }
+
+  .landing-actions {
+    display: grid;
+    width: min(100%, 330px);
+    gap: 14px;
+  }
+
+  .landing-actions .button {
+    width: 100%;
+    min-width: 0;
+    min-height: 62px;
+    padding: 0 24px;
+  }
+
+  .welcome-footer {
+    margin-top: 10px;
+  }
+
+  .app-shell:has(#vista-inicio:not([style*="display: none"])) .sync-status {
+    left: 14px;
+    right: 14px;
+    justify-content: center;
+    width: auto;
+    font-size: 0.82rem;
+  }
+}

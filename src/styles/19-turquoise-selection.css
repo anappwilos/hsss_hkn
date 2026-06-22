@@ -1,0 +1,41 @@
+/* =========================================================
+   19. COLOR DE SELECCION TURQUESA
+========================================================= */
+
+::selection {
+  color: #ffffff;
+  background: var(--color-selection-dark);
+}
+
+.chip.is-active,
+.view-toggle button.is-active,
+.user-panel-tabs button.is-active,
+.admin-user-filters button.is-active,
+.admin-turns-tabs button.is-active,
+.admin-turn-filters button.is-active,
+.admin-lotes-view .admin-panel-tabs .chip.is-active,
+.admin-lotes-view .admin-turn-filters button.is-active,
+.admin-lotes-view .admin-user-filters button.is-active,
+.day-card.is-active,
+.day-card.is-disponible.is-active {
+  border-color: rgba(255, 255, 255, 0.86);
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--color-selection-2), var(--color-selection));
+  box-shadow: 0 12px 26px rgba(24, 198, 212, 0.22);
+}
+
+.calendar-day-head.is-active,
+.calendar-cell.is-selected-day,
+.admin-turn-row.is-selected,
+.admin-users-table tbody tr.is-selected {
+  background: rgba(24, 198, 212, 0.12);
+}
+
+.calendar-day-head.is-active,
+.calendar-day-head.is-today span {
+  color: var(--color-selection-dark);
+}
+
+.admin-calendar-turn.is-selected {
+  outline-color: rgba(24, 198, 212, 0.34);
+}

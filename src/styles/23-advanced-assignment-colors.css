@@ -1,0 +1,240 @@
+/* =========================================================
+   23. ASIGNACION AVANZADA Y COLORES
+========================================================= */
+
+:root {
+  --assignment-fixed: #16b8c7;
+  --assignment-fixed-soft: #e4fbfd;
+  --assignment-suplente: #f0a329;
+  --assignment-suplente-soft: #fff6df;
+  --assignment-puntual: #7b8a99;
+  --assignment-puntual-soft: #f1f5f7;
+}
+
+.admin-turn-modal-card {
+  width: min(100%, 860px);
+}
+
+.admin-turn-type-field,
+.admin-turn-hours-field {
+  display: grid;
+  gap: 10px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-turn-type-field legend,
+.admin-turn-hours-field legend {
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-turn-type-field > div,
+.admin-turn-hours-field > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.assignment-type-card,
+.admin-turn-hours-field label {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(77, 117, 128, 0.14);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(244, 251, 253, 0.86);
+  cursor: pointer;
+}
+
+.assignment-type-card input,
+.admin-turn-hours-field input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--assignment-fixed);
+}
+
+.assignment-type-card span,
+.admin-turn-hours-field span {
+  color: var(--color-ink);
+  font-weight: 900;
+}
+
+.assignment-type-card small {
+  color: var(--color-muted);
+  font-weight: 800;
+}
+
+.assignment-type-card:has(input:checked) {
+  border-color: rgba(22, 184, 199, 0.38);
+  background: var(--assignment-fixed-soft);
+  box-shadow: inset 0 0 0 2px rgba(22, 184, 199, 0.12);
+}
+
+.assignment-type-card.is-suplente:has(input:checked) {
+  border-color: rgba(240, 163, 41, 0.42);
+  background: var(--assignment-suplente-soft);
+  box-shadow: inset 0 0 0 2px rgba(240, 163, 41, 0.14);
+}
+
+.assignment-type-card.is-puntual:has(input:checked) {
+  border-color: rgba(123, 138, 153, 0.34);
+  background: var(--assignment-puntual-soft);
+  box-shadow: inset 0 0 0 2px rgba(123, 138, 153, 0.12);
+}
+
+.admin-turn-user-picker {
+  display: none;
+  gap: 8px;
+}
+
+.admin-turn-assign-form:has(input[name="admin-turno-tipo"][value="fijo"]:checked) .admin-turn-user-picker[data-user-picker="fijo"],
+.admin-turn-assign-form:has(input[name="admin-turno-tipo"][value="suplente"]:checked) .admin-turn-user-picker[data-user-picker="suplente"],
+.admin-turn-assign-form:has(input[name="admin-turno-tipo"][value="puntual"]:checked) .admin-turn-user-picker[data-user-picker="puntual"] {
+  display: grid;
+}
+
+.admin-turn-hours-field label:has(input:checked) {
+  border-color: rgba(22, 184, 199, 0.34);
+  background: #e4fbfd;
+}
+
+.assignment-badge {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.assignment-badge-fijo {
+  color: #087f8f;
+  background: var(--assignment-fixed-soft);
+}
+
+.assignment-badge-suplente {
+  color: #9a5d00;
+  background: var(--assignment-suplente-soft);
+}
+
+.assignment-badge-puntual {
+  color: #4d5d68;
+  background: var(--assignment-puntual-soft);
+}
+
+.admin-calendar-turn.assignment-fijo,
+.calendar-event.assignment-fijo,
+.my-turn-card.assignment-fijo {
+  border-color: rgba(22, 184, 199, 0.32);
+  background: linear-gradient(180deg, rgba(228, 251, 253, 0.96), rgba(244, 251, 253, 0.88));
+  box-shadow: inset 4px 0 0 var(--assignment-fixed);
+}
+
+.admin-calendar-turn.assignment-suplente,
+.calendar-event.assignment-suplente,
+.my-turn-card.assignment-suplente {
+  border-color: rgba(240, 163, 41, 0.32);
+  background: linear-gradient(180deg, rgba(255, 246, 223, 0.96), rgba(244, 251, 253, 0.88));
+  box-shadow: inset 4px 0 0 var(--assignment-suplente);
+}
+
+.admin-calendar-turn.assignment-puntual,
+.calendar-event.assignment-puntual,
+.my-turn-card.assignment-puntual {
+  border-color: rgba(123, 138, 153, 0.26);
+  background: linear-gradient(180deg, rgba(241, 245, 247, 0.96), rgba(244, 251, 253, 0.88));
+  box-shadow: inset 4px 0 0 var(--assignment-puntual);
+}
+
+.admin-turn-member.assignment-fijo i {
+  background: var(--assignment-fixed);
+}
+
+.admin-turn-member.assignment-suplente i {
+  background: var(--assignment-suplente);
+}
+
+.admin-turn-member.assignment-puntual i {
+  background: var(--assignment-puntual);
+}
+
+.calendar-event.assignment-fijo p,
+.calendar-event.assignment-fijo span,
+.calendar-event.assignment-suplente p,
+.calendar-event.assignment-suplente span,
+.calendar-event.assignment-puntual p,
+.calendar-event.assignment-puntual span {
+  color: var(--color-ink);
+}
+
+.calendar-event.assignment-fijo .assignment-badge-fijo {
+  color: #087f8f;
+  background: var(--assignment-fixed-soft);
+}
+
+.calendar-event.assignment-suplente .assignment-badge-suplente {
+  color: #9a5d00;
+  background: var(--assignment-suplente-soft);
+}
+
+.calendar-event.assignment-puntual .assignment-badge-puntual {
+  color: #4d5d68;
+  background: var(--assignment-puntual-soft);
+}
+
+.admin-calendar-turn.is-past {
+  border-color: rgba(123, 138, 153, 0.18);
+  color: #6b7f87;
+  background-color: rgba(225, 232, 235, 0.86);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.8) 0,
+    rgba(255, 255, 255, 0.8) 6px,
+    rgba(225, 232, 235, 0.86) 6px,
+    rgba(225, 232, 235, 0.86) 12px
+  );
+  box-shadow: none;
+  opacity: 0.78;
+}
+
+.calendar-event.is-past {
+  border-color: rgba(123, 138, 153, 0.2);
+  color: #6b7f87;
+  background: rgba(225, 232, 235, 0.86);
+  box-shadow: none;
+  opacity: 0.78;
+}
+
+.admin-calendar-turn.is-past .admin-turn-member i,
+.calendar-event.is-past .calendar-event-top strong::before {
+  background: #9aaab1;
+}
+
+.admin-calendar-turn.is-past .admin-calendar-turn-action,
+.admin-calendar-turn-action:disabled {
+  color: #6b7f87;
+  background: rgba(255, 255, 255, 0.66);
+  cursor: not-allowed;
+}
+
+.calendar-event.is-past .calendar-event-top strong,
+.calendar-event.is-past p,
+.calendar-event.is-past .calendar-event-status {
+  color: #6b7f87;
+}
+
+@media (max-width: 700px) {
+  .admin-turn-type-field > div,
+  .admin-turn-hours-field > div,
+  .admin-turn-modal-summary {
+    grid-template-columns: 1fr;
+  }
+}

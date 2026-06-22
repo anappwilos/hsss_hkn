@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: a-solas
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_ADMIN_EMAIL
+        sync: false
+      - key: VITE_ADMIN_PASSWORD
+        sync: false
+      - key: VITE_SUPERADMIN_EMAIL
+        sync: false
+      - key: VITE_SUPERADMIN_PASSWORD
+        sync: false
+      - key: STORAGE_DRIVER
+        value: postgres
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: "true"
+      - key: SEED_USERS
+        value: Gabi|Aguilera Fernandez|gabi.aguilera.fernandez@example.com|fijo||;Nicolas|Alarcon Rapela|nicolas.alarcon.rapela@example.com|suplente||
+      - key: CORS_ORIGIN
+        sync: false

@@ -1,0 +1,465 @@
+/* =========================================================
+   6. SECCIONES, BÚSQUEDA, LOTES Y CONFIGURACIÓN
+========================================================= */
+
+.section-heading {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 34px;
+}
+
+.section-heading h1 {
+  font-size: clamp(2.2rem, 7vw, 3rem);
+}
+
+.section-heading p {
+  max-width: 580px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 1.35rem;
+  line-height: 1.32;
+}
+
+.search-box,
+.admin-turn-search,
+.admin-user-search {
+  display: grid;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(244, 251, 253, 0.86);
+  box-shadow: 0 8px 20px rgba(6, 69, 82, 0.05);
+}
+
+.search-box {
+  grid-template-columns: 44px minmax(0, 1fr);
+  min-height: 80px;
+  padding: 0 22px;
+}
+
+.search-box span,
+.admin-turn-search span,
+.admin-user-search span {
+  color: var(--color-primary);
+}
+
+.search-box span {
+  font-size: 2.1rem;
+}
+
+.search-box input,
+.admin-turn-search input,
+.admin-user-search input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--color-text);
+  background: transparent;
+}
+
+.search-box input {
+  font-size: 1.45rem;
+}
+
+.search-box input::placeholder {
+  color: #71929a;
+}
+
+.lotes-list,
+.config-form,
+.admin-users-list,
+.admin-users-main,
+.admin-users-grid,
+.admin-panel-section {
+  display: grid;
+  gap: 18px;
+}
+
+.lotes-list {
+  gap: 28px;
+}
+
+.lote-card,
+.empty-card,
+.intro-card,
+.config-card,
+.summary-card,
+.booking-controls,
+.turnos-section,
+.admin-covered-panel,
+.my-turns-panel,
+.admin-users-card,
+.admin-users-hero,
+.admin-turns-card,
+.admin-turn-detail-panel,
+.admin-user-catalog,
+.modal-card,
+.profile-summary,
+.confirmation-card,
+.choice-card,
+.radio-card {
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 22px;
+  background: rgba(244, 251, 253, 0.82);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(16px);
+}
+
+.lote-card,
+.empty-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  overflow: hidden;
+  padding: 32px 28px 28px 36px;
+}
+
+.lote-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 8px;
+  background: var(--color-primary);
+  content: "";
+}
+
+.lote-card--activo::before {
+  background: #16a34a;
+}
+
+.lote-card--programado::before {
+  background: #0ea5e9;
+}
+
+.lote-card--borrador::before {
+  background: #f59e0b;
+}
+
+.lote-card--finalizado::before {
+  background: #6b7280;
+}
+
+.lote-card h2,
+.empty-card h2 {
+  margin: 18px 0 20px;
+  color: var(--color-ink);
+  font-size: clamp(1.65rem, 5vw, 2.15rem);
+  font-weight: 900;
+}
+
+.lote-meta {
+  margin: 8px 0;
+  color: var(--color-muted);
+  font-size: 1.32rem;
+}
+
+.lote-actions {
+  position: relative;
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 10px;
+}
+
+.dots-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: var(--color-ink);
+  font-size: 2rem;
+}
+
+.lote-menu {
+  position: absolute;
+  top: 46px;
+  right: 0;
+  z-index: 4;
+  display: none;
+  min-width: 190px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 18px;
+  background: rgba(244, 251, 253, 0.98);
+  box-shadow: var(--shadow-md);
+}
+
+.lote-menu.is-open {
+  display: grid;
+}
+
+.lote-menu button {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 1px solid rgba(77, 117, 128, 0.12);
+  padding: 0 16px;
+  background: transparent;
+  color: var(--color-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lote-menu button:hover {
+  background: #eaf6f9;
+}
+
+.lote-menu button:last-child {
+  border-bottom: 0;
+}
+
+.lote-menu .danger {
+  color: var(--color-danger);
+}
+
+.lote-menu .danger.is-confirming {
+  background: var(--color-danger-soft);
+  color: #9b2335;
+  font-weight: 900;
+}
+
+.empty-card p,
+.intro-card p,
+.summary-card p {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  font-size: 1.05rem;
+  line-height: 1.42;
+}
+
+.empty-card.compact {
+  /* padding: 180px; */
+}
+
+.empty-card.compact h3 {
+  margin: 0 0 6px;
+}
+
+.intro-card {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 24px;
+}
+
+.intro-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #39aac1, #21a0b7);
+  font-size: 1.8rem;
+}
+
+.intro-card h2,
+.config-section h2,
+.summary-card h2 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1.45rem;
+  font-weight: 900;
+}
+
+.config-section {
+  display: grid;
+  gap: 14px;
+}
+
+.config-section > h2,
+.field span,
+.no-exposure-section h3,
+.interruption-days strong {
+  color: var(--color-ink);
+  font-weight: 900;
+}
+
+.config-section > h2 {
+  font-size: 1.15rem;
+}
+
+.config-card,
+.summary-card {
+  padding: 28px;
+}
+
+.month-picker-field {
+  margin-bottom: 12px;
+}
+
+.month-picker-field + .form-note {
+  margin-bottom: 20px;
+}
+
+.date-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+  align-items: end;
+  gap: 14px;
+}
+
+.range-arrow {
+  display: grid;
+  min-height: 56px;
+  place-items: center;
+  color: var(--color-primary);
+  font-size: 1.8rem;
+}
+
+.two-cols,
+.interruption-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.form-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 0.96rem;
+}
+
+.no-exposure-section {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid rgba(77, 117, 128, 0.14);
+  margin-top: 10px;
+  padding-top: 24px;
+}
+
+.no-exposure-section p {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  line-height: 1.38;
+}
+
+.no-exposure-section .button {
+  flex: 0 0 auto;
+}
+
+.weekday-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.weekday {
+  min-width: 58px;
+  min-height: 46px;
+  border: 1px solid rgba(22, 143, 163, 0.24);
+  border-radius: 999px;
+  background: rgba(244, 251, 253, 0.9);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.weekday.is-active {
+  border-color: var(--color-primary);
+  color: #ffffff;
+  background: var(--color-primary);
+}
+
+.interruption-panel,
+.interruption-list,
+.admin-user-edit-form,
+.profile-edit-form,
+.admin-turn-assign-form {
+  display: grid;
+  gap: 16px;
+}
+
+.interruption-grid .field:first-child,
+.interruption-help,
+.interruption-date-toggle,
+.interruption-days,
+.interruption-grid .button {
+  grid-column: 1 / -1;
+}
+
+.interruption-days,
+.interruption-item {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(244, 251, 253, 0.72);
+}
+
+.interruption-days p {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  font-size: 0.94rem;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-ink);
+  font-weight: 800;
+}
+
+.check-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.interruption-list {
+  border-top: 1px solid rgba(77, 117, 128, 0.14);
+  padding-top: 16px;
+}
+
+.interruption-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.interruption-item.is-editing {
+  border-color: rgba(33, 160, 183, 0.42);
+  background: rgba(232, 248, 251, 0.9);
+}
+
+.interruption-item div {
+  display: grid;
+  gap: 4px;
+}
+
+.interruption-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.interruption-item strong {
+  color: var(--color-ink);
+}
+
+.interruption-item span {
+  color: var(--color-muted);
+  font-size: 0.94rem;
+}
+
+.summary-card {
+  display: grid;
+  gap: 20px;
+  background: rgba(219, 234, 240, 0.82);
+}
+
+.summary-copy {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.summary-copy > span {
+  color: var(--color-primary);
+  font-size: 2rem;
+}

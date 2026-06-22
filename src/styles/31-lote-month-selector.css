@@ -1,0 +1,48 @@
+/* =========================================================
+   31. SELECTOR DE MESES EN LOTES
+========================================================= */
+
+.month-select-field {
+  gap: 12px;
+}
+
+.month-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.month-chip {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(10, 165, 192, 0.18);
+  border-radius: 999px;
+  padding: 0 14px;
+  color: #48667a;
+  background: rgba(248, 253, 255, 0.84);
+  box-shadow: 0 6px 16px rgba(20, 109, 132, 0.04);
+  font-size: 0.82rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.month-chip.is-active {
+  border-color: rgba(41, 200, 213, 0.9);
+  color: #ffffff;
+  background: linear-gradient(180deg, #43d3dc, #24bdcd);
+  box-shadow: 0 9px 18px rgba(36, 189, 205, 0.22);
+}
+
+.month-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 560px) {
+  .month-chip-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
