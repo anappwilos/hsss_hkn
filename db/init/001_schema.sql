@@ -1,0 +1,53 @@
+-- Schema inicial de A solas.
+-- PostgreSQL ejecuta este archivo automaticamente la primera vez que se crea
+-- el volumen del contenedor montado en /docker-entrypoint-initdb.d.
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id text PRIMARY KEY,
+  nombre text NOT NULL,
+  apellidos text NOT NULL,
+  email text NOT NULL UNIQUE,
+  telefono text NOT NULL,
+  frecuencia text NOT NULL,
+  rol text NOT NULL,
+  password text NOT NULL DEFAULT '',
+  creado_en timestamptz NOT NULL DEFAULT now(),
+  actualizado_en timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS lotes (
+  id text PRIMARY KEY,
+  data jsonb NOT NULL,
+  creado_en timestamptz NOT NULL DEFAULT now(),
+  actualizado_en timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS turnos (
+  id text PRIMARY KEY,
+  lote_id text,
+  dia date NOT NULL,
+  hora_inicio text NOT NULL,
+  hora_fin text NOT NULL,
+  plazas_totales integer NOT NULL,
+  plazas_disponibles integer NOT NULL,
+  data jsonb NOT NULL,
+  actualizado_en timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS notificaciones (
+  id text PRIMARY KEY,
+  usuario_id text REFERENCES usuarios(id) ON DELETE SET NULL,
+  titulo text NOT NULL,
+  mensaje text NOT NULL,
+  tipo text NOT NULL CHECK (tipo IN ('sistema', 'inscripcion', 'lote', 'recordatorio')),
+  estado text NOT NULL CHECK (estado IN ('pendiente', 'enviada', 'leida')),
+  creado_en timestamptz NOT NULL DEFAULT now(),
+  leido_en timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS catalogo_usuario_opciones (
+  tipo text NOT NULL CHECK (tipo IN ('frecuencia', 'rol')),
+  valor text NOT NULL,
+  creado_en timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tipo, valor)
+);

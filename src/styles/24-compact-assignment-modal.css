@@ -1,0 +1,159 @@
+/* =========================================================
+   24. MODAL ASIGNACION COMPACTO
+========================================================= */
+
+#modal-admin-turno {
+  width: min(94vw, 760px);
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+#modal-admin-turno .admin-turn-modal-card {
+  width: 100%;
+  max-height: 90vh;
+  gap: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px;
+  scrollbar-width: thin;
+}
+
+#modal-admin-turno .modal-header {
+  align-items: start;
+  gap: 12px;
+}
+
+#modal-admin-turno .modal-kicker {
+  margin-bottom: 4px;
+  font-size: 0.68rem;
+}
+
+#modal-admin-turno .admin-turn-modal-head h2 {
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+}
+
+#modal-admin-turno .modal-header p:last-child {
+  margin-top: 6px;
+  font-size: 0.86rem;
+}
+
+#modal-admin-turno .modal-close {
+  width: 36px;
+  height: 36px;
+}
+
+#modal-admin-turno .admin-turn-modal-summary {
+  gap: 8px;
+}
+
+#modal-admin-turno .admin-turn-modal-summary div {
+  min-height: 66px;
+  border-radius: 13px;
+  padding: 10px;
+}
+
+#modal-admin-turno .admin-turn-modal-summary span,
+#modal-admin-turno .admin-turn-type-field legend,
+#modal-admin-turno .admin-turn-mode-field legend,
+#modal-admin-turno .admin-turn-period-field legend,
+#modal-admin-turno .admin-turn-hours-field legend,
+#modal-admin-turno .admin-turn-weekdays-field legend,
+#modal-admin-turno .admin-turn-period-grid span,
+#modal-admin-turno .admin-turn-lote-field span,
+#modal-admin-turno .admin-turn-user-picker > span {
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+}
+
+#modal-admin-turno .admin-turn-assign-form {
+  gap: 12px;
+}
+
+#modal-admin-turno .admin-turn-type-field > div {
+  gap: 8px;
+}
+
+#modal-admin-turno .assignment-type-card {
+  min-height: 72px;
+  border-radius: 13px;
+  padding: 10px;
+}
+
+#modal-admin-turno .assignment-type-card span {
+  font-size: 0.86rem;
+}
+
+#modal-admin-turno .assignment-type-card small {
+  font-size: 0.72rem;
+}
+
+#modal-admin-turno .admin-turn-mode-field label,
+#modal-admin-turno .admin-turn-period-field label,
+#modal-admin-turno .admin-turn-hours-field label {
+  min-height: 42px;
+  border-radius: 13px;
+  padding: 9px 12px;
+}
+
+#modal-admin-turno .admin-turn-period-field {
+  gap: 7px;
+}
+
+#modal-admin-turno .admin-turn-assign-form select,
+#modal-admin-turno .admin-turn-period-grid input,
+#modal-admin-turno .admin-turn-lote-field select {
+  min-height: 48px;
+  border-radius: 999px;
+  padding-left: 14px;
+  font-size: 0.9rem;
+}
+
+#modal-admin-turno .admin-turn-period-grid {
+  gap: 10px;
+}
+
+#modal-admin-turno .admin-turn-weekdays-field > div {
+  gap: 6px;
+}
+
+#modal-admin-turno .admin-turn-weekdays-field label {
+  min-height: 38px;
+  border-radius: 999px;
+}
+
+#modal-admin-turno .admin-turn-bulk-note {
+  border-radius: 13px;
+  padding: 12px;
+  font-size: 0.86rem;
+}
+
+#modal-admin-turno .modal-actions {
+  position: sticky;
+  bottom: -20px;
+  margin: 0 -20px -20px;
+  border-top: 1px solid rgba(77, 117, 128, 0.12);
+  padding: 12px 20px;
+  background: rgba(244, 251, 253, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 560px) {
+  #modal-admin-turno {
+    width: min(96vw, 460px);
+  }
+
+  #modal-admin-turno .admin-turn-modal-card {
+    padding: 16px;
+  }
+
+  #modal-admin-turno .admin-turn-type-field > div,
+  #modal-admin-turno .admin-turn-period-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #modal-admin-turno .modal-actions {
+    bottom: -16px;
+    margin: 0 -16px -16px;
+    padding: 12px 16px;
+  }
+}

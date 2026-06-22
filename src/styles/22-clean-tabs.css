@@ -1,0 +1,35 @@
+/* =========================================================
+   22. PESTANAS LIMPIAS
+========================================================= */
+
+.admin-lotes-view .admin-panel-tabs .chip,
+.user-view .user-panel-tabs button {
+  min-height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.66);
+  border-radius: 999px;
+  color: #078da0;
+  background: rgba(244, 251, 253, 0.9);
+  box-shadow: 0 10px 22px rgba(6, 69, 82, 0.05);
+}
+
+.admin-lotes-view .admin-panel-tabs .chip.is-active,
+.user-view .user-panel-tabs button.is-active {
+  border-color: rgba(255, 255, 255, 0.72);
+  color: #ffffff;
+  background: linear-gradient(135deg, #47d3dc, #1eb9ca);
+  box-shadow: 0 12px 24px rgba(24, 198, 212, 0.2);
+  transform: none;
+}
+
+.admin-lotes-view .admin-panel-tabs .chip:focus-visible,
+.user-view .user-panel-tabs button:focus-visible {
+  outline: 3px solid rgba(24, 198, 212, 0.28);
+  outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .admin-lotes-view .admin-panel-tabs .chip,
+  .user-view .user-panel-tabs button {
+    min-height: 48px;
+  }
+}

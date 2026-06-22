@@ -1,0 +1,82 @@
+/* =========================================================
+   29. FILTROS TIPO PESTANA CON CONTADOR
+========================================================= */
+
+.admin-lotes-view .admin-user-filters,
+.admin-lotes-view .admin-turn-filters,
+.admin-lotes-view #lote-filtros.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 0;
+  background: transparent;
+}
+
+.admin-lotes-view .admin-user-subtabs {
+  margin-bottom: 16px;
+}
+
+.admin-lotes-view .admin-user-filters button,
+.admin-lotes-view .admin-turn-filters button,
+.admin-lotes-view #lote-filtros.chip-row .chip {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  padding: 0 14px 0 18px;
+  color: #48667a;
+  background: rgba(248, 253, 255, 0.78);
+  box-shadow: 0 8px 22px rgba(20, 109, 132, 0.05);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.admin-lotes-view .admin-user-filters button span,
+.admin-lotes-view .admin-turn-filters button span,
+.admin-lotes-view #lote-filtros.chip-row .chip span {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  color: #567080;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.admin-lotes-view .admin-user-filters button.is-active,
+.admin-lotes-view .admin-turn-filters button.is-active,
+.admin-lotes-view #lote-filtros.chip-row .chip.is-active {
+  border-color: rgba(41, 200, 213, 0.9);
+  color: #ffffff;
+  background: linear-gradient(180deg, #42d2dc, #25bfce);
+  box-shadow: 0 12px 28px rgba(37, 191, 206, 0.24);
+}
+
+.admin-lotes-view .admin-user-filters button.is-active span,
+.admin-lotes-view .admin-turn-filters button.is-active span,
+.admin-lotes-view #lote-filtros.chip-row .chip.is-active span {
+  color: #1aa6b9;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+@media (max-width: 560px) {
+  .admin-lotes-view .admin-user-filters,
+  .admin-lotes-view .admin-turn-filters,
+  .admin-lotes-view #lote-filtros.chip-row {
+    gap: 8px;
+  }
+
+  .admin-lotes-view .admin-user-filters button,
+  .admin-lotes-view .admin-turn-filters button,
+  .admin-lotes-view #lote-filtros.chip-row .chip {
+    min-height: 44px;
+    padding: 0 11px 0 14px;
+    font-size: 0.78rem;
+  }
+}

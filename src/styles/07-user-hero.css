@@ -1,0 +1,89 @@
+/* =========================================================
+   7. HERO DE USUARIO
+========================================================= */
+
+.hero-adoracion {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 278px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  border-radius: 28px;
+  padding: clamp(34px, 5vw, 72px) clamp(34px, 9vw, 128px);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(122, 169, 182, 0.86) 0%,
+      rgba(161, 204, 215, 0.66) 48%,
+      rgba(219, 234, 240, 0.26) 100%
+    ),
+    url("../assets/an_solas.jpg") center / cover no-repeat;
+  box-shadow: var(--shadow-md);
+}
+
+.hero-adoracion::before {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 22% 42%, rgba(255, 255, 255, 0.22), transparent 22rem),
+    linear-gradient(180deg, rgba(8, 47, 56, 0.08), rgba(8, 47, 56, 0.24));
+  content: "";
+  pointer-events: none;
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  width: min(100%, 570px);
+  max-width: 570px;
+  margin: 0 auto 0 0;
+  text-align: left;
+}
+
+.hero-copy h1 {
+  max-width: 570px;
+  margin: 0;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: clamp(2.85rem, 5.4vw, 4.55rem);
+  font-weight: 900;
+  line-height: 0.96;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  text-shadow: 0 18px 42px rgba(6, 69, 82, 0.24);
+}
+
+.hero-copy p {
+  max-width: 490px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--font-sans);
+  font-size: clamp(1.22rem, 2.1vw, 1.62rem);
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.42;
+  text-wrap: pretty;
+}
+
+.hero-copy span {
+  width: 168px;
+  height: 14px;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.42),
+      rgba(255, 255, 255, 0.92),
+      rgba(255, 255, 255, 0.42),
+      transparent
+    );
+  mask-image: radial-gradient(ellipse at center, #000 42%, transparent 73%);
+  opacity: 0.78;
+}

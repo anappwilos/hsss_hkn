@@ -1,0 +1,330 @@
+/* =========================================================
+   16. AJUSTES GENERALES DE INTERACCION
+========================================================= */
+
+.button,
+.registro-submit,
+.registro-nav-button,
+.calendar-event-action,
+.admin-turn-action,
+.topbar-text-button,
+.auth-link-button,
+.admin-turn-filter-button,
+.admin-user-filters button,
+.admin-turn-filters button,
+.admin-row-actions button,
+.admin-users-pagination button {
+  border-radius: 999px;
+}
+
+.landing-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(178px, 220px));
+  justify-content: center;
+  align-items: center;
+}
+
+.landing-actions .button {
+  width: 100%;
+}
+
+.hero-adoracion {
+  justify-content: flex-start;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(122, 169, 182, 0.86) 0%,
+      rgba(161, 204, 215, 0.66) 42%,
+      rgba(33, 160, 183, 0.26) 100%
+    ),
+    url("../assets/a_solas.jpg") center / cover no-repeat;
+}
+
+.hero-adoracion::before {
+  background:
+    radial-gradient(circle at 78% 42%, rgba(255, 255, 255, 0.18), transparent 20rem),
+    linear-gradient(180deg, rgba(8, 47, 56, 0.04), rgba(8, 47, 56, 0.22));
+}
+
+.hero-copy {
+  justify-items: start;
+  margin: 0 0 0 auto;
+  text-align: left;
+}
+
+.hero-copy h1,
+.hero-copy p {
+  text-align: left;
+}
+
+.booking-stats[hidden] {
+  display: none !important;
+}
+
+.calendar-event {
+  min-height: 104px;
+  align-content: space-between;
+}
+
+.calendar-event-main {
+  gap: 0;
+}
+
+.calendar-event-action {
+  min-height: 38px;
+}
+
+.admin-users-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .admin-users-card-head {
+    display: grid;
+    grid-template-columns: minmax(280px, 460px);
+    justify-content: end;
+  }
+}
+.admin-user-search {
+  width: 100%;
+}
+
+.lote-intro-card {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 16px;
+}
+
+.lote-intro-card h2 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1.35rem;
+}
+
+.lote-intro-card p {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+.admin-turns-layout:not(:has(.admin-turn-detail-panel)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-assignment-board {
+  display: grid;
+  grid-template-columns: 72px repeat(var(--admin-calendar-days), minmax(156px, 1fr));
+  width: max(100%, var(--admin-calendar-min-width));
+  min-width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(77, 117, 128, 0.14);
+  border-radius: 18px;
+  background: rgba(244, 251, 253, 0.72);
+}
+
+.admin-assignment-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scrollbar-color: rgba(33, 160, 183, 0.55) rgba(234, 246, 249, 0.8);
+}
+
+.admin-calendar-corner,
+.admin-calendar-day-head,
+.admin-calendar-time,
+.admin-calendar-cell {
+  border-right: 1px solid rgba(33, 160, 183, 0.14);
+  border-bottom: 1px solid rgba(33, 160, 183, 0.14);
+}
+
+.admin-calendar-corner,
+.admin-calendar-day-head {
+  min-height: 46px;
+  background: rgba(234, 246, 249, 0.88);
+}
+
+.admin-calendar-day-head {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+}
+
+.admin-calendar-day-head span {
+  color: var(--color-ink);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.admin-calendar-day-head.is-today span {
+  color: var(--color-primary);
+}
+
+.admin-calendar-time {
+  display: grid;
+  min-height: 112px;
+  place-items: center;
+  padding: 10px;
+  background: rgba(244, 251, 253, 0.72);
+}
+
+.admin-calendar-time strong {
+  color: var(--color-ink);
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.admin-calendar-cell {
+  display: grid;
+  position: relative;
+  min-height: 112px;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+}
+
+.admin-calendar-cell .admin-now-line {
+  display: none;
+}
+
+.admin-calendar-cell.is-selected-day .admin-now-line {
+  display: block;
+}
+
+.now-line,
+.admin-now-line {
+  position: absolute;
+  right: 6px;
+  left: 6px;
+  z-index: 4;
+  height: 2px;
+  border-radius: 999px;
+  background: #e53935;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.75), 0 2px 8px rgba(229, 57, 53, 0.24);
+  pointer-events: none;
+}
+
+.now-line::before,
+.admin-now-line::before {
+  position: absolute;
+  top: 50%;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #e53935;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.82);
+  content: "";
+  transform: translateY(-50%);
+}
+
+.admin-calendar-empty {
+  align-self: center;
+  justify-self: center;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+}
+
+.admin-calendar-turn {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 18px;
+  padding: 10px;
+  background: rgba(244, 251, 253, 0.9);
+  box-shadow: 0 10px 24px rgba(6, 69, 82, 0.05);
+}
+
+.admin-calendar-turn.is-selected {
+  outline: 3px solid rgba(33, 160, 183, 0.2);
+}
+
+.admin-calendar-turn-main {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-calendar-turn-main > strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #168fa3;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.admin-calendar-turn-main > strong::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.admin-calendar-turn-main small {
+  color: var(--color-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.admin-calendar-turn-action {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  color: #168fa3;
+  background: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.admin-calendar-turn-state {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #6b7f87;
+  background: rgba(255, 255, 255, 0.62);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.admin-calendar-turn.is-asignado,
+.admin-calendar-turn.is-parcial {
+  background: #eefcff;
+}
+
+.admin-calendar-turn.is-suplente {
+  background: #fff8e8;
+}
+
+.admin-calendar-turn.is-sin-asignar {
+  background: rgba(244, 251, 253, 0.94);
+}
+
+.admin-calendar-turn .admin-turn-members {
+  display: grid;
+}
+
+.admin-calendar-turn .admin-turn-member {
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .admin-assignment-board {
+    grid-template-columns: 68px repeat(var(--admin-calendar-days), minmax(140px, 1fr));
+  }
+}
