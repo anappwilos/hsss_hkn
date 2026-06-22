@@ -1594,7 +1594,6 @@ function renderInterrupciones(): void {
           : `${escapeHtml(formatFecha(interrupcion.fechaInicio))} - ${escapeHtml(formatFecha(interrupcion.fechaFin))}`
         }</span>
         <span>Dias: ${escapeHtml((interrupcion.diasSemana ?? [...diasConfig]).map((day) => diasSemana.find((dia) => dia.value === day)?.label).filter(Boolean).join(', '))}</span>
-        <span>${escapeHtml(interrupcion.horaInicio)} - ${escapeHtml(interrupcion.horaFin)}</span>
       </div>
       <div class="interruption-actions">
         <button class="text-link" type="button" data-action="editar-interrupcion" data-id="${interrupcion.id}">Editar</button>
@@ -4340,7 +4339,6 @@ function renderBloqueoCalendario(bloqueo: BloqueoCalendario): string {
   return `
     <article class="calendar-event calendar-event--blocked">
       <span class="calendar-event-status">${escapeHtml(bloqueo.motivo)}</span>
-      <small>${escapeHtml(bloqueo.horaInicio)} - ${escapeHtml(bloqueo.horaFin)}</small>
     </article>
   `;
 }
