@@ -37,7 +37,7 @@ const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim().toLowerCase(
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
 const SUPERADMIN_EMAIL = (import.meta.env.VITE_SUPERADMIN_EMAIL ?? 'root@root.com').trim().toLowerCase();
 const SUPERADMIN_PASSWORD = import.meta.env.VITE_SUPERADMIN_PASSWORD ?? 'root';
-const APP_VERSION = '0.6.0';
+const APP_VERSION = '1.0.0';
 
 if (!app) {
   throw new Error('No se encontro el contenedor #app');
